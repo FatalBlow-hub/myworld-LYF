@@ -11,6 +11,7 @@ import { BASE_PAINTERS } from './BaseTextures';
 import { addMetalPainters } from './MetalTextures';
 import { SEASONAL_PAINTERS } from './SeasonalTextures';
 import { GOLDEN_PAINTERS, GOLDEN_TILE_NAMES } from './GoldenTextures';
+import { BAG_PAINTERS, BAMBOO_PAINTERS } from './BagTextures';
 import { Painter, TILE, fill, shade, speckle } from './TextureUtils';
 export type { Painter } from './TextureUtils';
 
@@ -71,6 +72,8 @@ const TILE_NAMES = [
   'bucket_sw_light', 'bucket_sw_mid', 'bucket_sw_phantom', 'bucket_sw_deep', 'bucket_sw_drown',
   'gbucket_sw_light', 'gbucket_sw_mid', 'gbucket_sw_phantom', 'gbucket_sw_deep', 'gbucket_sw_drown',
   ...GOLDEN_TILE_NAMES,
+  // —— 竹子（方块要进图集，不然世界里的竹子没贴图）——
+  'bamboo', 'bamboo_shoot',
 ];
 
 const PAINTERS: Record<string, Painter> = { ...BASE_PAINTERS };
@@ -327,7 +330,7 @@ for (const [name, col] of Object.entries(SW_BUCKET_LIQ)) {
 }
 
 // 庄稼/羽毛/煤贴图拆出去了（CropTextures / BirdTextures / CoalTextures），合并进大表
-Object.assign(PAINTERS, CROP_PAINTERS, FEATHER_PAINTERS, COAL_PAINTERS, LAMP_PAINTERS, FIRE_PAINTERS, GOLDEN_PAINTERS);
+Object.assign(PAINTERS, CROP_PAINTERS, FEATHER_PAINTERS, COAL_PAINTERS, LAMP_PAINTERS, FIRE_PAINTERS, GOLDEN_PAINTERS, BAG_PAINTERS, BAMBOO_PAINTERS);
 
 export interface Atlas {
   texture: THREE.CanvasTexture;
@@ -350,7 +353,9 @@ export function createAtlas(): Atlas {
   TILE_NAMES.forEach((name, i) => {
     const ox = (i % COLS) * TILE;
     const oy = Math.floor(i / COLS) * TILE;
-    PAINTERS[name](ctx, ox, oy);
+    const painter = PAINTERS[name];
+    if (typeof painter === 'function') painter(ctx, ox, oy);
+    else console.warn('[贴图] 图集里缺少 painter：', name);
   });
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -369,12 +374,27 @@ export function createAtlas(): Atlas {
     return [u0, v0, u1, v1];
   };
 
+  /** 缺 painter 时画一块洋红占位并点名，避免一个物品没贴图导致整个面板打不开 */
+  const missing = new Set<string>();
+  const warnMissing = (name: string): void => {
+    if (missing.has(name)) return;
+    missing.add(name);
+    console.warn('[贴图] 缺少 painter：', name);
+  };
+
   const tileCanvas = (name: string): HTMLCanvasElement => {
     const c = document.createElement('canvas');
     c.width = TILE; c.height = TILE;
     const cctx = c.getContext('2d')!;
     cctx.imageSmoothingEnabled = false;
-    PAINTERS[name](cctx, 0, 0);
+    const painter = PAINTERS[name];
+    if (typeof painter !== 'function') {
+      warnMissing(name);
+      cctx.fillStyle = '#ff00aa'; // 洋红占位：一眼能看出是哪个格子没画
+      cctx.fillRect(0, 0, TILE, TILE);
+      return c;
+    }
+    painter(cctx, 0, 0);
     return c;
   };
 
