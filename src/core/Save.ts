@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { SKATES } from '../config';
 import { Animal, AnimalKind } from '../entities/Animal';
 import { ItemDrop } from '../entities/ItemDrop';
+import { spawnDrop } from '../entities/drops';
 import { GameMode, Health } from '../player/Health';
 import { Inventory } from '../player/Inventory';
 import { PlayerBody } from '../player/Physics';
@@ -23,8 +24,22 @@ const OWNER_KEY = 'blockworld-owner'; // 记着本地 1 号槽的档是哪个账
 let serverOn = false;
 export function setServerMode(on: boolean): void { serverOn = on; }
 
+/** 存档格式版本：加字段 / 改结构时 +1，并到 migrateSave() 里补老版本 → 新版本的转换 */
+export const SAVE_VERSION = 1;
+
+/** 这个档认不认：比当前版本还新的档宁可不读也别读坏；老档一律认，缺的字段交给 migrateSave 补 */
+export function isSupportedSave(d: SaveData | null | undefined): d is SaveData {
+  return !!d && typeof d.v === 'number' && d.v > 0 && d.v <= SAVE_VERSION;
+}
+
+/** 老版本存档升级成当前版本（现在只有 v1；以后加字段就在这里加一个分支） */
+export function migrateSave(d: SaveData): SaveData {
+  if (d.v === SAVE_VERSION) return d;
+  return { ...d, v: SAVE_VERSION };
+}
+
 export interface SaveData {
-  v: 1;
+  v: number;
   mode: GameMode;
   /** 重生点 */
   spawn: { x: number; y: number; z: number };
@@ -91,7 +106,7 @@ export function listSaves(): { slot: number; data: SaveData }[] {
 /** 网页里印着的存档备份（vite 插件嵌进 index.html 的），浏览器存不了档时的兜底 */
 function embeddedSave(slot: number): SaveData | null {
   const d = (window as { __BW_SAVES__?: Record<number, SaveData> }).__BW_SAVES__?.[slot];
-  return d && d.v === 1 ? d : null;
+  return isSupportedSave(d) ? migrateSave(d) : null;
 }
 
 /** 读某个账号的档：先读浏览器仓库，读不到就读网页里印的备份（没有或坏了就返回 null） */
@@ -101,7 +116,7 @@ export function readSave(slot: number): SaveData | null {
     const raw = localStorage.getItem(keyOf(slot));
     if (raw) {
       const d = JSON.parse(raw) as SaveData;
-      if (d.v === 1) local = d;
+      if (isSupportedSave(d)) local = migrateSave(d);
     }
   } catch {
     // localStorage 被拒就直接用兜底
@@ -164,7 +179,7 @@ export async function syncServerSave(name: string): Promise<SaveData | null> {
     const r = await fetch('/api/save/1');
     if (r.ok) {
       const d = (await r.json()) as SaveData;
-      if (d?.v === 1) remote = d;
+      if (isSupportedSave(d)) remote = migrateSave(d);
     }
   } catch {
     // 服务器抽风就先用本地的顶着，写档时会再试着传上去
@@ -209,7 +224,7 @@ export function buildSave(g: {
   zombieSpawn: boolean;
 }): SaveData {
   return {
-    v: 1,
+    v: SAVE_VERSION,
     mode: g.mode,
     spawn: { ...g.spawn },
     body: { x: g.body.x, y: g.body.y, z: g.body.z, yaw: g.body.yaw, pitch: g.body.pitch, boostT: g.body.speedBoostT },
@@ -289,10 +304,8 @@ export function applySave(
     scene.add(zb.group);
   }
   for (const dr of d.drops) {
-    const it = new ItemDrop(dr.id, dr.count, dr.x, dr.y, dr.z);
+    const it = spawnDrop({ scene, drops }, dr.id, dr.count, dr.x, dr.y, dr.z);
     it.age = dr.age;
-    drops.push(it);
-    scene.add(it.mesh);
   }
   for (const t of d.tanks ?? []) {
     const tk = new Tank(t.x, t.y, t.z);

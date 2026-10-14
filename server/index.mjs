@@ -217,7 +217,8 @@ async function handleSave(req, res, ip) {
   }
   if (req.method === 'POST') {
     const body = await readBody(req);
-    if (body?.v !== 1) return sendErr(res, 400, 'bad save'); // 只认 v1 存档格式
+    // 存档格式：比服务端新的档拒收（防止把看不懂的新字段写爆），老档照收（前端 migrateSave 会补齐字段）
+    if (!body || typeof body.v !== 'number' || body.v < 1 || body.v > 1) return sendErr(res, 400, 'bad save');
     q.putSave.run(u.id, JSON.stringify(body), Math.floor(Date.now() / 1000));
     return send(res, 200, { ok: true });
   }
