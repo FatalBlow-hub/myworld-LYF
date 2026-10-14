@@ -1,6 +1,6 @@
 /** 物理 — 玩家是个长方体盒子：受重力、撞方块会停下、水里能游、能自动跨上一格台阶 */
 
-import { BOOST, PLAYER, SKATES, TANK, WAISTBAG } from '../config';
+import { PLAYER, SKATES, TANK, WAISTBAG } from '../config';
 import { LADDER, SWAMP_DROWN, WATER, isSwamp } from '../world/Block';
 import { World } from '../world/World';
 import { Controller } from './Controller';
@@ -18,8 +18,10 @@ export interface PlayerBody {
   flying: boolean;
   /** 离地后到达过的最高点，用来算摔了多远 */
   fellFrom: number;
-  /** 吃腌菜桶的加速倒计时：>0 时走路快一半 */
+  /** 吃腌菜桶/橙子等食物的加速倒计时：>0 时按 speedBoostMult 倍率加速 */
   speedBoostT: number;
+  /** 食物加速倍率（默认 1） */
+  speedBoostMult: number;
   /** 穿着轮滑鞋（装备栏靴子格里是真货）→ 走路速度 ×1.5 */
   skating: boolean;
   /** 轮滑摔倒爬不起来的剩余秒数（>0 = 正躺着） */
@@ -39,7 +41,7 @@ export interface PlayerBody {
 }
 
 export function createBody(x: number, y: number, z: number): PlayerBody {
-  return { x, y, z, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0, onGround: false, inWater: false, headInWater: false, flying: false, fellFrom: y, speedBoostT: 0, skating: false, skateFallT: 0, glassBag: false, driving: false, swampId: 0, swayT: 0, swayPhase: 0, breathT: 0, frozenT: 0 };
+  return { x, y, z, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0, onGround: false, inWater: false, headInWater: false, flying: false, fellFrom: y, speedBoostT: 0, speedBoostMult: 1, skating: false, skateFallT: 0, glassBag: false, driving: false, swampId: 0, swayT: 0, swayPhase: 0, breathT: 0, frozenT: 0 };
 }
 
 export interface FrameEvents {
@@ -142,15 +144,16 @@ export function stepPhysics(body: PlayerBody, world: World, input: Controller, d
   body.inWater ||= body.swampId !== 0;
   body.headInWater ||= body.swampId === SWAMP_DROWN;
 
-  // 水平速度：直接给速度（街机手感），水里打个折，吃腌菜桶跑得快
+  // 水平速度：直接给速度（街机手感），水里打个折，吃腌菜桶/橙子跑得快
   body.speedBoostT = Math.max(0, body.speedBoostT - dt);
+  if (body.speedBoostT <= 0) body.speedBoostMult = 1;
   body.swayT = Math.max(0, body.swayT - dt);   // 幻泽液头晕倒计时
   body.breathT = Math.max(0, body.breathT - dt); // 防溺药水倒计时
   body.frozenT = Math.max(0, body.frozenT - dt);
   const fwd = body.frozenT > 0 ? 0 : (input.isDown('forward') ? 1 : 0) - (input.isDown('back') ? 1 : 0);
   const fx = -Math.sin(body.yaw);
   const fz = -Math.cos(body.yaw);
-  const boost = body.speedBoostT > 0 ? BOOST.MULT : 1;
+  const boost = body.speedBoostT > 0 ? body.speedBoostMult : 1;
   const skateMult = body.skating && !body.driving ? SKATES.SPEED_MULT : 1;
   const bagMult = body.glassBag ? WAISTBAG.GLASS_SPEED : 1;
   const speed = PLAYER.SPEED * boost * (body.driving ? TANK.SPEED_MULT : 1) * skateMult * bagMult * (body.inWater ? 0.55 : body.flying ? PLAYER.FLY_MOVE : 1);

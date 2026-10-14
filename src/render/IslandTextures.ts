@@ -1,4 +1,4 @@
-/** 小岛生存贴图 — 绘制南瓜与西瓜的果实方块、切片、种子及 3 个苗期阶段的 16×16 像素图 */
+/** 小岛生存贴图 — 绘制南瓜与西瓜的果实方块、切片、种子、3 个苗期阶段及三种专属水果的 16×16 像素图 */
 
 import { Painter, TILE, fill, speckle } from './TextureUtils';
 
@@ -7,6 +7,7 @@ export const ISLAND_TILE_NAMES = [
   'pumpkin_stage1', 'pumpkin_stage2', 'pumpkin_stage3',
   'melon_top', 'melon_side', 'melon_slice', 'melon_seed',
   'melon_stage1', 'melon_stage2', 'melon_stage3',
+  'apple', 'peach', 'orange',
 ];
 
 export const ISLAND_PAINTERS: Record<string, Painter> = {
@@ -141,5 +142,44 @@ export const ISLAND_PAINTERS: Record<string, Painter> = {
     c.fillRect(x + 9, y + 10, 4, 3);
     c.fillStyle = '#ffd942';
     c.fillRect(x + 7, y + 3, 2, 2);
+  },
+  apple: (c, x, y) => {
+    c.fillStyle = '#5a3a1e';
+    c.fillRect(x + 7, y + 2, 2, 3);
+    c.fillStyle = '#4e9e36';
+    c.fillRect(x + 9, y + 2, 3, 2);
+    c.fillStyle = '#d62828';
+    c.fillRect(x + 4, y + 5, 8, 8);
+    c.fillRect(x + 3, y + 6, 10, 6);
+    c.fillStyle = '#a81c1c';
+    c.fillRect(x + 4, y + 12, 8, 2);
+    c.fillStyle = '#ff7b7b';
+    c.fillRect(x + 5, y + 6, 2, 3);
+  },
+  peach: (c, x, y) => {
+    c.fillStyle = '#4e9e36';
+    c.fillRect(x + 6, y + 2, 4, 2);
+    c.fillStyle = '#ff9ebb';
+    c.fillRect(x + 4, y + 5, 8, 8);
+    c.fillRect(x + 3, y + 6, 10, 6);
+    c.fillRect(x + 7, y + 4, 2, 1);
+    c.fillStyle = '#e85d88';
+    c.fillRect(x + 7, y + 6, 1, 7);
+    c.fillRect(x + 5, y + 12, 6, 2);
+    c.fillStyle = '#ffd1e0';
+    c.fillRect(x + 5, y + 6, 2, 2);
+  },
+  orange: (c, x, y) => {
+    c.fillStyle = '#3d8528';
+    c.fillRect(x + 7, y + 2, 3, 2);
+    c.fillStyle = '#f28518';
+    c.fillRect(x + 4, y + 4, 8, 10);
+    c.fillRect(x + 3, y + 5, 10, 8);
+    c.fillStyle = '#cc660a';
+    c.fillRect(x + 9, y + 8, 1, 1);
+    c.fillRect(x + 7, y + 11, 1, 1);
+    c.fillRect(x + 10, y + 11, 1, 1);
+    c.fillStyle = '#ffb84d';
+    c.fillRect(x + 5, y + 5, 3, 2);
   },
 };

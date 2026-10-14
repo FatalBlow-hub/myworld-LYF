@@ -61,7 +61,8 @@ export class Hunger {
   }
 }
 
-/** 给玩家施加食物速度加成（复用 body.speedBoostT；为 A11 橙子 3 秒 ×1.25 预留） */
-export function applySpeedBoost(body: PlayerBody, seconds: number, _mult = BOOST.ORANGE_MULT): void {
+/** 给玩家施加食物速度加成（复用 body.speedBoostT 与 body.speedBoostMult） */
+export function applySpeedBoost(body: PlayerBody, seconds: number, mult = BOOST.ORANGE_MULT): void {
   body.speedBoostT = Math.max(body.speedBoostT, seconds);
+  body.speedBoostMult = mult;
 }

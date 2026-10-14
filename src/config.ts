@@ -104,6 +104,9 @@ export const EAT_HP: Record<number, FoodEffect> = {
   139: { hunger: 1, hp: 2 },  // 胡萝卜 +1 饥饿 +2 血（一整颗心）
   226: { hunger: 2, hp: 1 },  // 南瓜片 +2 饥饿 +1 血
   227: { hunger: 1, hp: 1 },  // 西瓜片 +1 饥饿 +1 血
+  236: { hunger: 1, hp: 1.5 }, // 苹果 +1 饥饿 +1.5 血
+  237: { hunger: 2, hp: 0.5 }, // 桃子 +2 饥饿 +0.5 血
+  238: { hunger: 1, hp: 1, boostSeconds: HUNGER.ORANGE_BOOST_SECONDS, boostMult: HUNGER.ORANGE_BOOST_MULT }, // 橙子 +1 饥饿 +1 血 + 3 秒 ×1.25 加速
 };
 
 /** 鸟：三种都会飞不动只会蹦跶（先当地上走的小动物做）；命比别的动物短 */
@@ -277,6 +280,19 @@ export const CROP = {
   CARROT_CHANCE: 0.01,      // 草方块自然生成胡萝卜植株的概率（1%）
   PUMPKIN_CHANCE: 0.005,    // 草方块自然生成南瓜植株的概率（0.5%）
   MELON_CHANCE: 0.005,      // 草方块自然生成西瓜植株的概率（0.5%）
+};
+
+/** 专属岛屿类型与树叶掉水果配置（苹果岛 / 桃子岛 / 橙子岛） */
+export type IslandType = 'apple' | 'peach' | 'orange';
+
+export const ISLAND_TYPES: Record<IslandType, { id: IslandType; cn: string; fruitId: number }> = {
+  apple:  { id: 'apple',  cn: '苹果岛', fruitId: 236 }, // 236 = APPLE
+  peach:  { id: 'peach',  cn: '桃子岛', fruitId: 237 }, // 237 = PEACH
+  orange: { id: 'orange', cn: '橙子岛', fruitId: 238 }, // 238 = ORANGE
+};
+
+export const ISLAND = {
+  LEAF_FRUIT_CHANCE: 0.01,  // 挖掉本岛树叶掉专属水果的概率（1%）
 };
 
 export const SAVE = {

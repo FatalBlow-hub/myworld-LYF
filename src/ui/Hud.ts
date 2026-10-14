@@ -1,6 +1,6 @@
 /** HUD — 准星、挖掘进度、血条、氧气、快捷栏（显示背包里真实的东西）、提示消息 */
 
-import { HEALTH, HUNGER } from '../config';
+import { HEALTH, HUNGER, ISLAND_TYPES, IslandType } from '../config';
 import { BLOCKS } from '../world/Block';
 import { Atlas } from '../render/Textures';
 import { Inventory } from '../player/Inventory';
@@ -118,6 +118,11 @@ export class Hud {
   showMessage(text: string, seconds = 2.5): void {
     this.messageEl.textContent = text;
     this.msgTimer = seconds;
+  }
+
+  /** 开局专属岛屿欢迎提示 */
+  showIslandGreeting(islandType: IslandType): void {
+    this.showMessage(`你来到了${ISLAND_TYPES[islandType].cn}！`);
   }
 
   setPaused(paused: boolean): void {

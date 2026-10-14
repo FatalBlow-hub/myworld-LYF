@@ -1,7 +1,7 @@
 /** 存档 — 把当前游戏打包成 JSON 存进浏览器，刷新/关掉页面后还能继续玩 */
 
 import * as THREE from 'three';
-import { HUNGER, SKATES } from '../config';
+import { HUNGER, ISLAND_TYPES, IslandType, SKATES } from '../config';
 import { Animal, AnimalKind } from '../entities/Animal';
 import { ItemDrop } from '../entities/ItemDrop';
 import { spawnDrop } from '../entities/drops';
@@ -33,23 +33,37 @@ export function isSupportedSave(d: SaveData | null | undefined): d is SaveData {
   return !!d && typeof d.v === 'number' && d.v > 0 && d.v <= SAVE_VERSION;
 }
 
+/** 随机抽取一座专属岛屿类型 */
+export function randomIslandType(): IslandType {
+  const keys = Object.keys(ISLAND_TYPES) as IslandType[];
+  return keys[Math.floor(Math.random() * keys.length)];
+}
+
 /** 老版本存档升级成当前版本（现在只有 v1；老档缺的字段在这里补默认值） */
 export function migrateSave(d: SaveData): SaveData {
+  const islandType = d.islandType && d.islandType in ISLAND_TYPES ? d.islandType : randomIslandType();
   return {
     ...d,
     v: SAVE_VERSION,
     hunger: d.hunger ?? HUNGER.MAX,
     hungerOn: d.hungerOn ?? false,
+    islandType,
+    body: {
+      ...d.body,
+      boostMult: d.body.boostMult ?? 1,
+    },
   };
 }
 
 export interface SaveData {
   v: number;
   mode: GameMode;
+  /** 专属岛屿类型（新建档随机分配，老档在 migrateSave 补随机默认） */
+  islandType?: IslandType;
   /** 重生点 */
   spawn: { x: number; y: number; z: number };
-  /** 玩家站的位置和朝向；boostT = 腌菜桶剩下的加速秒数 */
-  body: { x: number; y: number; z: number; yaw: number; pitch: number; boostT?: number };
+  /** 玩家站的位置和朝向；boostT = 食物加速剩下的秒数；boostMult = 加速倍率 */
+  body: { x: number; y: number; z: number; yaw: number; pitch: number; boostT?: number; boostMult?: number };
   hp: number;
   oxygen: number;
   /** 当前饥饿值（0~7；老档没有就默认 7 格满） */
@@ -214,6 +228,7 @@ export async function syncServerSave(name: string): Promise<SaveData | null> {
 /** 打包：从游戏各部分收集要存的东西 */
 export function buildSave(g: {
   mode: GameMode;
+  islandType: IslandType;
   spawn: { x: number; y: number; z: number };
   body: PlayerBody;
   health: Health;
@@ -236,8 +251,14 @@ export function buildSave(g: {
   return {
     v: SAVE_VERSION,
     mode: g.mode,
+    islandType: g.islandType,
     spawn: { ...g.spawn },
-    body: { x: g.body.x, y: g.body.y, z: g.body.z, yaw: g.body.yaw, pitch: g.body.pitch, boostT: g.body.speedBoostT },
+    body: {
+      x: g.body.x, y: g.body.y, z: g.body.z,
+      yaw: g.body.yaw, pitch: g.body.pitch,
+      boostT: g.body.speedBoostT,
+      boostMult: g.body.speedBoostMult,
+    },
     hp: g.health.hp,
     oxygen: g.health.oxygen,
     hunger: g.hunger.value,
@@ -270,7 +291,7 @@ export function buildSave(g: {
 export function applySave(
   d: SaveData,
   into: { inv: Inventory; health: Health; hunger: Hunger; world: World; scene: THREE.Scene; animals: Animal[]; zombies: Zombie[]; drops: ItemDrop[]; tanks: Tank[]; challenge: Challenge },
-): { spawn: { x: number; y: number; z: number }; slot: number; learned: number[]; golden?: SaveData['golden']; paused: boolean; dayTime: number; zombieAttack: boolean; zombieSpawn: boolean } {
+): { spawn: { x: number; y: number; z: number }; slot: number; learned: number[]; golden?: SaveData['golden']; paused: boolean; dayTime: number; zombieAttack: boolean; zombieSpawn: boolean; islandType: IslandType } {
   const { inv, health, hunger, world, scene, animals, zombies, drops, tanks, challenge } = into;
   const copy = (dst: Slots, src: Slots) => src.forEach((s, i) => { dst[i] = s; });
   copy(inv.hotbar, d.inv.hotbar);
@@ -332,5 +353,6 @@ export function applySave(
   return {
     spawn: { ...d.spawn }, slot: d.slot, learned: d.learned ?? [], golden: d.golden,
     paused: d.paused ?? false, dayTime: d.dayTime ?? 0, zombieAttack: d.zombieAttack ?? true, zombieSpawn: d.zombieSpawn ?? true,
+    islandType: d.islandType && d.islandType in ISLAND_TYPES ? d.islandType : randomIslandType(),
   };
 }

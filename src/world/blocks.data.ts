@@ -290,6 +290,10 @@ export const PUMPKIN_STAGE3 = 232;     // 南瓜大苗（带叶）
 export const MELON_STAGE1 = 233;       // 西瓜小苗（刚种下）
 export const MELON_STAGE2 = 234;       // 西瓜幼苗
 export const MELON_STAGE3 = 235;       // 西瓜大苗（带叶）
+// —— 专属岛屿水果（236~238）：挖掉本岛树叶 1% 概率掉落，各有食用加成 ——
+export const APPLE = 236;              // 苹果（+1 饥饿 +1.5 血）
+export const PEACH = 237;              // 桃子（+2 饥饿 +0.5 血）
+export const ORANGE = 238;             // 橙子（+1 饥饿 +1 血 + 3 秒移动速度 ×1.25）
 
 export const WAISTBAG_SLOT = 1; // 装备栏从上往下第二格，也就是从下往上第三格
 export const WOOL_BAG_DYES = [
@@ -616,6 +620,10 @@ export const BLOCKS: Record<number, BlockDef> = {
   [MELON_STAGE1]:   { cn: '西瓜小苗', tex: { top: 'melon_stage1', side: 'melon_stage1' }, solid: false, seeThrough: true, hardness: 0.05, shape: 'cross', targetable: true, drop: AIR },
   [MELON_STAGE2]:   { cn: '西瓜幼苗', tex: { top: 'melon_stage2', side: 'melon_stage2' }, solid: false, seeThrough: true, hardness: 0.05, shape: 'cross', targetable: true, drop: AIR },
   [MELON_STAGE3]:   { cn: '西瓜大苗', tex: { top: 'melon_stage3', side: 'melon_stage3' }, solid: false, seeThrough: true, hardness: 0.05, shape: 'cross', targetable: true, drop: AIR },
+  // —— 专属岛屿水果：树叶掉落的可食用物品 ——
+  [APPLE]:          { cn: '苹果',     tex: { top: 'apple', side: 'apple' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [PEACH]:          { cn: '桃子',     tex: { top: 'peach', side: 'peach' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [ORANGE]:         { cn: '橙子',     tex: { top: 'orange', side: 'orange' }, solid: false, seeThrough: true, hardness: 0, item: true },
 };
 
 /** 创造模式面板里能直接拿的东西（全部方块 + 物品） */
@@ -657,8 +665,9 @@ export const ALL_ITEMS = [
   DYE_GOLD, BAG_GOLD, GOLD_CRAFT_TABLE, GOLD_DYE_TABLE, GOLD_CHEM_DECOMP,
   ICE_MOLECULE, POTION_ICE, GOLD_PICKAXE, DIY_GOLD_MANUAL,
   DIY_GOLD_CRAFT_TABLE, DIY_GOLD_DYE_TABLE, DIY_GOLD_CHEM_DECOMP, DIY_GOLD_PICKAXE,
-  // 南瓜与西瓜系列
+  // 南瓜与西瓜系列 + 三种专属岛屿水果
   PUMPKIN, MELON, PUMPKIN_SLICE, MELON_SLICE, PUMPKIN_SEED, MELON_SEED,
+  APPLE, PEACH, ORANGE,
 ];
 
 /** 庄稼生长链：每 60 秒走一级（水稻/胡萝卜/南瓜/西瓜共用）；最后一级不在表里 = 熟透了不再长 */

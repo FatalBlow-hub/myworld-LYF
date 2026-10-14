@@ -1,7 +1,7 @@
 /** 游戏主循环 — 把所有模块装配起来，每帧按固定顺序驱动它们 */
 
 import * as THREE from 'three';
-import { CHUNK, DAY, PLAYER, SAVE, VIEW_DISTANCE, VOID_Y } from '../config';
+import { CHUNK, DAY, ISLAND_TYPES, IslandType, PLAYER, SAVE, VIEW_DISTANCE, VOID_Y } from '../config';
 import { World } from '../world/World';
 import { heightAt, randomGrassSpawn } from '../world/TerrainGen';
 import { createAtlas, Atlas } from '../render/Textures';
@@ -26,7 +26,7 @@ import { ContainerPanel } from '../ui/Container';
 import { DyePanel } from '../ui/DyePanel';
 import { RecipeBook } from '../ui/RecipeBook';
 import { PanelStack } from '../ui/PanelStack';
-import { SaveData, applySave, buildSave, writeSave } from './Save';
+import { SaveData, applySave, buildSave, randomIslandType, writeSave } from './Save';
 import { DayCycle } from './DayCycle';
 import { PlayerActions } from './PlayerActions';
 import { Pickup } from './Pickup';
@@ -63,6 +63,7 @@ export class Game {
   private started = false;
   private lastTime = 0;
   private saveSlot = 0; // 当前玩的是几号账号存档（1~3）
+  private islandType: IslandType = 'apple'; // 本存档的专属岛屿类型
 
   /** 玩家对方块做的动作：挖/放/用（begin() 时装好） */
   private playerActions: PlayerActions | null = null;
@@ -210,6 +211,7 @@ export class Game {
       useChallengeDoor: (x, y, z) => this.challenge.useDoor(x, y, z, this.body!, this.inventory!, this.hud!),
       setBedSpawn: (x, y, z) => this.survival!.setBedSpawn(x, y, z),
       bookFull: () => this.book.hasAllNormal(), // 手册集齐解锁隐藏配方
+      islandFruit: () => ISLAND_TYPES[this.islandType].fruitId,
     });
     this.combat = new MobCombat(this.controller, this.inventory, () => this.slot, this.hud, this.mobs);
     if (save) {
@@ -219,15 +221,14 @@ export class Game {
         scene: this.renderer.scene, animals: this.mobs.animals, zombies: this.mobs.zombies, drops: this.drops,
         tanks: this.vehicles!.tanks, challenge: this.challenge,
       });
-      this.spawn = r.spawn;
-      this.slot = r.slot;
+      this.spawn = r.spawn; this.slot = r.slot; this.islandType = r.islandType;
       this.mobs.zombieSpawn = r.zombieSpawn;
       this.book.importLearned(r.learned);
       this.book.importGoldenState(r.golden?.learned, r.golden?.tasks, r.golden?.waterUses);
-      this.paused = r.paused; // 存的时候暂停着，读出来也暂停
-      this.day.time = r.dayTime;
+      this.paused = r.paused; this.day.time = r.dayTime;
     } else {
       // 新档：随机找一块不靠海的草地出生（沙漠/雪地动物不生成，也不好开局）
+      this.islandType = randomIslandType();
       this.book.importLearned([]); // 新游戏 = 还没学会任何制作方法
       this.book.importGoldenState([], [], 0);
       const gs = randomGrassSpawn();
@@ -236,6 +237,7 @@ export class Game {
     }
     this.hud.refreshHotbar(this.inventory, this.slot);
     this.hud.setPaused(this.paused);
+    this.hud.showIslandGreeting(this.islandType);
     // 暂停界面上的「退出账号」按钮：存档后刷新页面回到选账号菜单
     document.getElementById('quitbtn')!.onclick = () => this.quitToMenu();
     this.body = createBody(this.spawn.x, this.spawn.y, this.spawn.z);
@@ -244,7 +246,7 @@ export class Game {
       this.body.x = b.x; this.body.y = b.y; this.body.z = b.z;
       this.body.yaw = b.yaw; this.body.pitch = b.pitch;
       this.body.fellFrom = b.y; // 别把读档当成摔下来
-      this.body.speedBoostT = b.boostT ?? 0; // 腌菜桶的加速接着算
+      this.body.speedBoostT = b.boostT ?? 0; this.body.speedBoostMult = b.boostMult ?? 1;
     }
     this.body.flying = this.inventory.infinite; // 创造模式=会飞：空格升 Shift 降
     this.streamChunks(Infinity); // 出生点附近一次性全生成
@@ -262,7 +264,7 @@ export class Game {
   private saveNow(): void {
     if (!this.started || !this.body || !this.inventory || !this.health || !this.hunger) return;
     writeSave(this.saveSlot, buildSave({
-      mode: this.inventory.mode, spawn: this.spawn, body: this.body,
+      mode: this.inventory.mode, islandType: this.islandType, spawn: this.spawn, body: this.body,
       health: this.health, hunger: this.hunger, slot: this.slot, inv: this.inventory,
       world: this.world, animals: this.mobs.animals, zombies: this.mobs.zombies, drops: this.drops,
       tanks: this.vehicles!.tanks, challenge: this.challenge,
