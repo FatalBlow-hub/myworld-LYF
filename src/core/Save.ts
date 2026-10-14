@@ -47,6 +47,7 @@ export function migrateSave(d: SaveData): SaveData {
     v: SAVE_VERSION,
     hunger: d.hunger ?? HUNGER.MAX,
     hungerOn: d.hungerOn ?? false,
+    everCreative: d.everCreative ?? (d.mode === 'creative'),
     islandType,
     body: {
       ...d.body,
@@ -58,6 +59,8 @@ export function migrateSave(d: SaveData): SaveData {
 export interface SaveData {
   v: number;
   mode: GameMode;
+  /** 是否曾开启过创造模式（只要选过或切到过创造模式就置 true；老档默认 false） */
+  everCreative?: boolean;
   /** 专属岛屿类型（新建档随机分配，老档在 migrateSave 补随机默认） */
   islandType?: IslandType;
   /** 重生点 */
@@ -228,6 +231,7 @@ export async function syncServerSave(name: string): Promise<SaveData | null> {
 /** 打包：从游戏各部分收集要存的东西 */
 export function buildSave(g: {
   mode: GameMode;
+  everCreative?: boolean;
   islandType: IslandType;
   spawn: { x: number; y: number; z: number };
   body: PlayerBody;
@@ -251,6 +255,7 @@ export function buildSave(g: {
   return {
     v: SAVE_VERSION,
     mode: g.mode,
+    everCreative: g.everCreative || g.mode === 'creative',
     islandType: g.islandType,
     spawn: { ...g.spawn },
     body: {
@@ -291,7 +296,7 @@ export function buildSave(g: {
 export function applySave(
   d: SaveData,
   into: { inv: Inventory; health: Health; hunger: Hunger; world: World; scene: THREE.Scene; animals: Animal[]; zombies: Zombie[]; drops: ItemDrop[]; tanks: Tank[]; challenge: Challenge },
-): { spawn: { x: number; y: number; z: number }; slot: number; learned: number[]; golden?: SaveData['golden']; paused: boolean; dayTime: number; zombieAttack: boolean; zombieSpawn: boolean; islandType: IslandType } {
+): { spawn: { x: number; y: number; z: number }; slot: number; learned: number[]; golden?: SaveData['golden']; paused: boolean; dayTime: number; zombieAttack: boolean; zombieSpawn: boolean; islandType: IslandType; everCreative: boolean } {
   const { inv, health, hunger, world, scene, animals, zombies, drops, tanks, challenge } = into;
   const copy = (dst: Slots, src: Slots) => src.forEach((s, i) => { dst[i] = s; });
   copy(inv.hotbar, d.inv.hotbar);
@@ -354,5 +359,6 @@ export function applySave(
     spawn: { ...d.spawn }, slot: d.slot, learned: d.learned ?? [], golden: d.golden,
     paused: d.paused ?? false, dayTime: d.dayTime ?? 0, zombieAttack: d.zombieAttack ?? true, zombieSpawn: d.zombieSpawn ?? true,
     islandType: d.islandType && d.islandType in ISLAND_TYPES ? d.islandType : randomIslandType(),
+    everCreative: Boolean(d.everCreative || d.mode === 'creative'),
   };
 }

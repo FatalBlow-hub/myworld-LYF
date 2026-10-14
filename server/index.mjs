@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import Database from 'better-sqlite3';
-import { attachWs } from './ws.mjs';
+import { attachWs, consumeVisitTicket } from './ws.mjs';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..'); // 项目根目录
 const DIST = join(ROOT, 'dist');          // vite 打包出来的静态文件
@@ -226,6 +226,44 @@ async function handleSave(req, res, ip) {
   return sendErr(res, 405, 'method not allowed');
 }
 
+/** 按用户名读取该用户的存档 JSON 对象（供 WS 双重验证使用） */
+function readSaveByUserName(name) {
+  const baseName = String(name ?? '').split('#')[0];
+  const u = q.userByName.get(baseName);
+  if (!u) return null;
+  const row = q.save.get(u.id);
+  if (!row) return null;
+  try {
+    return JSON.parse(row.data);
+  } catch {
+    return null;
+  }
+}
+
+/** 好友访岛：GET /api/visit/world?name=<岛主名>[&ticket=<票据>] — 校验登录态 + 一次性访问票据，返回岛主存档 JSON */
+function handleVisitWorld(req, res, ip) {
+  if (limited(ip, 'api', API_LIMIT)) return sendErr(res, 429, '请求太频繁啦');
+  if (req.method !== 'GET') return sendErr(res, 405, 'method not allowed');
+  const visitor = currentUser(req);
+  if (!visitor) return sendErr(res, 401, 'not logged in');
+
+  const u = new URL(req.url ?? '/', 'http://localhost');
+  const ownerName = (u.searchParams.get('name') ?? '').trim();
+  const ticketParam = (u.searchParams.get('ticket') ?? '').trim() || null;
+  if (!ownerName) return sendErr(res, 400, 'missing name');
+
+  const consumed = consumeVisitTicket(ownerName, visitor.name, ticketParam);
+  if (!consumed) return sendErr(res, 403, 'invalid or expired visit ticket');
+
+  const ownerUser = q.userByName.get(consumed.ownerAccount) ?? q.userByName.get(ownerName.split('#')[0]);
+  if (!ownerUser) return sendErr(res, 404, 'owner not found');
+  const row = q.save.get(ownerUser.id);
+  if (!row) return sendErr(res, 404, 'owner has no save');
+
+  res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+  res.end(row.data);
+}
+
 /* ---------------- 静态文件 ---------------- */
 
 const MIME = {
@@ -274,6 +312,7 @@ const server = createServer(async (req, res) => {
     const url = req.url ?? '/';
     if (url.startsWith('/api/auth/')) return await handleAuth(req, res, ip);
     if (url.startsWith('/api/save')) return await handleSave(req, res, ip);
+    if (url.startsWith('/api/visit/world')) return handleVisitWorld(req, res, ip);
     if (url.startsWith('/api/')) return sendErr(res, 404, 'unknown api');
     serveStatic(req, res);
   } catch (e) {
@@ -286,6 +325,6 @@ const server = createServer(async (req, res) => {
 q.dropExpired.run(Math.floor(Date.now() / 1000));
 
 // 挂上 WebSocket 长连接服务（复用同一端口，处理 /ws 的 upgrade）
-attachWs(server, currentUser);
+attachWs(server, currentUser, readSaveByUserName);
 
 server.listen(PORT, HOST, () => console.log(`方块世界服务器跑起来啦 → http://${HOST}:${PORT}`));

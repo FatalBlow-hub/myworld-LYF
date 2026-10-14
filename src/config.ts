@@ -296,6 +296,13 @@ export const ISLAND = {
   LEAF_FRUIT_CHANCE: 0.01,  // 挖掉本岛树叶掉专属水果的概率（1%）
 };
 
+/** 访客挖掘权限：模式三选一 + 水果例外开关（仅在 none / all 下生效） */
+export type VisitPermMode = 'none' | 'all' | 'list';
+export interface VisitPerm {
+  mode: VisitPermMode;
+  fruitException?: boolean;
+}
+
 /** 大厅场景：固定 16×16 木板平台 + 中间双层木桌 + 四周栅栏边界 */
 export const HALL = {
   SIZE: 16,                         // 平台边长（1 个区块 16×16）
@@ -305,6 +312,8 @@ export const HALL = {
   SPAWN: { x: 8.5, y: 23, z: 8.5 }, // 大厅出生点（平台中央，桌面高度 22 + 1）
   QUEUE_MAX: 32,                    // 大厅排队人数上限
   RANDOM_IRON_COST: 2,              // 随机陌生岛消耗铁锭数量
+  VISIT_TIMEOUT_MS: 60_000,         // 访岛申请 60 秒无响应超时
+  TICKET_TTL_MS: 5 * 60_000,        // 访问票据 5 分钟有效
 };
 
 export const SAVE = {

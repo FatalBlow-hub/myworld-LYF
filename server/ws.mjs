@@ -1,5 +1,6 @@
-/** WebSocket 联机服务 — 挂在现有 HTTP server 的 upgrade 事件上，管连接、心跳超时清理、在线名单与大厅排队匹配 */
+/** WebSocket 联机服务 — 挂在现有 HTTP server 的 upgrade 事件上，管连接、心跳超时清理、在线名单、大厅排队匹配与好友访岛 */
 
+import { randomBytes } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 
 const HEARTBEAT_CHECK_MS = 10_000; // 每 10 秒巡检一次超时连接
@@ -8,20 +9,63 @@ const MAX_MSG_BYTES = 16 * 1024; // 单条消息上限 16KB
 const NAME_MAX_LEN = 24;
 const QUEUE_MAX = 32; // 大厅队列人数上限
 const ISLAND_TYPES = ['apple', 'peach', 'orange'];
+const VISIT_TIMEOUT_MS = 60_000; // 访岛申请 60 秒无响应作废
+const TICKET_TTL_MS = 5 * 60_000; // 访问票据 5 分钟有效
+
+/**
+ * 内存一次性访问票据表：ticket -> { visitorAccount, visitorName, ownerAccount, ownerName, snapshot, expiresAt }
+ * 供 GET /api/visit/world 校验并一次性消费
+ * @type {Map<string, { visitorAccount: string | null, visitorName: string, ownerAccount: string | null, ownerName: string, snapshot?: any, expiresAt: number }>}
+ */
+const visitTickets = new Map();
+
+/**
+ * 校验并一次性消费访问票据（匹配岛主名字 + 访客身份，且未过期）
+ * @param {string} ownerName 岛主名字（可是在线显示名或账号名）
+ * @param {string | null} visitorAccount 访客登录账号名
+ * @param {string | null} [ticketParam] 可选的显式 ticket 参数
+ * @returns {{ ownerAccount: string, snapshot?: any } | null}
+ */
+export function consumeVisitTicket(ownerName, visitorAccount, ticketParam = null) {
+  const now = Date.now();
+  for (const [k, t] of visitTickets.entries()) {
+    if (now > t.expiresAt) visitTickets.delete(k);
+  }
+  const baseOwner = ownerName.split('#')[0];
+  for (const [k, t] of visitTickets.entries()) {
+    if (ticketParam && k !== ticketParam) continue;
+    const ownerMatch = t.ownerName === ownerName || t.ownerAccount === ownerName || t.ownerAccount === baseOwner;
+    if (!ownerMatch) continue;
+    const visitorMatch = !t.visitorAccount || !visitorAccount
+      ? true
+      : (t.visitorAccount === visitorAccount || t.visitorName === visitorAccount);
+    if (!visitorMatch) continue;
+    visitTickets.delete(k);
+    return { ownerAccount: t.ownerAccount || baseOwner, snapshot: t.snapshot };
+  }
+  return null;
+}
 
 /**
  * 把 WebSocket 服务挂到现有的 HTTP server 上（路径 /ws，不新开端口）
  * @param {import('node:http').Server} server
  * @param {(req: import('node:http').IncomingMessage) => { name: string } | null} [resolveUser]
+ * @param {(name: string) => Record<string, any> | null} [readUserSave]
  */
-export function attachWs(server, resolveUser) {
+export function attachWs(server, resolveUser, readUserSave) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MSG_BYTES });
 
   /**
-   * 活跃连接表：ws -> { name: string | null, cookieName: string | null, lastSeen: number }
-   * @type {Map<import('ws').WebSocket, { name: string | null, cookieName: string | null, lastSeen: number }>}
+   * 活跃连接表：ws -> { name: string | null, cookieName: string | null, lastSeen: number, everCreative: boolean }
+   * @type {Map<import('ws').WebSocket, { name: string | null, cookieName: string | null, lastSeen: number, everCreative: boolean }>}
    */
   const clients = new Map();
+
+  /**
+   * 待响应的访岛申请表：key(`${from}->${to}`) -> { fromWs, toWs, fromName, toName, timer }
+   * @type {Map<string, { fromWs: import('ws').WebSocket, toWs: import('ws').WebSocket, fromName: string, toName: string, timer: ReturnType<typeof setTimeout> }>}
+   */
+  const pendingVisits = new Map();
 
   /**
    * 大厅排队连接队列（按先后顺序排列，保证不重复）
@@ -66,6 +110,34 @@ export function attachWs(server, resolveUser) {
       if (info.name === name) return true;
     }
     return false;
+  }
+
+  /** 按名字查找在线连接（优先精确匹配显示名，其次匹配基础账号名且排除自身） */
+  function findClientByName(targetName, excludeWs = null) {
+    for (const [w, info] of clients.entries()) {
+      if (w !== excludeWs && info.name === targetName && w.readyState === w.OPEN) return [w, info];
+    }
+    for (const [w, info] of clients.entries()) {
+      if (w !== excludeWs && info.cookieName === targetName && w.readyState === w.OPEN) return [w, info];
+    }
+    return null;
+  }
+
+  /** 检查某个连接对应的玩家存档是否曾开启过创造模式（双验证：读服务端存档 + 客户端上报兜底） */
+  function hasEverCreative(clientInfo) {
+    if (clientInfo.everCreative) return true;
+    const accName = clientInfo.cookieName || (clientInfo.name ? clientInfo.name.split('#')[0] : null);
+    if (accName && readUserSave) {
+      const save = readUserSave(accName);
+      if (save && (save.everCreative === true || save.mode === 'creative')) return true;
+    }
+    return false;
+  }
+
+  /** 规范化访客挖掘权限 */
+  function normalizePerm(raw) {
+    const mode = raw && (raw.mode === 'none' || raw.mode === 'all' || raw.mode === 'list') ? raw.mode : 'none';
+    return { mode, fruitException: Boolean(raw?.fruitException) };
   }
 
   /** 发 JSON 消息给单个连接 */
@@ -122,6 +194,15 @@ export function attachWs(server, resolveUser) {
     const info = clients.get(ws);
     if (!info) return;
     removeFromQueue(ws);
+    for (const [k, reqItem] of pendingVisits.entries()) {
+      if (reqItem.fromWs === ws || reqItem.toWs === ws) {
+        clearTimeout(reqItem.timer);
+        pendingVisits.delete(k);
+        if (reqItem.toWs === ws && reqItem.fromWs.readyState === reqItem.fromWs.OPEN) {
+          sendMsg(reqItem.fromWs, { t: 'visit.denied', reason: 'offline' });
+        }
+      }
+    }
     clients.delete(ws);
     const { name } = info;
     if (name) {
@@ -153,7 +234,7 @@ export function attachWs(server, resolveUser) {
       cookieName = null;
     }
 
-    const info = { name: null, cookieName, lastSeen: Date.now() };
+    const info = { name: null, cookieName, lastSeen: Date.now(), everCreative: false };
     clients.set(ws, info);
     console.log(`[ws] 新连接建立 (来自 ${req.socket.remoteAddress ?? '?'})`);
 
@@ -173,6 +254,7 @@ export function attachWs(server, resolveUser) {
       }
 
       if (msg.t === 'hello') {
+        if (typeof msg.everCreative === 'boolean') info.everCreative = msg.everCreative;
         const rawName = typeof msg.name === 'string' ? msg.name.trim().slice(0, NAME_MAX_LEN) : '';
         let baseName = info.cookieName || rawName || `guest-${Math.floor(1000 + Math.random() * 9000)}`;
         // 若同名已被其他活跃连接占用（如双标签页同账号），追加序号区分，方便双标签页同时排队
@@ -244,6 +326,76 @@ export function attachWs(server, resolveUser) {
         console.log(`[ws] ${info.name} 随机匹配成功 -> 岛 #${islandId} (${islandType})`);
         sendMsg(ws, { t: 'hall.matched', islandId, islandType });
         broadcastQueue(prevHead);
+        return;
+      }
+
+      if (msg.t === 'visit.request') {
+        if (typeof msg.everCreative === 'boolean') info.everCreative = msg.everCreative;
+        const toRaw = typeof msg.to === 'string' ? msg.to.trim() : '';
+        if (!toRaw || toRaw === info.name) {
+          sendMsg(ws, { t: 'visit.denied', reason: toRaw === info.name ? 'self' : 'offline' });
+          return;
+        }
+        const found = findClientByName(toRaw, ws);
+        if (!found) {
+          sendMsg(ws, { t: 'visit.denied', reason: 'offline' });
+          return;
+        }
+        const [toWs, toInfo] = found;
+        const toName = toInfo.name;
+        const key = `${info.name}->${toName}`;
+        const old = pendingVisits.get(key);
+        if (old) clearTimeout(old.timer);
+        const timer = setTimeout(() => {
+          pendingVisits.delete(key);
+          sendMsg(ws, { t: 'visit.denied', reason: 'timeout' });
+        }, VISIT_TIMEOUT_MS);
+        timer.unref?.();
+        pendingVisits.set(key, { fromWs: ws, toWs, fromName: info.name, toName, timer });
+        console.log(`[ws] 访岛申请: ${info.name} -> ${toName}`);
+        sendMsg(toWs, { t: 'visit.incoming', from: info.name });
+        return;
+      }
+
+      if (msg.t === 'visit.reply') {
+        if (typeof msg.everCreative === 'boolean') info.everCreative = msg.everCreative;
+        const fromName = typeof msg.to === 'string' ? msg.to.trim() : '';
+        const key = `${fromName}->${info.name}`;
+        const pending = pendingVisits.get(key);
+        if (!pending) return;
+        clearTimeout(pending.timer);
+        pendingVisits.delete(key);
+        const { fromWs } = pending;
+        const fromInfo = clients.get(fromWs);
+        if (!fromInfo || fromWs.readyState !== fromWs.OPEN) return;
+
+        if (!msg.accept) {
+          console.log(`[ws] 访岛拒绝: ${info.name} 拒绝了 ${fromName}`);
+          sendMsg(fromWs, { t: 'visit.denied', reason: 'rejected' });
+          return;
+        }
+
+        // 双重验证：双方存档的 everCreative 都必须为 false
+        if (hasEverCreative(fromInfo) || hasEverCreative(info)) {
+          console.log(`[ws] 访岛双验证失败(creative): ${fromName} -> ${info.name}`);
+          sendMsg(fromWs, { t: 'visit.denied', reason: 'creative' });
+          return;
+        }
+
+        const ticket = randomBytes(16).toString('hex');
+        const ownerAccount = info.cookieName || info.name.split('#')[0];
+        const visitorAccount = fromInfo.cookieName || fromInfo.name.split('#')[0];
+        visitTickets.set(ticket, {
+          visitorAccount,
+          visitorName: fromInfo.name,
+          ownerAccount,
+          ownerName: info.name,
+          expiresAt: Date.now() + TICKET_TTL_MS,
+        });
+        removeFromQueue(fromWs);
+        const perm = normalizePerm(msg.perm);
+        console.log(`[ws] 访岛批准: ${fromName} -> ${info.name}，权限=${perm.mode}(fruitEx=${perm.fruitException})`);
+        sendMsg(fromWs, { t: 'visit.approved', owner: info.name, perm, ticket });
         return;
       }
     });

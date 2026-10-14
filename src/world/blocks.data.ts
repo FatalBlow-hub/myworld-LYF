@@ -696,3 +696,13 @@ export function dropCountOf(id: number): number {
 export function isBed(id: number): boolean {
   return BLOCKS[id]?.shape === 'bed';
 }
+
+/** 好友岛访客「指定清单（list 模式）」允许挖掘的方块（树叶/南瓜/西瓜/小麦(成熟水稻及作物)/胡萝卜） */
+export const VISIT_LIST_BLOCKS: ReadonlySet<number> = new Set([
+  LEAVES,
+  PUMPKIN, PUMPKIN_STAGE1, PUMPKIN_STAGE2, PUMPKIN_STAGE3,
+  MELON, MELON_STAGE1, MELON_STAGE2, MELON_STAGE3,
+  RICE_SEED, RICE_SPROUT, RICE_GREEN, RICE_MATURE,
+  CARROT_SEED, CARROT_SPROUT, CARROT_GREEN, CARROT_MATURE,
+  APPLE, PEACH, ORANGE,
+]);

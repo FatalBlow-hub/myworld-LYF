@@ -5,14 +5,17 @@ import { HALL } from '../config';
 export interface HallMenuCallbacks {
   /** 点击「随机去陌生岛屿」 */
   onRandom(): void;
-  /** 点击「去好友的岛」 */
-  onFriend(): void;
+  /** 点击「去好友的岛」并输入好友名字确认后触发 */
+  onFriend(friendName: string): void;
   /** 用户主动关闭面板（未发起匹配时通知服务端让出队首） */
   onCancel?(): void;
 }
 
 export class HallMenu {
   private el: HTMLDivElement;
+  private mainBox: HTMLDivElement;
+  private friendBox: HTMLDivElement;
+  private friendInput: HTMLInputElement;
   private subEl: HTMLParagraphElement;
   private queueEl: HTMLElement;
   private acted = false;
@@ -41,18 +44,6 @@ export class HallMenu {
     Object.assign(win.style, { minWidth: '320px', alignItems: 'center', padding: '20px 24px' });
     this.el.appendChild(win);
 
-    const title = document.createElement('p');
-    title.className = 'inv-sub';
-    Object.assign(title.style, { fontSize: '18px', fontWeight: 'bold', marginBottom: '4px' });
-    title.textContent = '轮到你啦！（队首）';
-    win.appendChild(title);
-
-    this.subEl = document.createElement('p');
-    this.subEl.className = 'inv-sub';
-    Object.assign(this.subEl.style, { color: '#555', marginBottom: '10px' });
-    this.subEl.textContent = '请选择你要前往的目的地：';
-    win.appendChild(this.subEl);
-
     const makeBtn = (label: string, bg: string, onClick: () => void): HTMLButtonElement => {
       const btn = document.createElement('button');
       btn.textContent = label;
@@ -64,11 +55,63 @@ export class HallMenu {
       return btn;
     };
 
-    win.appendChild(makeBtn(`随机去陌生岛屿（消耗 ${HALL.RANDOM_IRON_COST} 铁锭）`, '#4a7c3a', () => {
+    // 主选单视图
+    this.mainBox = document.createElement('div');
+    Object.assign(this.mainBox.style, { width: '100%', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' });
+    win.appendChild(this.mainBox);
+
+    const title = document.createElement('p');
+    title.className = 'inv-sub';
+    Object.assign(title.style, { fontSize: '18px', fontWeight: 'bold', marginBottom: '4px' });
+    title.textContent = '轮到你啦！（队首）';
+    this.mainBox.appendChild(title);
+
+    this.subEl = document.createElement('p');
+    this.subEl.className = 'inv-sub';
+    Object.assign(this.subEl.style, { color: '#555', marginBottom: '6px' });
+    this.subEl.textContent = '请选择你要前往的目的地：';
+    this.mainBox.appendChild(this.subEl);
+
+    this.mainBox.appendChild(makeBtn(`随机去陌生岛屿（消耗 ${HALL.RANDOM_IRON_COST} 铁锭）`, '#4a7c3a', () => {
       this.acted = true; this.close(); this.cb.onRandom();
     }));
-    win.appendChild(makeBtn('去好友的岛', '#546e7a', () => this.cb.onFriend()));
-    win.appendChild(makeBtn('暂不出发（关闭）', '#757575', () => this.close()));
+    this.mainBox.appendChild(makeBtn('去好友的岛', '#546e7a', () => this.showFriendInput()));
+    this.mainBox.appendChild(makeBtn('暂不出发（关闭）', '#757575', () => this.close()));
+
+    // 好友名字输入视图
+    this.friendBox = document.createElement('div');
+    Object.assign(this.friendBox.style, { width: '100%', display: 'none', flexDirection: 'column', gap: '8px', alignItems: 'center' });
+    win.appendChild(this.friendBox);
+
+    const fTitle = document.createElement('p');
+    fTitle.className = 'inv-sub';
+    Object.assign(fTitle.style, { fontSize: '18px', fontWeight: 'bold', marginBottom: '4px' });
+    fTitle.textContent = '去好友的岛';
+    this.friendBox.appendChild(fTitle);
+
+    const fSub = document.createElement('p');
+    fSub.className = 'inv-sub';
+    Object.assign(fSub.style, { color: '#555', marginBottom: '4px' });
+    fSub.textContent = '请输入在线好友的名字：';
+    this.friendBox.appendChild(fSub);
+
+    this.friendInput = document.createElement('input');
+    this.friendInput.type = 'text';
+    this.friendInput.placeholder = '输入好友名字…';
+    this.friendInput.maxLength = 24;
+    Object.assign(this.friendInput.style, {
+      width: '100%', boxSizing: 'border-box', fontSize: '16px', padding: '8px 10px',
+      border: '2px solid #888', borderRadius: '6px', fontFamily: 'inherit', marginBottom: '4px',
+    });
+    this.friendInput.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') this.submitFriend();
+      else if (e.key === 'Escape') { this.friendInput.blur(); this.close(); }
+    });
+    this.friendBox.appendChild(this.friendInput);
+
+    this.friendBox.appendChild(makeBtn('确定申请', '#4a7c3a', () => this.submitFriend()));
+    this.friendBox.appendChild(makeBtn('取消返回', '#757575', () => this.showMainBox()));
 
     const hint = document.createElement('div');
     hint.className = 'inv-hint';
@@ -77,14 +120,38 @@ export class HallMenu {
     document.body.appendChild(this.el);
   }
 
+  private showMainBox(): void {
+    this.friendInput.blur();
+    this.friendBox.style.display = 'none';
+    this.mainBox.style.display = 'flex';
+  }
+
+  private showFriendInput(): void {
+    this.mainBox.style.display = 'none';
+    this.friendBox.style.display = 'flex';
+    this.friendInput.value = '';
+    setTimeout(() => this.friendInput.focus(), 0);
+  }
+
+  private submitFriend(): void {
+    const name = this.friendInput.value.trim();
+    if (!name) return;
+    this.friendInput.blur();
+    this.acted = true;
+    this.close();
+    this.cb.onFriend(name);
+  }
+
   open(): void {
     this.acted = false;
     this.visible = true;
+    this.showMainBox();
     this.el.style.display = 'flex';
   }
 
   close(): void {
     if (!this.visible) return;
+    this.friendInput.blur();
     const wasActed = this.acted;
     this.visible = false;
     this.el.style.display = 'none';

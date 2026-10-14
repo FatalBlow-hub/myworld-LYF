@@ -2,7 +2,7 @@
  *  留在 core 层是因为这些动作会直接开 UI 面板（工作台、染色台），按依赖铁律下层不能反向依赖 ui。 */
 
 import * as THREE from 'three';
-import { GOLDEN, ISLAND, RUBBER_DROP, STACK_MAX } from '../config';
+import { GOLDEN, ISLAND, RUBBER_DROP, STACK_MAX, VisitPerm } from '../config';
 import { FireSystem } from '../entities/Fire';
 import { ItemDrop } from '../entities/ItemDrop';
 import { DropSink, spawnDrop } from '../entities/drops';
@@ -21,7 +21,7 @@ import {
   DIRT, DYE_TABLE, DYEABLE_CARPETS, FIRESTARTER_IDS, GLASS_BUCKET, GRASS, HYDROGEN, ICE, IRON_NUGGET,
   LEAVES, MELON_SEED, MELON_STAGE1, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT,
   RICE_GRAIN, RUBBER, SEAWEED, SOUL_CHEST, SOUL_FIRESTARTER, STAR_DYE_TABLE, STAR_TABLE, SWAMP_FILL,
-  TANK, WATER_BUCKET, WOOD,
+  TANK, VISIT_LIST_BLOCKS, WATER_BUCKET, WOOD,
   dropCountOf, isBed, isChest, isDoor, isFurnace,
 } from '../world/Block';
 import { GOLD_CHEM_DECOMP, GOLD_DYE_TABLE, GOLD_PICKAXE, ICE_MOLECULE } from '../world/GoldenItems';
@@ -56,8 +56,10 @@ export interface PlayerActionDeps {
   setBedSpawn: (x: number, y: number, z: number) => void;
   /** DIY 手册是不是集齐了（集齐解锁隐藏配方） */
   bookFull: () => boolean;
-  /** 当前所在岛屿的专属水果 ID（只有站在自己的岛才返回水果 ID，否则返回 null） */
+  /** 当前所在岛屿的专属水果 ID（只有站在自己的岛或岛主岛才返回水果 ID，否则返回 null） */
   islandFruit: () => number | null;
+  /** 当前好友岛的访客挖掘权限（在好友岛时返回 VisitPerm，自己岛或随机陌生岛返回 null） */
+  visitPerm?: () => VisitPerm | null;
 }
 
 export class PlayerActions {
@@ -67,6 +69,22 @@ export class PlayerActions {
   private pickaxeCooldown = 0;
 
   constructor(private d: PlayerActionDeps) {}
+
+  /** 校验访客在好友岛上是否允许挖该方块（true = 允许挖） */
+  private canVisitorMine(blockId: number): boolean {
+    const perm = this.d.visitPerm?.() ?? null;
+    if (!perm) return true;
+    const ownerFruit = this.d.islandFruit();
+    const isFruitRelated = blockId === LEAVES || (ownerFruit !== null && blockId === ownerFruit);
+    if (perm.mode === 'none') {
+      return perm.fruitException ? !isFruitRelated : false;
+    }
+    if (perm.mode === 'all') {
+      return perm.fruitException ? isFruitRelated : true;
+    }
+    // list 模式：树叶、南瓜、西瓜、小麦（RICE_MATURE 那一系列）、胡萝卜、岛主的水果
+    return VISIT_LIST_BLOCKS.has(blockId) || (ownerFruit !== null && blockId === ownerFruit);
+  }
 
   /** 掉落物归宿（每次现取，列表可能被换掉） */
   private get sink(): DropSink {
@@ -102,12 +120,18 @@ export class PlayerActions {
       hud.setProgress(0);
       return;
     }
+    const id = world.getBlock(hitX!, hitY!, hitZ!);
+    if (!this.canVisitorMine(id)) {
+      this.cancelMining();
+      hud.setProgress(0);
+      hud.showMessage('访客权限不允许挖这个方块');
+      return;
+    }
     const key = `${hitX},${hitY},${hitZ}`;
     if (key !== this.mineKey) {
       this.mineKey = key;
       this.mineProgress = 0;
     }
-    const id = world.getBlock(hitX!, hitY!, hitZ!);
     const hardness = BLOCKS[id].hardness;
     if (!Number.isFinite(hardness)) return; // 基岩挖不动
     const creative = inventory.infinite;
@@ -143,6 +167,10 @@ export class PlayerActions {
   placeItem(hit: BlockHit | null, body: PlayerBody): void {
     const { controller, world, inventory, hud } = this.d;
     if (!controller.take('place') || !hit) return;
+    if (this.d.visitPerm?.()) {
+      hud.showMessage('访客不允许放置方块');
+      return;
+    }
     const stack = inventory.hotbar[this.d.slot()];
     const spend = () => {
       if (!inventory.infinite) {

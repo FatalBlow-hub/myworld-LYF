@@ -1,7 +1,7 @@
 /** 联机客户端（Client） — 管理 WebSocket 长连接、JSON 收发、心跳检测、指数退避重连、在线名单与大厅排队收发 */
 
-import type { IslandType } from '../config';
-import { C2SMsg, NetStatus, S2CMsg } from './Protocol';
+import type { IslandType, VisitPerm } from '../config';
+import { C2SMsg, NetStatus, S2CMsg, VisitDenyReason } from './Protocol';
 
 const PING_INTERVAL_MS = 10_000;   // 客户端每 10 秒发一次 ping
 const TIMEOUT_MS = 30_000;         // 30 秒没收到任何消息判定掉线
@@ -22,6 +22,12 @@ export interface NetClientCallbacks {
   onHallMatched?: (islandId: number, islandType: IslandType) => void;
   /** 大厅报错时触发 */
   onHallError?: (msg: string) => void;
+  /** 岛主收到访客上岛申请时触发 */
+  onVisitIncoming?: (from: string) => void;
+  /** 访客收到岛主批准时触发 */
+  onVisitApproved?: (owner: string, perm: VisitPerm, ticket?: string) => void;
+  /** 访客收到拒绝/超时/验证失败/不在线时触发 */
+  onVisitDenied?: (reason: VisitDenyReason) => void;
   /** 收到任意服务端消息时触发 */
   onMessage?: (msg: S2CMsg) => void;
 }
@@ -39,10 +45,12 @@ export class NetClient {
   private lastRecvTime = 0;
   private retryCount = 0;
   private manualClosed = false;
+  private everCreative = false;
 
-  constructor(name?: string, private callbacks: NetClientCallbacks = {}) {
+  constructor(name?: string, private callbacks: NetClientCallbacks = {}, everCreative = false) {
     const trimmed = (name ?? '').trim();
     this.name = trimmed || `guest-${Math.floor(1000 + Math.random() * 9000)}`;
+    this.everCreative = everCreative;
   }
 
   /** 当前连接状态 */
@@ -88,13 +96,30 @@ export class NetClient {
     this.send({ t: 'hall.random' });
   }
 
+  /** 好友访岛：发起访问申请 */
+  requestVisit(to: string, everCreative?: boolean): void {
+    if (everCreative !== undefined) this.everCreative = everCreative;
+    this.send({ t: 'visit.request', to: to.trim(), everCreative: this.everCreative });
+  }
+
+  /** 好友访岛：岛主回应同意/拒绝（同意时附带挖掘权限） */
+  replyVisit(to: string, accept: boolean, perm?: VisitPerm, everCreative?: boolean): void {
+    if (everCreative !== undefined) this.everCreative = everCreative;
+    this.send({ t: 'visit.reply', to, accept, perm, everCreative: this.everCreative });
+  }
+
+  /** 更新本档是否曾开启创造模式标记 */
+  setEverCreative(everCreative: boolean): void {
+    this.everCreative = everCreative;
+  }
+
   /** 更新身份名；若已连接则重新发 hello 同步给服务端 */
   setName(name: string): void {
     const trimmed = name.trim();
     if (!trimmed || trimmed === this.name) return;
     this.name = trimmed;
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.send({ t: 'hello', name: this.name });
+      this.send({ t: 'hello', name: this.name, everCreative: this.everCreative });
     }
   }
 
@@ -152,7 +177,7 @@ export class NetClient {
       this.lastRecvTime = Date.now();
       console.log(`[net] WebSocket 已连接 (${url})，身份: ${this.name}`);
       this.setStatus('connected');
-      this.send({ t: 'hello', name: this.name });
+      this.send({ t: 'hello', name: this.name, everCreative: this.everCreative });
       this.startHeartbeat();
     };
 
@@ -235,6 +260,19 @@ export class NetClient {
       }
       case 'hall.error': {
         this.callbacks.onHallError?.(msg.msg);
+        break;
+      }
+      case 'visit.incoming': {
+        this.callbacks.onVisitIncoming?.(msg.from);
+        break;
+      }
+      case 'visit.approved': {
+        this.hallPos = 0;
+        this.callbacks.onVisitApproved?.(msg.owner, msg.perm, msg.ticket);
+        break;
+      }
+      case 'visit.denied': {
+        this.callbacks.onVisitDenied?.(msg.reason);
         break;
       }
       default:
