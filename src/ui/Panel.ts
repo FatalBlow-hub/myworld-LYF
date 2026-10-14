@@ -4,6 +4,7 @@ import { ALL_ITEMS, BLOCKS, ROLLER_SKATES, SWAMP_FILL, WAISTBAG_SLOT, WATER_BUCK
 import { CraftMatch, matchCraft } from '../world/Recipes';
 import { Atlas } from '../render/Textures';
 import { Inventory, Slots, stackMaxFor } from '../player/Inventory';
+import { Controller } from '../player/Controller';
 import { SKATES, STACK_MAX, WAISTBAG } from '../config';
 import { createHeldEl, bindSlot, renderStack } from './slots';
 
@@ -246,6 +247,15 @@ export class Panel {
   }
 
   /** 4/6 移动选中框，到头绕回另一头 */
+  /** 面板开着时的键盘操作（9 / ESC 关门由 PanelStack 统一处理） */
+  handleKeys(controller: Controller, tryMagic: (s: { id: number; count: number } | null) => boolean): void {
+    if (controller.take('prevSlot')) this.moveSel(-1);
+    if (controller.take('nextSlot')) this.moveSel(1);
+    if (controller.take('split')) this.splitSel();
+    // 背包里也能用隐藏配方：白框停在 64 生肉上按 M 照样变铁粒
+    if (controller.take('door') && tryMagic(this.selStack())) this.refresh();
+  }
+
   moveSel(dir: number): void {
     const n = this.inv.storage.length + this.inv.hotbar.length;
     this.sel = (this.sel + dir + n) % n;
