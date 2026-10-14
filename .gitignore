@@ -1,0 +1,8 @@
+node_modules/
+dist/
+saves/
+saves-snapshot-*/
+存档快照/
+server/data.db*
+.playwright-mcp/
+.DS_Store

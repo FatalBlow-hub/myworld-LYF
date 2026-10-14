@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>方块世界</title>
+  <style>
+    :root {
+      --hud-text: #ffffff;
+      --hud-shadow: rgba(0, 0, 0, 0.6);
+      --menu-bg: rgba(20, 24, 32, 0.92);
+      --btn-bg: #4a7c3a;
+      --btn-bg-hover: #5c9a49;
+      --slot-border: rgba(255, 255, 255, 0.35);
+      --slot-active: #ffd54a;
+      --heart: #e53935;
+      --oxygen: #4fc3f7;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+    body { font-family: "PingFang SC", "Microsoft YaHei", monospace; touch-action: manipulation; }
+    canvas { display: block; }
+
+    .overlay {
+      position: fixed; inset: 0; display: flex;
+      flex-direction: column; align-items: center; justify-content: center;
+      background: var(--menu-bg); color: var(--hud-text); z-index: 10;
+    }
+    .overlay h1 { font-size: 48px; margin-bottom: 12px; letter-spacing: 6px; }
+    .overlay p { margin-bottom: 32px; opacity: 0.8; }
+    .overlay button {
+      font-size: 22px; padding: 14px 56px; margin: 8px; cursor: pointer;
+      color: var(--hud-text); background: var(--btn-bg);
+      border: 2px solid rgba(255,255,255,0.4); border-radius: 6px;
+    }
+    .overlay button:hover { background: var(--btn-bg-hover); }
+    .overlay .zombie-toggle { margin-top: 16px; font-size: 15px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .overlay .zombie-toggle input { width: 18px; height: 18px; cursor: pointer; }
+    .overlay .hint { margin-top: 28px; font-size: 14px; opacity: 0.6; line-height: 1.8; text-align: center; }
+
+    /* —— 登录/注册界面 —— */
+    .overlay input[type="text"], .overlay input[type="password"] {
+      font-size: 18px; padding: 10px 14px; margin: 6px; width: 260px;
+      color: var(--hud-text); background: rgba(255,255,255,0.1);
+      border: 2px solid rgba(255,255,255,0.4); border-radius: 6px;
+      font-family: inherit;
+    }
+    .overlay input::placeholder { color: rgba(255,255,255,0.4); }
+    .overlay .account-name { font-size: 20px; margin-bottom: 18px; opacity: 0.9; }
+    .auth-error { color: #ff8a80; font-size: 14px; min-height: 20px; margin-top: 2px; }
+    .auth-link { font-size: 13px; opacity: 0.55; margin-top: 16px; cursor: pointer; text-decoration: underline; }
+    .auth-link:hover { opacity: 0.8; }
+
+    #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; display: none; }
+    #crosshair {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      width: 18px; height: 18px;
+    }
+    #crosshair::before, #crosshair::after {
+      content: ""; position: absolute; background: var(--hud-text);
+      box-shadow: 0 0 3px var(--hud-shadow);
+    }
+    #crosshair::before { left: 8px; top: 0; width: 2px; height: 18px; }
+    #crosshair::after { left: 0; top: 8px; width: 18px; height: 2px; }
+
+    #stats {
+      position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      text-shadow: 1px 1px 2px var(--hud-shadow);
+    }
+    #hearts { font-size: 22px; color: var(--heart); letter-spacing: 2px; }
+    #oxygen { font-size: 18px; color: var(--oxygen); letter-spacing: 2px; }
+
+    #hotbar {
+      position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+      display: flex; gap: 6px;
+    }
+    .slot {
+      width: 52px; height: 52px; border: 2px solid var(--slot-border);
+      border-radius: 4px; background: rgba(0,0,0,0.45);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .slot.active { border-color: var(--slot-active); }
+    .slot { position: relative; width: 46px; height: 46px; }
+    .slot img.slot-icon { width: 30px; height: 30px; image-rendering: pixelated; }
+    .slot span { font-size: 9px; color: var(--hud-text); text-shadow: 1px 1px 1px var(--hud-shadow); }
+    .slot .count {
+      position: absolute; right: 2px; bottom: 0; font-size: 12px;
+      color: var(--hud-text); text-shadow: 1px 1px 2px var(--hud-shadow);
+    }
+
+    #minebar {
+      position: absolute; left: 50%; top: calc(50% + 20px); transform: translateX(-50%);
+      width: 84px; height: 7px; background: rgba(0,0,0,0.55);
+      border: 1px solid rgba(255,255,255,0.4); border-radius: 4px; display: none;
+    }
+    #minefill { height: 100%; background: var(--slot-active); border-radius: 3px; }
+
+    /* —— 背包面板（MC 灰窗口风格）—— */
+    .inv-overlay {
+      position: fixed; inset: 0; z-index: 10;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.45);
+    }
+    .inv-window {
+      background: #c6c6c6; border: 3px solid #555; border-radius: 6px;
+      padding: 14px; display: flex; flex-direction: column; gap: 10px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    }
+    .inv-top { display: flex; gap: 24px; align-items: flex-start; }
+    .inv-left { display: flex; gap: 8px; align-items: flex-start; }
+    .armor-col { display: flex; flex-direction: column; gap: 3px; }
+    .player-preview { background: #2e2e2e; border: 2px solid #555; image-rendering: pixelated; }
+    .craft-area { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+    .craft-grid { display: grid; grid-template-columns: repeat(2, 44px); gap: 3px; }
+    .craft-arrow { font-size: 26px; color: #444; }
+    .inv-sub { color: #333; font-size: 14px; margin-bottom: 4px; }
+    .inv-grid { display: grid; gap: 3px; }
+    .inv-grid.creative {
+      max-height: 280px; overflow-y: auto; padding-right: 6px; /* 物品太多时滚动，不然挤出屏幕 */
+    }
+    .inv-grid.storage { border-top: 2px solid #999; padding-top: 8px; }
+    .inv-grid.hotbar { border-top: 2px solid #999; padding-top: 8px; }
+    .slotbox {
+      width: 44px; height: 44px; position: relative; cursor: pointer;
+      background: #8b8b8b; border: 2px solid; border-color: #373737 #ffffff #ffffff #373737;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .slotbox:hover { background: #a5a5a5; }
+    .slotbox.sel { outline: 3px solid #fff; outline-offset: -3px; }
+    .slotbox.dye-swatch:hover { filter: brightness(1.2); }
+    .swatch-name { font-size: 15px; color: #fff; text-shadow: 1px 1px 2px #000, -1px -1px 2px #000; pointer-events: none; }
+    .slotbox img { width: 32px; height: 32px; image-rendering: pixelated; pointer-events: none; }
+    .slotbox .count {
+      position: absolute; right: 2px; bottom: 0; font-size: 13px; color: #fff;
+      text-shadow: 1px 1px 1px #000; pointer-events: none;
+    }
+    .slotbox.result { background: #9e9e9e; }
+    .held-item {
+      position: fixed; z-index: 60; pointer-events: none;
+      width: 36px; height: 36px;
+    }
+    .held-item img { width: 36px; height: 36px; image-rendering: pixelated; }
+    .held-item .count { font-size: 13px; color: #fff; text-shadow: 1px 1px 1px #000; }
+    .inv-hint { color: #555; font-size: 12px; text-align: center; }
+    .uncraft-badge {
+      position: absolute; left: 1px; top: 0; font-size: 14px; color: #ffe08a;
+      text-shadow: 1px 1px 1px #000; pointer-events: none; z-index: 2;
+    }
+    .furnace-mid { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 22px; }
+    .flame-bar {
+      width: 12px; height: 44px; background: #666; border: 1px solid #444;
+      display: flex; flex-direction: column; justify-content: flex-end;
+    }
+    .flame-bar > div { width: 100%; height: 0%; background: #ff8c42; }
+
+    /* —— DIY 手册：飘出来的白纸 + 制作方法收集册 —— */
+    .paper {
+      position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      width: 300px; min-height: 380px; padding: 28px 24px;
+      background: #f7f5ee; color: #1a1a1a;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.15);
+      cursor: pointer; z-index: 8;
+      display: flex; flex-direction: column; gap: 18px;
+    }
+    .paper::after { /* 中间一道折痕，像被折过的纸 */
+      content: ""; position: absolute; left: 0; right: 0; top: 50%;
+      border-top: 1px solid rgba(0,0,0,0.12);
+    }
+    .paper-head { font-size: 20px; font-weight: bold; text-align: center; }
+    .paper-body { font-size: 15px; line-height: 1.9; }
+    .paper-foot { margin-top: auto; font-size: 11px; color: #888; text-align: center; }
+    .book-window { width: 340px; }
+    .book-list {
+      max-height: 300px; overflow-y: auto;
+      background: #efefef; border: 2px solid #999; padding: 8px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .book-item {
+      background: #f7f5ee; border: 1px solid #ccc; padding: 8px 10px;
+      color: #1a1a1a; font-size: 13px; line-height: 1.6;
+    }
+    .book-empty { color: #666; font-size: 13px; text-align: center; padding: 20px 4px; }
+
+    #message {
+      position: absolute; left: 50%; top: 30%; transform: translateX(-50%);
+      font-size: 28px; color: var(--hud-text); text-shadow: 2px 2px 4px var(--hud-shadow);
+    }
+    #sleepfade {
+      position: fixed; inset: 0; display: none;
+      background: #000; opacity: 0; z-index: 9; pointer-events: none;
+    }
+    #paused {
+      position: absolute; inset: 0; display: none;
+      flex-direction: column; gap: 24px;
+      align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.5); color: var(--hud-text); font-size: 32px;
+    }
+    #paused button {
+      font-size: 18px; padding: 10px 28px; cursor: pointer; pointer-events: auto;
+      background: var(--btn-bg); color: var(--hud-text); border: none; border-radius: 6px;
+    }
+    #paused button:hover { background: var(--btn-bg-hover); }
+
+    /* —— 触屏控制层：盖在画面上、藏在面板下面（背包面板开着时不挡事） —— */
+    .touch-ui {
+      position: fixed; inset: 0; z-index: 6; pointer-events: none;
+      touch-action: none; user-select: none; -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tbtn {
+      pointer-events: auto; touch-action: none;
+      width: 56px; height: 56px; border-radius: 50%;
+      font-size: 20px; font-family: inherit; color: var(--hud-text);
+      background: rgba(20,24,32,0.55); border: 2px solid rgba(255,255,255,0.4);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .tbtn:active { background: rgba(92,154,73,0.75); }
+    .tbtn.big { width: 68px; height: 68px; font-size: 24px; }
+    .tbtn.sm { width: 44px; height: 44px; font-size: 15px; }
+    .tcol { position: absolute; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+    .tcol-act { right: 16px; bottom: 130px; }
+    .tcol-look { right: 100px; bottom: 130px; }
+    .trow { position: absolute; display: flex; gap: 10px; }
+    .trow-top { top: 12px; right: 12px; }
+    .trow-slots { left: 50%; bottom: 76px; transform: translateX(-50%); }
+    .stick {
+      position: absolute; left: 20px; bottom: 120px;
+      width: 128px; height: 128px; border-radius: 50%;
+      background: rgba(20,24,32,0.4); border: 2px solid rgba(255,255,255,0.35);
+      pointer-events: auto; touch-action: none;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .stick-knob {
+      width: 52px; height: 52px; border-radius: 50%;
+      background: rgba(255,255,255,0.35); border: 2px solid rgba(255,255,255,0.5);
+      pointer-events: none;
+    }
+    .rotate-tip { display: none; }
+    /* 竖屏拿手机时提醒横过来，游戏画面宽一些 */
+    @media (orientation: portrait) {
+      .rotate-tip {
+        display: block; position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+        font-size: 13px; color: var(--hud-text); opacity: 0.7;
+      }
+      .trow-slots { bottom: 150px; }
+      .stick { bottom: 190px; }
+      .tcol-act, .tcol-look { bottom: 200px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <div id="crosshair"></div>
+    <div id="stats">
+      <div id="oxygen"></div>
+      <div id="hearts"></div>
+    </div>
+    <div id="minebar"><div id="minefill"></div></div>
+    <div id="hotbar"></div>
+    <div id="message"></div>
+    <div id="paused">
+      <div>已暂停，按 ESC 继续</div>
+      <button id="quitbtn">回到主菜单（自动存档）· 按 0</button>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

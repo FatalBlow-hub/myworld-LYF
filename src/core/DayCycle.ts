@@ -1,0 +1,70 @@
+/** 昼夜 + 睡觉 — 一天 120 秒，第 80 秒天黑；天黑了对床按 M，黑屏一秒变早上 */
+
+import { DAY } from '../config';
+import { Renderer } from '../render/Renderer';
+
+export class DayCycle {
+  /** 今天是第几秒（0~120，80 以后是黑夜） */
+  time = 0;
+  /** 睡觉黑屏进度：-1 = 没睡；0~SLEEP_SECONDS 是黑屏动画 */
+  private sleepT = -1;
+  private sleepSwapped = false;
+  private el: HTMLDivElement;
+
+  /** onNightfall：刚天黑时喊一声（显示提示）；onWake：黑屏放完该起床了 */
+  constructor(private onNightfall: () => void, private onWake?: () => void) {
+    this.el = document.createElement('div');
+    this.el.id = 'sleepfade';
+    document.body.appendChild(this.el);
+  }
+
+  /** 睡觉中（黑屏动画在播，世界该暂停） */
+  get sleeping(): boolean {
+    return this.sleepT >= 0;
+  }
+
+  /** 现在有多亮：1 = 大白天，0 = 深夜；黄昏/黎明各渐变 RAMP 秒 */
+  daylight(): number {
+    const t = this.time;
+    const duskStart = DAY.NIGHT_FROM - DAY.RAMP;
+    const dawnStart = DAY.LENGTH - DAY.RAMP;
+    if (t < duskStart) return 1;
+    if (t < DAY.NIGHT_FROM) return 1 - (t - duskStart) / DAY.RAMP;
+    if (t < dawnStart) return 0;
+    return (t - dawnStart) / DAY.RAMP;
+  }
+
+  /** 对床按 M：天黑才睡得着；返回睡没睡成 */
+  trySleep(): boolean {
+    if (this.time < DAY.NIGHT_FROM) return false;
+    this.sleepT = 0;
+    this.sleepSwapped = false;
+    this.el.style.display = 'block';
+    this.el.style.opacity = '0';
+    return true;
+  }
+
+  /** 每帧：睡觉就放黑屏动画（中途拨到早上）；没睡就让时间走、天黑了喊一声 */
+  update(dt: number, renderer: Renderer): void {
+    if (this.sleepT >= 0) {
+      this.sleepT += dt;
+      const p = Math.min(1, this.sleepT / DAY.SLEEP_SECONDS);
+      this.el.style.opacity = String(Math.sin(p * Math.PI)); // 先黑下去再亮回来
+      if (p >= 0.5 && !this.sleepSwapped) {
+        this.sleepSwapped = true;
+        this.time = 0; // 一觉睡到早上
+      }
+      if (p >= 1) {
+        this.sleepT = -1;
+        this.el.style.display = 'none';
+        this.onWake?.(); // 起床：把玩家放回床边
+      }
+      renderer.setDaylight(this.daylight());
+      return;
+    }
+    const wasDay = this.time < DAY.NIGHT_FROM;
+    this.time = (this.time + dt) % DAY.LENGTH;
+    if (wasDay && this.time >= DAY.NIGHT_FROM) this.onNightfall();
+    renderer.setDaylight(this.daylight());
+  }
+}

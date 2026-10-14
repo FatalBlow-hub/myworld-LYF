@@ -1,0 +1,102 @@
+/** 掉落物 — 掉在地上转圈的小方块，玩家走近会被吸进背包 */
+
+import * as THREE from 'three';
+import { ANIMAL } from '../config';
+import { BLOCKS, BLOOD_MEAT, COBBLE_SHARD, COAL_FIRESTARTER, DIY_MANUAL, DYE_BLOOD, HYDROGEN_FIRESTARTER, MANG_FIRESTARTER, SOUL_FIRESTARTER, STAR_FIRESTARTER, STAR_SHARD } from '../world/Block';
+import { World } from '../world/World';
+import { PlayerBody } from '../player/Physics';
+
+const SIZE = 0.28;
+const PICKUP_DIST = 1.4;   // 多远开始被吸过去
+const COLLECT_DIST = 0.6;  // 多近算捡到
+const MAGNET_SPEED = 5;
+
+export class ItemDrop {
+  readonly mesh: THREE.Mesh;
+  x: number; y: number; z: number;
+  private vy = 3;
+  dead = false;
+  age = 0;
+  private spin = Math.random() * Math.PI * 2;
+
+  constructor(public itemId: number, public count: number, x: number, y: number, z: number) {
+    // 小方块 + 物品颜色
+    const c = BLOCKS[itemId]?.tex.side ? guessColor(itemId) : 0xffffff;
+    // 会发光的物品（星星碎片）：自发光材质，黑夜里也亮晶晶
+    const glow = BLOCKS[itemId]?.glow;
+    this.mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(SIZE, SIZE, SIZE),
+      new THREE.MeshLambertMaterial({ color: c, emissive: glow ? c : 0x000000 }),
+    );
+    this.x = x; this.y = y; this.z = z;
+    this.mesh.position.set(x, y + SIZE / 2, z);
+  }
+
+  /** 每帧：蹦一下落地、转圈、被玩家吸走。返回 true = 被捡了 */
+  update(dt: number, world: World, body: PlayerBody): boolean {
+    this.age += dt;
+    if (this.age > ANIMAL.DROP_AGE) { this.dead = true; return false; }
+    this.spin += dt * 3;
+
+    // 重力 + 落地（小盒子半径当碰撞）
+    const ny = this.y + this.vy * dt;
+    if (world.isSolidAt(Math.floor(this.x), Math.floor(ny), Math.floor(this.z))) {
+      this.vy = 0;
+    } else {
+      this.y = ny;
+      this.vy -= 20 * dt;
+    }
+
+    // 靠近玩家 → 飞过去被吃掉
+    const px = body.x, py = body.y + 0.8, pz = body.z;
+    const dist = Math.hypot(px - this.x, py - this.y, pz - this.z);
+    if (dist < PICKUP_DIST) {
+      const k = Math.min(1, MAGNET_SPEED * dt / Math.max(dist, 0.01));
+      this.x += (px - this.x) * k;
+      this.y += (py - this.y) * k;
+      this.z += (pz - this.z) * k;
+      if (dist < COLLECT_DIST) { this.dead = true; return true; }
+    }
+
+    this.mesh.position.set(this.x, this.y + SIZE / 2 + Math.sin(this.spin * 0.6) * 0.05, this.z);
+    this.mesh.rotation.y = this.spin;
+    return false;
+  }
+}
+
+/** 掉落物小方块的颜色：跟着物品贴图的主色走 */
+function guessColor(id: number): number {
+  const colors: Record<number, number> = {
+    100: 0xc94f4f, // 生肉
+    [DIY_MANUAL]: 0xf2efe4, // DIY手册 = 白纸色
+    111: 0xcfcfcf, 112: 0xf0c030, 113: 0x4fc3dd, // 铁粒 金粒 蓝钻石碎
+    114: 0xcfcfcf, 115: 0xf0c030, 116: 0x4fc3dd, // 铁锭 金锭 蓝钻石
+    [BLOOD_MEAT]: 0x5a1510, [DYE_BLOOD]: 0x5a1510, // 血尸掉的：暗血红
+    [STAR_SHARD]: 0xbfe8ff, // 星星碎片：青白发光色
+    125: 0x6f9f3a, 126: 0x9fdcf8, // 腌菜桶绿色、氢气瓶浅蓝
+    74: 0x8a9098, 75: 0x7d848e,   // 化学拆解器、氢气引擎：铁壳色
+    127: 0x1c1c1e, 128: 0x26262a, 129: 0x3e6b2e, // 橡胶、轮子黑色系，坦克绿
+    130: 0x2e2e33, // 炮弹：黑铁色
+    136: 0x8a8f96, // 挑战房：石头灰
+    139: 0xe08a2e, // 胡萝卜：橙色
+    144: 0xe8e8e8, // 白羽毛
+    145: 0x9a9a9a, // 灰羽毛
+    146: 0x4ea83e, // 绿羽毛
+    147: 0x4a80b8, // 蓝羽毛
+    148: 0xe0cc3a, // 黄羽毛
+    149: 0x2a2a2a, // 黑羽毛
+    169: 0x3a3a3a, // 煤块
+    170: 0x3a3a3a, // 煤条
+    171: 0x2a2a2a, // 煤炭
+    172: 0x1c1c1c, // 煤粉
+    173: 0xf0dc78, // 芒星碎片：黄白
+    174: 0xf5e9a8, // 芒能灯：淡黄
+    175: 0xbfe8ff, // 星能灯：青白
+    176: 0x6fdc6f, // 氢能灯：绿
+    177: 0xb03a2e, // 轮滑鞋：红色
+    [COBBLE_SHARD]: 0x8d8d8d, // 圆石碎
+    [COAL_FIRESTARTER]: 0x303034, [MANG_FIRESTARTER]: 0xd5bd65,
+    [STAR_FIRESTARTER]: 0x8c8cf0, [SOUL_FIRESTARTER]: 0x5989e8, [HYDROGEN_FIRESTARTER]: 0x5fc4d8,
+  };
+  return colors[id] ?? 0xcccccc;
+}
