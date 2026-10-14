@@ -8,7 +8,7 @@ import { AIR, WATER } from '../world/Block';
 import { World } from '../world/World';
 import { heightAt } from '../world/TerrainGen';
 import { collidesAABB, stepWalk } from '../player/Physics';
-import { rayHitBox } from './Animal';
+import { rayHitBox } from './hitbox';
 import { TimedEffects } from '../player/TimedEffects';
 
 const W = 0.7;  // 人形身体宽
@@ -19,6 +19,15 @@ const RAT_H = 0.4;
 /** 五种僵尸：normal 白天也刷；blood/star 只有黑夜出没天亮就消失；
  *  corrupt 黑夜尾巴上出现但出现了就不走；rat 是腐败人吐的小老鼠 */
 export type ZombieKind = 'normal' | 'blood' | 'star' | 'corrupt' | 'rat';
+
+/** 每种僵尸的中文名（提示文案用，别在业务里写三元链） */
+export const ZOMBIE_NAMES: Record<ZombieKind, string> = {
+  normal: '僵尸',
+  blood: '血尸',
+  star: '星空尸',
+  corrupt: '腐败人',
+  rat: '腐败老鼠',
+};
 
 // 僵尸配色：绿皮 + 蓝裤子 + 青上衣 + 红眼睛
 const NORMAL_SKIN = { skin: 0x54a35a, shirt: 0x3f8e8e, pants: 0x2e4a8a, eye: 0xa03030 };

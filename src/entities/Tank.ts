@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { TANK } from '../config';
 import { AIR, isSolid } from '../world/Block';
 import { World } from '../world/World';
-import { rayHitBox } from './Animal';
+import { rayHitBox } from './hitbox';
 import type { Mobs } from './Mobs';
 
 const W = 1.7; // 坦克宽（撞墙上车前指着它的判定盒）

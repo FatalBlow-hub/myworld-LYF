@@ -7,6 +7,7 @@ import { COLOR_CSS, DIRT, FEATHER_BLACK, FEATHER_BLUE, FEATHER_GRAY, FEATHER_GRE
 import { World } from '../world/World';
 import { heightAt } from '../world/TerrainGen';
 import { collidesAABB, stepWalk } from '../player/Physics';
+import { rayHitBox } from './hitbox';
 
 export type AnimalKind = 'cow' | 'pig' | 'sheep' | 'bird' | 'budgie' | 'crow';
 
@@ -287,41 +288,6 @@ export class Animal {
     box(0.06, 0.3, 0.06, -0.08, 0.15, 0, look.beak);         // 左腿
     box(0.06, 0.3, 0.06, 0.08, 0.15, 0, look.beak);          // 右腿
   }
-}
-
-/** 射线打盒子：从一堆活物里找最近被打中的（动物和僵尸共用） */
-export function rayHitBox<T extends { x: number; y: number; z: number; w?: number; h?: number }>(
-  list: T[],
-  w: number, h: number,
-  ox: number, oy: number, oz: number,
-  dx: number, dy: number, dz: number,
-  maxDist: number,
-): { target: T; dist: number } | null {
-  let best: { target: T; dist: number } | null = null;
-  for (const a of list) {
-    // 目标自带宽高就用它自己的（老鼠比人小），不然用统一的
-    const ew = a.w ?? w;
-    const eh = a.h ?? h;
-    // AABB 与射线的 slab 相交测试
-    const min = [a.x - ew / 2, a.y, a.z - ew / 2];
-    const max = [a.x + ew / 2, a.y + eh, a.z + ew / 2];
-    const o = [ox, oy, oz], d = [dx, dy, dz];
-    let t0 = 0, t1 = maxDist, ok = true;
-    for (let i = 0; i < 3; i++) {
-      if (Math.abs(d[i]) < 1e-9) {
-        if (o[i] < min[i] || o[i] > max[i]) { ok = false; break; }
-      } else {
-        let ta = (min[i] - o[i]) / d[i];
-        let tb = (max[i] - o[i]) / d[i];
-        if (ta > tb) [ta, tb] = [tb, ta];
-        t0 = Math.max(t0, ta);
-        t1 = Math.min(t1, tb);
-        if (t0 > t1) { ok = false; break; }
-      }
-    }
-    if (ok && (!best || t0 < best.dist)) best = { target: a, dist: t0 };
-  }
-  return best;
 }
 
 /** 射线打动物：返回最近被打中的动物和距离 */
