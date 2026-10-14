@@ -1,5 +1,6 @@
-/** 联机客户端（Client） — 管理 WebSocket 长连接、JSON 收发、心跳检测、指数退避重连与在线名单缓存 */
+/** 联机客户端（Client） — 管理 WebSocket 长连接、JSON 收发、心跳检测、指数退避重连、在线名单与大厅排队收发 */
 
+import type { IslandType } from '../config';
 import { C2SMsg, NetStatus, S2CMsg } from './Protocol';
 
 const PING_INTERVAL_MS = 10_000;   // 客户端每 10 秒发一次 ping
@@ -13,6 +14,14 @@ export interface NetClientCallbacks {
   onStatusChange?: (status: NetStatus, prev: NetStatus) => void;
   /** 在线名单或上下线事件变化时触发 */
   onOnlineChange?: (online: string[], event?: { type: 'welcome' | 'online' | 'offline'; name: string }) => void;
+  /** 大厅排队名单或我的排队位置变化时触发 */
+  onHallQueue?: (queue: string[], pos: number) => void;
+  /** 轮到我当队首时触发 */
+  onHallHead?: () => void;
+  /** 随机匹配成功、分配到副本岛时触发 */
+  onHallMatched?: (islandId: number, islandType: IslandType) => void;
+  /** 大厅报错时触发 */
+  onHallError?: (msg: string) => void;
   /** 收到任意服务端消息时触发 */
   onMessage?: (msg: S2CMsg) => void;
 }
@@ -22,6 +31,8 @@ export class NetClient {
   private status: NetStatus = 'disconnected';
   private name: string;
   private online: string[] = [];
+  private hallQueue: string[] = [];
+  private hallPos = 0;
   private pingTimer: number | null = null;
   private watchdogTimer: number | null = null;
   private reconnectTimer: number | null = null;
@@ -47,6 +58,34 @@ export class NetClient {
   /** 当前在线玩家列表（只读副本） */
   getOnlineList(): string[] {
     return [...this.online];
+  }
+
+  /** 当前大厅排队列表与我的位置（pos=0 表示不在队列中，pos=1 表示队首） */
+  getHallQueueState(): { queue: string[]; pos: number } {
+    return { queue: [...this.hallQueue], pos: this.hallPos };
+  }
+
+  /** 大厅：请求加入排队（重复调用幂等） */
+  joinHallQueue(): boolean {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return false;
+    this.send({ t: 'hall.join' });
+    return true;
+  }
+
+  /** 大厅：请求离开排队 */
+  leaveHallQueue(): void {
+    this.hallPos = 0;
+    this.send({ t: 'hall.leave' });
+  }
+
+  /** 大厅：请求确认自己是否队首 */
+  readyHallQueue(): void {
+    this.send({ t: 'hall.ready' });
+  }
+
+  /** 大厅：队首发起随机陌生岛匹配 */
+  requestRandomIsland(): void {
+    this.send({ t: 'hall.random' });
   }
 
   /** 更新身份名；若已连接则重新发 hello 同步给服务端 */
@@ -177,6 +216,25 @@ export class NetClient {
         }
         console.log(`[net] 玩家下线: ${msg.name}，当前在线:`, this.online);
         this.callbacks.onOnlineChange?.(this.getOnlineList(), { type: 'offline', name: msg.name });
+        break;
+      }
+      case 'hall.queue': {
+        this.hallQueue = Array.isArray(msg.queue) ? [...msg.queue] : [];
+        this.hallPos = typeof msg.pos === 'number' ? msg.pos : 0;
+        this.callbacks.onHallQueue?.([...this.hallQueue], this.hallPos);
+        break;
+      }
+      case 'hall.head': {
+        this.callbacks.onHallHead?.();
+        break;
+      }
+      case 'hall.matched': {
+        this.hallPos = 0;
+        this.callbacks.onHallMatched?.(msg.islandId, msg.islandType);
+        break;
+      }
+      case 'hall.error': {
+        this.callbacks.onHallError?.(msg.msg);
         break;
       }
       default:

@@ -303,6 +303,8 @@ export const HALL = {
   TABLE_X: [7, 8, 9] as const,      // 桌子横向占 3 格（底层左右木板中间空，二层铺满）
   TABLE_Z: 8,                       // 桌子所在 Z 行（平台中央）
   SPAWN: { x: 8.5, y: 23, z: 8.5 }, // 大厅出生点（平台中央，桌面高度 22 + 1）
+  QUEUE_MAX: 32,                    // 大厅排队人数上限
+  RANDOM_IRON_COST: 2,              // 随机陌生岛消耗铁锭数量
 };
 
 export const SAVE = {

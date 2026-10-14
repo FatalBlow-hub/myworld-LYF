@@ -8,9 +8,19 @@ import { swampAt } from './Swamp';
 const sampleTerrain = (x: number, z: number) => ({ height: heightAt(x, z), biome: biomeAt(x, z) });
 const liquidAt = (x: number, z: number) => swampAt(x, z, heightAt(x, z), biomeAt(x, z), sampleTerrain);
 
+/** 当前地形种子与是否只生成草地（副本岛按 islandId 设种子并开启纯草地，无沙漠/无雪地；默认保持本岛原样） */
+let activeSeed = WORLD_SEED;
+let grassOnlyMode = false;
+
+/** 切换地形生成参数：不传或传默认参数即恢复玩家自己的岛配置 */
+export function setTerrainConfig(seed = WORLD_SEED, grassOnly = false): void {
+  activeSeed = seed;
+  grassOnlyMode = grassOnly;
+}
+
 /** 确定性伪随机：同一个 (x,z) 永远算出同一个 0~1 的数 */
 function hash(x: number, z: number): number {
-  let h = (x * 374761393 + z * 668265263 + WORLD_SEED * 974634) | 0;
+  let h = (x * 374761393 + z * 668265263 + activeSeed * 974634) | 0;
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   h ^= h >>> 16;
   return (h >>> 0) / 4294967296;
@@ -74,16 +84,19 @@ export function randomGrassSpawn(): { x: number; z: number } {
   return findGrassSpawn(8.5, 8.5); // 实在找不到就回老家附近
 }
 
-/** 掷一次"温度骰子"：噪声变化很慢，所以群系是上百格宽的一大块 */
+/** 掷一次"温度骰子"：噪声变化很慢，所以群系是上百格宽的一大块（副本岛开启 grassOnly 时只返回 grass，无沙漠/无雪地） */
 export function biomeAt(wx: number, wz: number): Biome {
+  if (grassOnlyMode) return 'grass';
   const t = smoothNoise(wx * 0.008 + 777, wz * 0.008 - 333);
   if (t < 1 / 3) return 'snow';
   if (t > 2 / 3) return 'desert';
   return 'grass';
 }
 
-/** 生成一个区块的地形：石头打底、按群系盖面、低处灌水、随缘种树/仙人掌 */
-export function generateChunk(chunk: Chunk): void {
+/** 生成一个区块的地形：石头打底、按群系盖面、低处灌水、随缘种树/仙人掌（可传 grassOnly 强制无沙漠/雪地） */
+export function generateChunk(chunk: Chunk, opts?: { grassOnly?: boolean }): void {
+  const prevGrassOnly = grassOnlyMode;
+  if (opts?.grassOnly !== undefined) grassOnlyMode = opts.grassOnly;
   const baseX = chunk.cx * CHUNK.SIZE;
   const baseZ = chunk.cz * CHUNK.SIZE;
 
@@ -173,6 +186,7 @@ export function generateChunk(chunk: Chunk): void {
       }
     }
   }
+  grassOnlyMode = prevGrassOnly;
 }
 
 /** 一棵树 = 4 格木干 + 一坨树叶 */

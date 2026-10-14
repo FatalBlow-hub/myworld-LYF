@@ -1,4 +1,4 @@
-/** WebSocket 联机服务 — 挂在现有 HTTP server 的 upgrade 事件上，管连接、心跳超时清理与在线名单 */
+/** WebSocket 联机服务 — 挂在现有 HTTP server 的 upgrade 事件上，管连接、心跳超时清理、在线名单与大厅排队匹配 */
 
 import { WebSocketServer } from 'ws';
 
@@ -6,6 +6,8 @@ const HEARTBEAT_CHECK_MS = 10_000; // 每 10 秒巡检一次超时连接
 const HEARTBEAT_TIMEOUT_MS = 30_000; // 超过 30 秒没收到任何消息判定掉线
 const MAX_MSG_BYTES = 16 * 1024; // 单条消息上限 16KB
 const NAME_MAX_LEN = 24;
+const QUEUE_MAX = 32; // 大厅队列人数上限
+const ISLAND_TYPES = ['apple', 'peach', 'orange'];
 
 /**
  * 把 WebSocket 服务挂到现有的 HTTP server 上（路径 /ws，不新开端口）
@@ -20,6 +22,34 @@ export function attachWs(server, resolveUser) {
    * @type {Map<import('ws').WebSocket, { name: string | null, cookieName: string | null, lastSeen: number }>}
    */
   const clients = new Map();
+
+  /**
+   * 大厅排队连接队列（按先后顺序排列，保证不重复）
+   * @type {import('ws').WebSocket[]}
+   */
+  const hallQueue = [];
+
+  /** 已分配过的副本岛 ID 集合（随机不重复） */
+  const usedIslandIds = new Set();
+
+  /** 随机分配一个不重复的副本岛正整数 ID（用于客户端地形种子偏移） */
+  function allocIslandId() {
+    for (let i = 0; i < 1000; i++) {
+      const id = 100000 + Math.floor(Math.random() * 900000);
+      if (!usedIslandIds.has(id)) {
+        usedIslandIds.add(id);
+        return id;
+      }
+    }
+    const fallback = Date.now() % 1000000000;
+    usedIslandIds.add(fallback);
+    return fallback;
+  }
+
+  /** 随机选一种岛屿类型（苹果/桃子/橙子 各 1/3 概率） */
+  function pickIslandType() {
+    return ISLAND_TYPES[Math.floor(Math.random() * ISLAND_TYPES.length)];
+  }
 
   /** 汇总当前所有已完成 hello 握手的去重在线用户名单 */
   function onlineList() {
@@ -55,10 +85,43 @@ export function attachWs(server, resolveUser) {
     }
   }
 
-  /** 清理断开或超时的连接，移出在线名单并广播 offline */
+  /** 当前队列名字列表 */
+  function queueNames() {
+    return hallQueue.map((w) => clients.get(w)?.name ?? '?');
+  }
+
+  /**
+   * 广播当前大厅队列给所有已握手玩家（每人收到自己在队列中的 1-based 位置，未入队为 0）
+   * 若队首发生变化，自动向新队首发送 hall.head
+   */
+  function broadcastQueue(prevHead = null) {
+    const names = queueNames();
+    for (const [ws, info] of clients.entries()) {
+      if (!info.name || ws.readyState !== ws.OPEN) continue;
+      const idx = hallQueue.indexOf(ws);
+      sendMsg(ws, { t: 'hall.queue', queue: names, pos: idx >= 0 ? idx + 1 : 0 });
+    }
+    const newHead = hallQueue[0] ?? null;
+    if (newHead && newHead !== prevHead) {
+      sendMsg(newHead, { t: 'hall.head' });
+    }
+  }
+
+  /** 从大厅队列移除某个连接；若队列有变化则广播并通知新队首 */
+  function removeFromQueue(ws) {
+    const idx = hallQueue.indexOf(ws);
+    if (idx < 0) return false;
+    const prevHead = hallQueue[0];
+    hallQueue.splice(idx, 1);
+    broadcastQueue(prevHead);
+    return true;
+  }
+
+  /** 清理断开或超时的连接，移出队列与在线名单并广播 offline */
   function cleanup(ws, reason = 'disconnect') {
     const info = clients.get(ws);
     if (!info) return;
+    removeFromQueue(ws);
     clients.delete(ws);
     const { name } = info;
     if (name) {
@@ -111,15 +174,77 @@ export function attachWs(server, resolveUser) {
 
       if (msg.t === 'hello') {
         const rawName = typeof msg.name === 'string' ? msg.name.trim().slice(0, NAME_MAX_LEN) : '';
-        const finalName = info.cookieName || rawName || `guest-${Math.floor(1000 + Math.random() * 9000)}`;
+        let baseName = info.cookieName || rawName || `guest-${Math.floor(1000 + Math.random() * 9000)}`;
+        // 若同名已被其他活跃连接占用（如双标签页同账号），追加序号区分，方便双标签页同时排队
+        let finalName = baseName;
+        let suffix = 2;
+        while (Array.from(clients.entries()).some(([otherWs, otherInfo]) => otherWs !== ws && otherInfo.name === finalName)) {
+          finalName = `${baseName}#${suffix++}`;
+        }
         const wasOnline = isNameOnline(finalName);
         info.name = finalName;
         const list = onlineList();
         console.log(`[ws] 玩家上线: ${finalName}，当前在线: ${list.length}`);
         sendMsg(ws, { t: 'welcome', name: finalName, online: list });
+        const idx = hallQueue.indexOf(ws);
+        sendMsg(ws, { t: 'hall.queue', queue: queueNames(), pos: idx >= 0 ? idx + 1 : 0 });
         if (!wasOnline) {
           broadcast({ t: 'online', name: finalName, online: list }, ws);
         }
+        return;
+      }
+
+      // 以下命令要求已完成 hello 握手
+      if (!info.name) return;
+
+      if (msg.t === 'hall.join') {
+        const existingIdx = hallQueue.indexOf(ws);
+        if (existingIdx >= 0) {
+          // 重复 join 幂等：回传当前队列状态，若已在队首则补发 hall.head
+          sendMsg(ws, { t: 'hall.queue', queue: queueNames(), pos: existingIdx + 1 });
+          if (existingIdx === 0) sendMsg(ws, { t: 'hall.head' });
+          return;
+        }
+        if (hallQueue.length >= QUEUE_MAX) {
+          sendMsg(ws, { t: 'hall.error', msg: '队列已满，请稍后再试' });
+          return;
+        }
+        const prevHead = hallQueue[0] ?? null;
+        hallQueue.push(ws);
+        console.log(`[ws] ${info.name} 加入大厅队列 (第 ${hallQueue.length} 位)`);
+        broadcastQueue(prevHead);
+        return;
+      }
+
+      if (msg.t === 'hall.leave') {
+        if (removeFromQueue(ws)) {
+          console.log(`[ws] ${info.name} 离开大厅队列，剩余 ${hallQueue.length} 人`);
+        }
+        return;
+      }
+
+      if (msg.t === 'hall.ready') {
+        if (hallQueue[0] === ws) {
+          sendMsg(ws, { t: 'hall.head' });
+        } else {
+          sendMsg(ws, { t: 'hall.error', msg: '你不在队首，请等待排队' });
+        }
+        return;
+      }
+
+      if (msg.t === 'hall.random') {
+        if (hallQueue[0] !== ws) {
+          sendMsg(ws, { t: 'hall.error', msg: '只有队首可以发起随机匹配' });
+          return;
+        }
+        const prevHead = hallQueue[0];
+        hallQueue.shift();
+        const islandId = allocIslandId();
+        const islandType = pickIslandType();
+        console.log(`[ws] ${info.name} 随机匹配成功 -> 岛 #${islandId} (${islandType})`);
+        sendMsg(ws, { t: 'hall.matched', islandId, islandType });
+        broadcastQueue(prevHead);
+        return;
       }
     });
 
