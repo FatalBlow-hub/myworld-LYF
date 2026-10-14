@@ -257,6 +257,7 @@ export const KEYS = {
   respawn: ['Digit3', 'Numpad3'], // 回城：瞬移回重生点（不掉血不死）
   book: ['Digit7', 'Numpad7'], // 打开制作方法收集册（DIY 手册学过的方法都在这）
   quit: ['Digit0', 'Numpad0'], // 暂停时按它退出账号（存档回菜单）
+  hall: ['KeyH'], // 在自己的岛与大厅之间来回切换
 } as const;
 
 export const MANUAL = {
@@ -293,6 +294,15 @@ export const ISLAND_TYPES: Record<IslandType, { id: IslandType; cn: string; frui
 
 export const ISLAND = {
   LEAF_FRUIT_CHANCE: 0.01,  // 挖掉本岛树叶掉专属水果的概率（1%）
+};
+
+/** 大厅场景：固定 16×16 木板平台 + 中间双层木桌 + 四周栅栏边界 */
+export const HALL = {
+  SIZE: 16,                         // 平台边长（1 个区块 16×16）
+  FLOOR_Y: 20,                      // 平台木板层高度
+  TABLE_X: [7, 8, 9] as const,      // 桌子横向占 3 格（底层左右木板中间空，二层铺满）
+  TABLE_Z: 8,                       // 桌子所在 Z 行（平台中央）
+  SPAWN: { x: 8.5, y: 23, z: 8.5 }, // 大厅出生点（平台中央，桌面高度 22 + 1）
 };
 
 export const SAVE = {

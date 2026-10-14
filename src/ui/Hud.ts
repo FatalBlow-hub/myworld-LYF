@@ -142,6 +142,11 @@ export class Hud {
     this.showMessage(`你来到了${ISLAND_TYPES[islandType].cn}！`);
   }
 
+  /** 进出大厅场景提示 */
+  showHallSwitch(inHall: boolean, islandType: IslandType): void {
+    this.showMessage(inHall ? '来到大厅' : `回到自己的岛（${ISLAND_TYPES[islandType].cn}）`);
+  }
+
   setPaused(paused: boolean): void {
     this.pausedEl.style.display = paused ? 'flex' : 'none';
   }

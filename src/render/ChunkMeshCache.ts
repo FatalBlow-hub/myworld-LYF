@@ -61,4 +61,27 @@ export class ChunkMeshCache {
       world.dirtyChunks.delete(key);
     }
   }
+
+  /** 清空所有区块网格：几何体与材质一并释放并从场景移除 */
+  clear(): void {
+    for (const old of this.meshes.values()) {
+      old.opaque?.geometry.dispose();
+      old.water?.geometry.dispose();
+      old.glow?.geometry.dispose();
+      if (old.opaque) this.scene.remove(old.opaque);
+      if (old.water) this.scene.remove(old.water);
+      if (old.glow) this.scene.remove(old.glow);
+    }
+    this.meshes.clear();
+    this.opaqueMat.dispose();
+    this.waterMat.dispose();
+    this.glowMat.dispose();
+    this.opaqueMat = new THREE.MeshLambertMaterial({ map: this.atlas.texture, alphaTest: 0.5 });
+    this.waterMat = new THREE.MeshLambertMaterial({
+      map: this.atlas.texture,
+      transparent: true,
+      depthWrite: false,
+    });
+    this.glowMat = new THREE.MeshBasicMaterial({ map: this.atlas.texture, alphaTest: 0.5 });
+  }
 }

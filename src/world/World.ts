@@ -26,6 +26,23 @@ export class World {
   readonly dirtyChunks = new Set<string>();
   /** 悬空的水：下面是空气，排队等着往下流（key = "x,y,z"） */
   private wetQueue = new Set<string>();
+  /** 是否自动用噪声生成新区块地形（大厅等固定场景关闭） */
+  terrainGen = true;
+
+  /** 清空重置整个世界：区块、朝向表、箱子、熔炉、脏区块、流水队列全清 */
+  clear(): void {
+    this.chunks.clear();
+    this.meta.clear();
+    this.chests.clear();
+    this.furnaces.clear();
+    this.dirtyChunks.clear();
+    this.wetQueue.clear();
+    this.terrainGen = true;
+  }
+
+  reset(): void {
+    this.clear();
+  }
 
   static key(cx: number, cz: number): string {
     return `${cx},${cz}`;
@@ -45,10 +62,14 @@ export class World {
     let chunk = this.chunks.get(key);
     if (!chunk) {
       chunk = new Chunk(cx, cz);
-      generateChunk(chunk);
+      if (this.terrainGen) {
+        generateChunk(chunk);
+      }
       this.chunks.set(key, chunk);
       this.dirtyChunks.add(key);
-      this.seedWater(chunk); // 刚生成的区块：悬空的水登记进流水队列
+      if (this.terrainGen) {
+        this.seedWater(chunk); // 刚生成的区块：悬空的水登记进流水队列
+      }
     }
     return chunk;
   }
@@ -69,7 +90,7 @@ export class World {
   }
 
   getBlock(wx: number, wy: number, wz: number): number {
-    if (wy < 0) return STONE;        // 地底基岩，掉不出去
+    if (wy < 0) return this.terrainGen ? STONE : AIR; // 岛底基岩；大厅下方是虚空
     if (wy >= CHUNK.HEIGHT) return AIR;
     const cx = Math.floor(wx / CHUNK.SIZE);
     const cz = Math.floor(wz / CHUNK.SIZE);

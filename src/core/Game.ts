@@ -1,8 +1,9 @@
 /** 游戏主循环 — 把所有模块装配起来，每帧按固定顺序驱动它们 */
 
 import * as THREE from 'three';
-import { CHUNK, DAY, ISLAND_TYPES, IslandType, PLAYER, SAVE, VIEW_DISTANCE, VOID_Y } from '../config';
+import { CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, PLAYER, SAVE, VIEW_DISTANCE, VOID_Y } from '../config';
 import { World } from '../world/World';
+import { buildHall } from '../world/HallMap';
 import { heightAt, randomGrassSpawn } from '../world/TerrainGen';
 import { createAtlas, Atlas } from '../render/Textures';
 import { ChunkMeshCache } from '../render/ChunkMeshCache';
@@ -26,7 +27,7 @@ import { ContainerPanel } from '../ui/Container';
 import { DyePanel } from '../ui/DyePanel';
 import { RecipeBook } from '../ui/RecipeBook';
 import { PanelStack } from '../ui/PanelStack';
-import { SaveData, applySave, buildSave, randomIslandType, writeSave } from './Save';
+import { SaveData, applySave, buildSave, randomIslandType, readSave, writeSave } from './Save';
 import { DayCycle } from './DayCycle';
 import { PlayerActions } from './PlayerActions';
 import { Pickup } from './Pickup';
@@ -64,6 +65,8 @@ export class Game {
   private lastTime = 0;
   private saveSlot = 0; // 当前玩的是几号账号存档（1~3）
   private islandType: IslandType = 'apple'; // 本存档的专属岛屿类型
+  private inHall = false; // 当前是否在大厅场景
+  private islandSave: SaveData | null = null; // 进大厅前缓存的本岛存档兜底
   private playerActions: PlayerActions | null = null; // 挖/放/用（begin 装配）
   private pickup: Pickup | null = null;               // 掉落物拾取（begin 装配）
   private survival: Survival | null = null;           // 吃喝/快捷栏/重生（begin 装配）
@@ -110,15 +113,16 @@ export class Game {
       () => this.book.hasMore(), // 制作方法学全了 → 动物不再掉手册
     );
     this.vehicles = new Vehicles(this.renderer.scene, this.mobs);
-    this.challenge = new Challenge(this.renderer.scene, this.mobs, () => {
-      const text = this.book.unlockTask(DIY_GOLD_PICKAXE);
-      if (text) {
-        this.book.showPaper(text, true);
-        this.hud?.showMessage('挑战通关！获得金稿子 DIY 手册');
-      }
-    });
+    this.challenge = this.createChallenge();
     this.potions = new Potions(this.renderer.scene, this.mobs, (msg) => this.hud!.showMessage(msg, 1.5));
     this.fires = new FireSystem(this.renderer.scene);
+  }
+
+  private createChallenge(): Challenge {
+    return new Challenge(this.renderer.scene, this.mobs, () => {
+      const text = this.book.unlockTask(DIY_GOLD_PICKAXE);
+      if (text) { this.book.showPaper(text, true); this.hud?.showMessage('挑战通关！获得金稿子 DIY 手册'); }
+    });
   }
 
   async start(): Promise<void> {
@@ -166,36 +170,20 @@ export class Game {
     this.dyePanel = new DyePanel(this.inventory, (t) => this.hud!.showMessage(t));
     // 面板登记进管理器：注册顺序 = 接管画面的优先级（睡觉黑屏排最后，它关不掉）
     this.panels.register({
-      name: 'inventory',
-      isOpen: () => this.panel!.visible,
-      close: () => this.panel!.close(),
+      name: 'inventory', isOpen: () => this.panel!.visible, close: () => this.panel!.close(),
       keys: (c) => this.panel!.handleKeys(c, (s) => this.playerActions!.meatMagic(s)),
     });
     this.panels.register({
-      name: 'container',
-      isOpen: () => this.container!.visible,
-      close: () => this.container!.close(),
+      name: 'container', isOpen: () => this.container!.visible, close: () => this.container!.close(),
       closeKeys: ['door'], // 对着箱子再按 M 也算关门
-      update: (dt) => {
-        this.world.updateFurnaces(dt); // 熔炉继续烧
-        this.container!.refresh();     // 火焰进度条要走
-      },
+      update: (dt) => { this.world.updateFurnaces(dt); this.container!.refresh(); },
+    });
+    this.panels.register({ name: 'dye', isOpen: () => this.dyePanel!.visible, close: () => this.dyePanel!.close() });
+    this.panels.register({
+      name: 'book', isOpen: () => this.book.visible, close: () => this.book.close(), closeKeys: ['book'],
     });
     this.panels.register({
-      name: 'dye',
-      isOpen: () => this.dyePanel!.visible,
-      close: () => this.dyePanel!.close(),
-    });
-    this.panels.register({
-      name: 'book',
-      isOpen: () => this.book.visible,
-      close: () => this.book.close(),
-      closeKeys: ['book'],
-    });
-    this.panels.register({
-      name: 'sleep',
-      isOpen: () => this.day.sleeping,
-      close: () => {}, // 睡觉黑屏只能等动画放完
+      name: 'sleep', isOpen: () => this.day.sleeping, close: () => {},
       update: (dt) => this.day.update(dt, this.renderer),
     });
     const setSpawn = (p: { x: number; y: number; z: number }) => { this.spawn = p; };
@@ -221,16 +209,7 @@ export class Game {
     });
     this.combat = new MobCombat(this.controller, this.inventory, () => this.slot, this.hud, this.mobs);
     if (save) {
-      // 读档：出生点/背包/血量/世界改动/动物/掉落物全部还原
-      const r = applySave(save, {
-        inv: this.inventory, health: this.health, hunger: this.hunger, world: this.world,
-        scene: this.renderer.scene, animals: this.mobs.animals, zombies: this.mobs.zombies, drops: this.drops,
-        tanks: this.vehicles!.tanks, challenge: this.challenge,
-      });
-      this.spawn = r.spawn; this.slot = r.slot; this.islandType = r.islandType;
-      this.mobs.zombieSpawn = r.zombieSpawn;
-      this.book.importLearned(r.learned);
-      this.book.importGoldenState(r.golden?.learned, r.golden?.tasks, r.golden?.waterUses);
+      const r = this.restoreSaveState(save);
       this.paused = r.paused; this.day.time = r.dayTime;
     } else {
       // 新档：随机找一块不靠海的草地出生（沙漠/雪地动物不生成，也不好开局）
@@ -247,29 +226,41 @@ export class Game {
     // 暂停界面上的「退出账号」按钮：存档后刷新页面回到选账号菜单
     document.getElementById('quitbtn')!.onclick = () => this.quitToMenu();
     this.body = createBody(this.spawn.x, this.spawn.y, this.spawn.z);
-    if (save) {
-      const b = save.body;
-      this.body.x = b.x; this.body.y = b.y; this.body.z = b.z;
-      this.body.yaw = b.yaw; this.body.pitch = b.pitch;
-      this.body.fellFrom = b.y; // 别把读档当成摔下来
-      this.body.speedBoostT = b.boostT ?? 0; this.body.speedBoostMult = b.boostMult ?? 1;
-    }
+    if (save) this.restoreBodyFromSave(save);
     this.body.flying = this.inventory.infinite; // 创造模式=会飞：空格升 Shift 降
     this.streamChunks(Infinity); // 出生点附近一次性全生成
     this.chunkMeshes.rebuildDirty(this.world);
-    if (!save) {
-      // 新档在出生点周围补撒牛/猪/羊（区块生成时可能已经自带了几只）；读档的动物在 applySave 里还原
-      this.mobs.spawnInitial(this.spawn.x, this.spawn.z);
-    }
+    if (!save) this.mobs.spawnInitial(this.spawn.x, this.spawn.z);
     this.controller.active = true;
     if (isTouchDevice()) new TouchControls(this.controller); // 手机/平板：挂上虚拟按键
     this.started = true;
   }
 
-  /** 把当前游戏打包存进浏览器（自动存 + 按 1 + 关页面时都会调它） */
+  private restoreSaveState(save: SaveData) {
+    const r = applySave(save, {
+      inv: this.inventory!, health: this.health!, hunger: this.hunger!, world: this.world,
+      scene: this.renderer.scene, animals: this.mobs.animals, zombies: this.mobs.zombies, drops: this.drops,
+      tanks: this.vehicles.tanks, challenge: this.challenge,
+    });
+    this.spawn = r.spawn; this.slot = r.slot; this.islandType = r.islandType;
+    this.mobs.zombieSpawn = r.zombieSpawn;
+    this.book.importLearned(r.learned);
+    this.book.importGoldenState(r.golden?.learned, r.golden?.tasks, r.golden?.waterUses);
+    return r;
+  }
+
+  private restoreBodyFromSave(save: SaveData): void {
+    const body = this.body!, b = save.body;
+    body.x = b.x; body.y = b.y; body.z = b.z; body.yaw = b.yaw; body.pitch = b.pitch;
+    body.vx = body.vy = body.vz = 0; body.fellFrom = b.y;
+    body.speedBoostT = b.boostT ?? 0; body.speedBoostMult = b.boostMult ?? 1;
+    body.flying = this.inventory!.infinite;
+  }
+
+  /** 把当前游戏打包存进浏览器（自动存 + 按 1 + 关页面时都会调它；在大厅时不覆盖岛存档） */
   private saveNow(): void {
-    if (!this.started || !this.body || !this.inventory || !this.health || !this.hunger) return;
-    writeSave(this.saveSlot, buildSave({
+    if (!this.started || this.inHall || !this.body || !this.inventory || !this.health || !this.hunger) return;
+    const data = buildSave({
       mode: this.inventory.mode, islandType: this.islandType, spawn: this.spawn, body: this.body,
       health: this.health, hunger: this.hunger, slot: this.slot, inv: this.inventory,
       world: this.world, animals: this.mobs.animals, zombies: this.mobs.zombies, drops: this.drops,
@@ -279,7 +270,63 @@ export class Game {
       paused: this.paused, dayTime: this.day.time,
       zombieAttack: this.mobs.zombieAttack,
       zombieSpawn: this.mobs.zombieSpawn,
-    }));
+    });
+    this.islandSave = JSON.parse(JSON.stringify(data)) as SaveData;
+    writeSave(this.saveSlot, data);
+  }
+
+  /** 清空当前世界网格与场内所有活物、掉落物、飞行药水、载具、火焰 */
+  private clearScene(): void {
+    this.playerActions?.cancelMining();
+    this.hud?.setProgress(0);
+    this.highlight.visible = false;
+    for (const a of this.mobs.animals) this.renderer.scene.remove(a.group);
+    this.mobs.animals.length = 0;
+    for (const z of this.mobs.zombies) this.renderer.scene.remove(z.group);
+    this.mobs.zombies.length = 0;
+    for (const d of this.drops) {
+      this.renderer.scene.remove(d.mesh);
+      d.mesh.geometry.dispose();
+      (d.mesh.material as THREE.Material).dispose();
+    }
+    this.drops.length = 0;
+    this.potions.update(100, this.world);
+    for (const t of this.vehicles.tanks) this.renderer.scene.remove(t.group);
+    this.vehicles.tanks.length = 0;
+    this.vehicles.riding = null;
+    this.fires.clear();
+    this.challenge = this.createChallenge();
+    this.world.clear();
+    this.chunkMeshes.clear();
+  }
+
+  /** 按 H 进大厅：①先存岛档 → ②清空世界与活物 → ③生成大厅世界 → ④传送到大厅出生点 */
+  private enterHall(): void {
+    this.saveNow();
+    this.clearScene();
+    buildHall(this.world);
+    this.chunkMeshes.rebuildDirty(this.world);
+    this.inHall = true;
+    this.spawn = { ...HALL.SPAWN };
+    const body = this.body!;
+    body.x = HALL.SPAWN.x; body.y = HALL.SPAWN.y; body.z = HALL.SPAWN.z;
+    body.vx = body.vy = body.vz = 0; body.fellFrom = body.y;
+    this.hud!.showHallSwitch(true, this.islandType);
+  }
+
+  /** 再按 H 回岛：读回当前档（applySave），世界/背包/位置/血量/饥饿全部恢复 */
+  private leaveHall(): void {
+    const save = readSave(this.saveSlot) ?? (this.islandSave ? JSON.parse(JSON.stringify(this.islandSave)) as SaveData : null);
+    if (!save) return;
+    this.clearScene();
+    this.inHall = false;
+    this.restoreSaveState(save);
+    this.restoreBodyFromSave(save);
+    this.streamChunks(Infinity);
+    this.chunkMeshes.rebuildDirty(this.world);
+    this.hud!.selectSlot(this.slot);
+    this.hud!.refreshHotbar(this.inventory!, this.slot);
+    this.hud!.showHallSwitch(false, this.islandType);
   }
 
   /** 玩家周围的区块，没生成的补生成（每帧限量，防止卡） */
@@ -301,41 +348,30 @@ export class Game {
     }
   }
 
-  /** 掉一个掉落物在 (x,y,z) */
   private dropAt(id: number, n: number, x: number, y: number, z: number): void {
     spawnDrop({ scene: this.renderer.scene, drops: this.drops }, id, n, x, y + 0.5, z);
   }
-  /** 退出账号：先把当前进度存进本账号的档，再刷新页面回到账号菜单（整个重来最干净） */
-  private quitToMenu(): void {
-    this.saveNow();
-    location.reload();
-  }
-  /** 按 3 回城：瞬移回重生点。不是死，血量和身上的效果都保持原样 */
+  private quitToMenu(): void { this.saveNow(); location.reload(); }
   private goHome(): void {
     if (this.challenge.active) { this.hud!.showMessage('挑战中不能回城，先完成挑战'); return; }
     const body = this.body!;
     this.survival!.wakeUp(body, this.spawn);
     this.vehicles.riding?.setPose(body.x, body.y, body.z, body.yaw);
-    body.fellFrom = body.y; // 别算成摔落
+    body.fellFrom = body.y;
     this.hud!.showMessage('嗖——回到重生点！');
   }
   private respawn(): void {
     const body = this.body!;
     this.challenge.onPlayerDeath(this.hud!); // 挑战房里死了：怪清场、门票没收
-    // 死了还骑着坦克：背包有地儿就收进包，没地儿就继续骑着重生
     const wasRiding = this.vehicles.riding !== null;
     const keptRiding = wasRiding && !this.vehicles.stowOnDeath(this.inventory!);
     const p = this.survival!.freeSpot(this.spawn.x, this.spawn.y, this.spawn.z);
-    body.x = p.x; body.y = p.y; body.z = p.z;
-    body.vx = body.vy = body.vz = 0;
-    body.fellFrom = body.y;
-    body.skateFallT = 0; // 死的时候正摔着也直接站起来
+    body.x = p.x; body.y = p.y; body.z = p.z; body.vx = body.vy = body.vz = 0;
+    body.fellFrom = body.y; body.skateFallT = 0;
     this.skates.reset();
     body.swayT = body.swayPhase = body.breathT = body.swampId = 0;
     this.health!.respawn();
-    this.hud!.showMessage(
-      keptRiding ? '你死了！背包满了，坦克还驮着你' : wasRiding ? '你死了！坦克收回背包了' : '你死了！已重生',
-    );
+    this.hud!.showMessage(keptRiding ? '你死了！背包满了，坦克还驮着你' : wasRiding ? '你死了！坦克收回背包了' : '你死了！已重生');
   }
 
   private renderFrame(body: PlayerBody): void {
@@ -345,53 +381,34 @@ export class Game {
   }
 
   private tick(dt: number): void {
-    if (!this.started) {
-      this.renderer.render();
-      return;
-    }
+    if (!this.started) { this.renderer.render(); return; }
 
     // 存档：每隔几秒自动存一次；按 1 也能手动存
     this.saveTimer -= dt;
-    if (this.saveTimer <= 0) {
-      this.saveTimer = SAVE.EVERY;
-      this.saveNow();
-    }
-    if (this.controller.take('save')) {
-      this.saveNow();
-      this.hud!.showMessage('进度已保存 ✓', 1);
-    }
+    if (this.saveTimer <= 0) { this.saveTimer = SAVE.EVERY; this.saveNow(); }
+    if (this.controller.take('save')) { this.saveNow(); this.hud!.showMessage('进度已保存 ✓', 1); }
 
-    const body = this.body!;
-    const health = this.health!;
-    const hud = this.hud!;
-    const panel = this.panel!;
+    const body = this.body!, health = this.health!, hud = this.hud!, panel = this.panel!;
 
     // 面板/独占画面接管：按键交给它，世界暂停（9/ESC 关门，面板还能自带关门键）
-    if (this.panels.handleFrame(dt, this.controller)) {
-      this.renderFrame(body);
-      return;
-    }
+    if (this.panels.handleFrame(dt, this.controller)) { this.renderFrame(body); return; }
 
-    if (this.controller.take('pause')) {
-      this.paused = !this.paused;
-      hud.setPaused(this.paused);
-    }
+    if (this.controller.take('pause')) { this.paused = !this.paused; hud.setPaused(this.paused); }
     // 暂停中按 0 = 退出账号：先存好当前档，刷新回选账号菜单
     if (this.paused && this.controller.take('quit')) this.quitToMenu();
-    if (!this.paused && this.controller.take('inventory')) {
-      panel.open();
-    }
-    if (!this.paused && this.controller.take('book')) {
-      this.book.open();
-    }
+    if (!this.paused && this.controller.take('inventory')) panel.open();
+    if (!this.paused && this.controller.take('book')) this.book.open();
 
     if (!this.paused) {
+      // 按 H 在自己的岛与大厅之间来回切换
+      if (this.controller.take('hall')) {
+        if (this.inHall) this.leaveHall();
+        else this.enterHall();
+      }
       this.survival!.toggleHungerKey();
       if (this.controller.take('toggleZombieSpawn')) {
         this.mobs.zombieSpawn = !this.mobs.zombieSpawn;
-        hud.showMessage(this.mobs.zombieSpawn
-          ? '僵尸生成已开启'
-          : '僵尸生成已关闭，已有僵尸不会消失');
+        hud.showMessage(this.mobs.zombieSpawn ? '僵尸生成已开启' : '僵尸生成已关闭，已有僵尸不会消失');
       }
       // 按 3 = 回城：瞬移回重生点（不掉血不死，中毒/头晕还在）
       if (this.controller.take('respawn')) this.goHome();
@@ -421,74 +438,53 @@ export class Game {
       if (body.y < VOID_Y) { this.respawn(); hud.showMessage('掉出世界啦！', 1.2); }
 
       // 3. 交互：先看指没指到动物（谁近算谁），再挖/放/门/选方块
-      const cp = Math.cos(body.pitch);
-      const dx = -Math.sin(body.yaw) * cp;
-      const dy = Math.sin(body.pitch);
-      const dz = -Math.cos(body.yaw) * cp;
-      // 指着谁打谁：动物和僵尸谁近算谁
+      const cp = Math.cos(body.pitch), dx = -Math.sin(body.yaw) * cp, dy = Math.sin(body.pitch), dz = -Math.cos(body.yaw) * cp;
       const mob = this.mobs.rayHit(body.x, body.y + PLAYER.EYE, body.z, dx, dy, dz, PLAYER.REACH);
       const hit = pick(this.world, body);
       const waterHit = pickWater(this.world, body); // 指线上碰到的第一格水（铁桶盛水用）
-      const blockDist = hit
-        ? Math.hypot(hit.x + 0.5 - body.x, hit.y + 0.5 - (body.y + PLAYER.EYE), hit.z + 0.5 - body.z)
-        : Infinity;
+      const blockDist = hit ? Math.hypot(hit.x + 0.5 - body.x, hit.y + 0.5 - (body.y + PLAYER.EYE), hit.z + 0.5 - body.z) : Infinity;
 
       // 坦克：开着车时 M 下车 / P 开炮 / 瞄到活物挂红点；没开车时指着坦克 M 上车、P 收回
       const riding = this.vehicles.riding !== null;
       this.vehicles.update(dt, this.world, body, this.controller, this.inventory!, hud,
-        Math.min(blockDist, mob?.dist ?? Infinity), this.slot,
-        () => this.hud!.refreshHotbar(this.inventory!, this.slot));
+        Math.min(blockDist, mob?.dist ?? Infinity), this.slot, () => this.hud!.refreshHotbar(this.inventory!, this.slot));
 
       // 药水瓶接管 P 键；否则攻击活物或正常挖方块
       const potionHandled = !riding && this.potions.handleInput(
         this.controller, this.inventory!, this.slot, body, hud, hit, this.highlight,
       );
       if (!potionHandled && !riding && mob && mob.dist <= blockDist) {
-        // 指着活物：挖矿进度作废，这一下算攻击
         this.highlight.visible = false;
         this.playerActions!.cancelMining();
         hud.setProgress(0);
         this.combat!.update(mob, body, dt, (sheep) => this.survival!.useSheep(sheep));
       } else if (!potionHandled) {
-        if (hit) {
-          this.highlight.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5);
-          this.highlight.visible = true;
-        } else {
-          this.highlight.visible = false;
-        }
-        if (riding) {
-          // 开车时 P 是开炮不是挖矿：矿镐进度清零
-          this.playerActions!.cancelMining();
-          hud.setProgress(0);
-        } else {
-          this.playerActions!.updateMining(dt, hit?.x ?? null, hit?.y ?? null, hit?.z ?? null, waterHit);
-        }
+        if (hit) { this.highlight.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5); this.highlight.visible = true; }
+        else this.highlight.visible = false;
+        if (riding) { this.playerActions!.cancelMining(); hud.setProgress(0); }
+        else this.playerActions!.updateMining(dt, hit?.x ?? null, hit?.y ?? null, hit?.z ?? null, waterHit);
       }
 
-      // L = 放东西：方块放旁边，稻粒/水草/水桶这些特殊物品走自己的规则（在 PlayerActions 里）
       this.playerActions!.placeItem(hit, body);
-      // M = 使用：先试试隐藏配方（64 生肉变铁粒），不是才走正常的方块交互；开车时 M 被坦克拿去上下车了
       if (!riding && this.controller.take('door')) {
         if (!this.playerActions!.tryMeatMagic() && hit) this.playerActions!.useBlock(hit.x, hit.y, hit.z);
       }
-      // E 吃东西：按食物表扣血/回血（在 Survival 里）
       this.survival!.eatKey(body);
-      // 4/6 换快捷栏格子
       this.slot = this.survival!.hotbarKeys(this.slot);
 
-      // 4. 活物和掉落物更新（僵尸追人挠人也在里面；血尸只有天黑才刷）
-      this.mobs.update(dt, body.x, body.y, body.z, this.day.time >= DAY.NIGHT_FROM, this.day.time);
+      // 4. 活物和掉落物更新（大厅内不刷动物和僵尸）
+      if (!this.inHall) this.mobs.update(dt, body.x, body.y, body.z, this.day.time >= DAY.NIGHT_FROM, this.day.time);
       this.potions.update(dt, this.world);
       this.fires.update(dt);
       this.drops = this.pickup!.update(dt, body);
-      this.challenge.update(dt, body, this.inventory!, hud);
+      if (!this.inHall) this.challenge.update(dt, body, this.inventory!, hud);
 
-      // 5. 世界维护：补新区块 + 重建脏网格 + 熔炉继续烧
-      this.streamChunks(2);
+      // 5. 世界维护：本岛补新区块 + 重建脏网格 + 熔炉继续烧
+      if (!this.inHall) this.streamChunks(2);
       this.chunkMeshes.rebuildDirty(this.world);
       this.world.updateFurnaces(dt);
 
-      // 5. HUD 刷新
+      // 6. HUD 刷新
       hud.refreshHotbar(this.inventory!, this.slot);
       hud.update(dt, health.hp, health.oxygen, this.hunger!.value);
     }
