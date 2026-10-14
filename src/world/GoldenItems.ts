@@ -6,19 +6,17 @@ import {
   SOUL_DYE,
 } from './Block';
 
-export const DYE_GOLD = 211;
-export const BAG_GOLD = 212;
-export const GOLD_CRAFT_TABLE = 213;
-export const GOLD_DYE_TABLE = 214;
-export const GOLD_CHEM_DECOMP = 215;
-export const ICE_MOLECULE = 216;
-export const POTION_ICE = 217;
-export const GOLD_PICKAXE = 218;
-export const DIY_GOLD_MANUAL = 219;
-export const DIY_GOLD_CRAFT_TABLE = 220;
-export const DIY_GOLD_DYE_TABLE = 221;
-export const DIY_GOLD_CHEM_DECOMP = 222;
-export const DIY_GOLD_PICKAXE = 223;
+/** 黄金编号搬去 blocks.data.ts 的 ID 段了（那边要用，反过来 import 会成环），这里转进转出保持 import 路径不变 */
+import {
+  BAG_GOLD, DIY_GOLD_CHEM_DECOMP, DIY_GOLD_CRAFT_TABLE, DIY_GOLD_DYE_TABLE, DIY_GOLD_MANUAL,
+  DIY_GOLD_PICKAXE, DYE_GOLD, GOLD_CHEM_DECOMP, GOLD_CRAFT_TABLE, GOLD_DYE_TABLE, GOLD_PICKAXE,
+  ICE_MOLECULE, POTION_ICE,
+} from './blocks.data';
+export {
+  BAG_GOLD, DIY_GOLD_CHEM_DECOMP, DIY_GOLD_CRAFT_TABLE, DIY_GOLD_DYE_TABLE, DIY_GOLD_MANUAL,
+  DIY_GOLD_PICKAXE, DYE_GOLD, GOLD_CHEM_DECOMP, GOLD_CRAFT_TABLE, GOLD_DYE_TABLE, GOLD_PICKAXE,
+  ICE_MOLECULE, POTION_ICE,
+};
 
 export const GOLDEN_RANDOM_MANUALS = [
   '合成：黄颜料×1 + 金粒×1 → 金色颜料×1',
