@@ -102,6 +102,8 @@ export const EAT_HP: Record<number, FoodEffect> = {
   120: { hunger: 1, hp: 1 },  // 稻粒 +1 饥饿 +1 血（半颗心）
   125: { hunger: 0, hp: 3, boostSeconds: 60, boostMult: 1.5 }, // 腌菜桶 +3 血，吃完还跑得快（看下面的 BOOST）
   139: { hunger: 1, hp: 2 },  // 胡萝卜 +1 饥饿 +2 血（一整颗心）
+  226: { hunger: 2, hp: 1 },  // 南瓜片 +2 饥饿 +1 血
+  227: { hunger: 1, hp: 1 },  // 西瓜片 +1 饥饿 +1 血
 };
 
 /** 鸟：三种都会飞不动只会蹦跶（先当地上走的小动物做）；命比别的动物短 */
@@ -270,7 +272,11 @@ export const DAY = {
 };
 
 export const CROP = {
-  GROW_EVERY: DAY.LENGTH / 2, // 庄稼半天长一级：种子→小苗→绿大苗→黄大苗，3 次熟透
+  GROW_EVERY: 60,           // 庄稼每 60 秒长一级：小苗→幼苗→带叶大苗→结果
+  SPLIT_COUNT: 3,           // 南瓜/西瓜按 1:3 转化（1 果 → 3 片，1 片 → 3 籽）
+  CARROT_CHANCE: 0.01,      // 草方块自然生成胡萝卜植株的概率（1%）
+  PUMPKIN_CHANCE: 0.005,    // 草方块自然生成南瓜植株的概率（0.5%）
+  MELON_CHANCE: 0.005,      // 草方块自然生成西瓜植株的概率（0.5%）
 };
 
 export const SAVE = {

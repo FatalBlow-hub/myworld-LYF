@@ -1,7 +1,7 @@
 /** 地形生成 — 用噪声画出有山有水有树的世界（固定种子，每次进游戏都一样） */
 
-import { CHUNK, ORE, SEA_LEVEL, SPAWN, WORLD_SEED } from '../config';
-import { BLUE_ORE, CACTUS, COAL_ORE, DANDELION, DIRT, GOLD_ORE, GRASS, ICE, IRON_ORE, LEAVES, POPPY, RICE_MATURE, SAND, SANDSTONE, SEAWEED, SNOW, SOUL_GRASS, STONE, TALL_GRASS, WATER, WOOD } from './Block';
+import { CHUNK, CROP, ORE, SEA_LEVEL, SPAWN, WORLD_SEED } from '../config';
+import { BLUE_ORE, CACTUS, CARROT_MATURE, COAL_ORE, DANDELION, DIRT, GOLD_ORE, GRASS, ICE, IRON_ORE, LEAVES, MELON, POPPY, PUMPKIN, RICE_MATURE, SAND, SANDSTONE, SEAWEED, SNOW, SOUL_GRASS, STONE, TALL_GRASS, WATER, WOOD } from './Block';
 import { Chunk } from './Chunk';
 import { swampAt } from './Swamp';
 
@@ -140,12 +140,21 @@ export function generateChunk(chunk: Chunk): void {
         }
       }
 
-      // 花草点缀：草方块/泥土顶上是空格才长；稀稀拉拉，不铺满
+      // 花草与作物点缀：草方块/泥土顶上是空格才长；稀稀拉拉，不铺满
       const ground = chunk.data[Chunk.index(lx, h - 1, lz)];
       if (!swamp && chunk.data[Chunk.index(lx, h, lz)] === 0 && (ground === GRASS || ground === DIRT)) {
-        const r = hash(wx * 11 + 2, wz * 11 + 5);
-        if (r < 0.25) chunk.data[Chunk.index(lx, h, lz)] = TALL_GRASS;
-        else if (r < 0.29) chunk.data[Chunk.index(lx, h, lz)] = r < 0.27 ? DANDELION : POPPY;
+        const cropRoll = ground === GRASS ? hash(wx * 31 + 9, wz * 31 + 15) : 1;
+        if (cropRoll < CROP.CARROT_CHANCE) {
+          chunk.data[Chunk.index(lx, h, lz)] = CARROT_MATURE;
+        } else if (cropRoll < CROP.CARROT_CHANCE + CROP.PUMPKIN_CHANCE) {
+          chunk.data[Chunk.index(lx, h, lz)] = PUMPKIN;
+        } else if (cropRoll < CROP.CARROT_CHANCE + CROP.PUMPKIN_CHANCE + CROP.MELON_CHANCE) {
+          chunk.data[Chunk.index(lx, h, lz)] = MELON;
+        } else {
+          const r = hash(wx * 11 + 2, wz * 11 + 5);
+          if (r < 0.25) chunk.data[Chunk.index(lx, h, lz)] = TALL_GRASS;
+          else if (r < 0.29) chunk.data[Chunk.index(lx, h, lz)] = r < 0.27 ? DANDELION : POPPY;
+        }
       }
 
       // 水草：泡在水底的格子上偶尔冒一根（要头顶还有水压着，浅水塘水面不戳洞）

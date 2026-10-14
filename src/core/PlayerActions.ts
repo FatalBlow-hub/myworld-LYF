@@ -18,7 +18,8 @@ import { Panel } from '../ui/Panel';
 import { RecipeBook } from '../ui/RecipeBook';
 import {
   AIR, BLOCKS, BUCKET, CARROT, CHALLENGE_DOOR, CHALLENGE_HOUSE, CHEM_DECOMP, CRAFTING_TABLE,
-  DYE_TABLE, DYEABLE_CARPETS, FIRESTARTER_IDS, GLASS_BUCKET, HYDROGEN, ICE, IRON_NUGGET, RAW_MEAT,
+  DIRT, DYE_TABLE, DYEABLE_CARPETS, FIRESTARTER_IDS, GLASS_BUCKET, GRASS, HYDROGEN, ICE, IRON_NUGGET,
+  MELON_SEED, MELON_STAGE1, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT,
   RICE_GRAIN, RUBBER, SEAWEED, SOUL_CHEST, SOUL_FIRESTARTER, STAR_DYE_TABLE, STAR_TABLE, SWAMP_FILL,
   TANK, WATER_BUCKET, WOOD,
   dropCountOf, isBed, isChest, isDoor, isFurnace,
@@ -154,6 +155,16 @@ export class PlayerActions {
       // 胡萝卜不是方块：种在草地或泥土上
       if (plantCarrot(world, hit)) spend();
       else hud.showMessage('胡萝卜要种在草地上或泥土上');
+    } else if (stack.id === PUMPKIN_SEED || stack.id === MELON_SEED) {
+      // 南瓜籽/西瓜籽：对着草地或泥土种下，苗长在土上面那格
+      const x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz;
+      const soil = world.getBlock(x, y - 1, z);
+      if (world.getBlock(x, y, z) === AIR && (soil === GRASS || soil === DIRT)) {
+        world.setBlock(x, y, z, stack.id === PUMPKIN_SEED ? PUMPKIN_STAGE1 : MELON_STAGE1);
+        spend();
+      } else {
+        hud.showMessage(`${BLOCKS[stack.id].cn}要种在草地上或泥土上`);
+      }
     } else if (stack.id === WATER_BUCKET) {
       // 水桶 = 倒出一格水；一桶最多装 3 格，倒空了变回空桶；创造模式的桶一直有水
       if (pourWater(world, hit)) {

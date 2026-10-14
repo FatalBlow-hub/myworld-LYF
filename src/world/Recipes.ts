@@ -1,14 +1,16 @@
 /** 合成配方 — 把材料放进 2×2 格子，种类和数量对上就出成品（不看摆放位置）
  *  还支持拆解：只放一个成品进格子 → 吐出原材料 */
 
-import { BUCKET_WATER_MAX } from '../config';
+import { BUCKET_WATER_MAX, CROP } from '../config';
 import {
   BAG_WOOL, BED_IDS, BED_STAR, BLOCKS, BLOOD_MEAT, BLUE_BLOCK, BLUE_DIAMOND, BLUE_SHARD, BRICK, BUCKET, CARPET_BLOOD, CARPET_IDS, CARPET_STAR, CARPET_WHITE, CHEST, COBBLE,
   COOKED_MEAT, CRAFTING_TABLE, DOOR_CLOSED,
   DYE_BLACK, DYE_BLOOD, DYE_BLUE, DYE_GRAY, DYE_GREEN, DYE_ORANGE, DYE_PINK, DYE_RED, DYE_TABLE, DYE_YELLOW,
   DYE_WHITE, DYE_PURPLE, DYE_SWAN, DYE_LIGHTGREEN, DYE_STAR, DYE_DEEPGREEN,
   GLASS_BOTTLE, GLASS_BUCKET, GLASS_CONE, GLASS_SHARD,
+  MELON, MELON_SEED, MELON_SLICE,
   POTION_BREATH, POTION_DEADLY, POTION_PHANTOM, POTION_POISON,
+  PUMPKIN, PUMPKIN_SEED, PUMPKIN_SLICE,
   SWAMP_DEEP, SWAMP_DROWN, SWAMP_FILL, SWAMP_LIGHT, SWAMP_MID, SWAMP_PHANTOM, WATER,
   FEATHER_BLACK, FEATHER_GRAY, FEATHER_WHITE,
   MANHOLE, STAR_DYE_TABLE,
@@ -145,6 +147,11 @@ export const RECIPES: Recipe[] = [
     out: GOLD_PICKAXE, outCount: 1, needs: [[GOLD_NUGGET, 3], [STICK, 2]], quiet: true,
     pattern: [GOLD_NUGGET, GOLD_NUGGET, GOLD_NUGGET, null, STICK, null, null, STICK, null],
   },
+  // —— 南瓜与西瓜 1:3 转化（支持批量按比例合成与拆解） ——
+  { out: PUMPKIN_SLICE, outCount: CROP.SPLIT_COUNT, needs: [[PUMPKIN, 1]], scale: true, quiet: true },
+  { out: PUMPKIN_SEED, outCount: CROP.SPLIT_COUNT, needs: [[PUMPKIN_SLICE, 1]], scale: true, quiet: true },
+  { out: MELON_SLICE, outCount: CROP.SPLIT_COUNT, needs: [[MELON, 1]], scale: true, quiet: true },
+  { out: MELON_SEED, outCount: CROP.SPLIT_COUNT, needs: [[MELON_SLICE, 1]], scale: true, quiet: true },
 ];
 
 /** 星空染色台的颜料融合表：放进材料颜料 → 出新颜料（只有星空染色台能干这活） */
@@ -195,6 +202,11 @@ const UNCRAFT: Record<number, [number, number][]> = {
   [SWAMP_PHANTOM]: [[SWAMP_MID, 2]],              // 幻泽液拆成 2 沼泽液
   [SWAMP_DEEP]: [[DYE_DEEPGREEN, 1]],             // 深泽液熬出深绿颜料
   // 沼泽液就是沼泽液，没得拆；溺泽液留着做防溺瓶
+  // —— 南瓜与西瓜 1:3 拆解表（果→片→籽） ——
+  [PUMPKIN]: [[PUMPKIN_SLICE, CROP.SPLIT_COUNT]],
+  [PUMPKIN_SLICE]: [[PUMPKIN_SEED, CROP.SPLIT_COUNT]],
+  [MELON]: [[MELON_SLICE, CROP.SPLIT_COUNT]],
+  [MELON_SLICE]: [[MELON_SEED, CROP.SPLIT_COUNT]],
 };
 
 export interface CraftMatch {
@@ -246,9 +258,9 @@ export function matchCraft(counts: Map<number, number>, grid?: Slots): CraftMatc
       const f = SWAMP_FILL[id];
       return { consume: [[id, n]], gives: [[f.bucket, 1], [f.liquid, n]], uncraft: true };
     }
-    // 特殊拆解（灵魂草 → 草方块 + 颜料）
+    // 特殊拆解（灵魂草 → 草方块 + 颜料；南瓜/西瓜/片支持按比例批量拆解）
     if (UNCRAFT[id] && n >= 1) {
-      return { consume: [[id, 1]], gives: UNCRAFT[id], uncraft: true };
+      return { consume: [[id, n]], gives: UNCRAFT[id].map(([g, c]) => [g, c * n]), uncraft: true };
     }
     for (const r of RECIPES) {
       if (r.out !== id) continue;
@@ -284,6 +296,7 @@ export const TUTORIALS: Tutorial[] = (() => {
   const swampEntries: Tutorial[] = [];
   const swampRecipes = new Set([GLASS, GLASS_CONE, GLASS_BOTTLE, GLASS_BUCKET, POTION_POISON, POTION_PHANTOM, POTION_DEADLY, POTION_BREATH, DYE_DEEPGREEN]);
   const swampUncraft = new Set([GLASS, SWAMP_LIGHT, SWAMP_PHANTOM, SWAMP_DEEP]);
+  const islandUncraft = new Set([PUMPKIN, PUMPKIN_SLICE, MELON, MELON_SLICE]);
   for (const r of RECIPES) {
     // 7 种床的配方只差地毯颜色，合成一条讲清楚，不然手册里看着像重复
     if (BED_IDS.includes(r.out) || r.quiet) continue;
@@ -296,7 +309,7 @@ export const TUTORIALS: Tutorial[] = (() => {
   list.push({ text: `合成：${name(WOOD)}×3 + 地毯×1 → 床×1（地毯什么颜色，床就什么颜色）` });
   for (const [id, gives] of Object.entries(UNCRAFT)) {
     // 8 种彩色羊毛的拆法也一样，只差颜色，合并成一条
-    if (WOOL_IDS.includes(Number(id))) continue;
+    if (WOOL_IDS.includes(Number(id)) || islandUncraft.has(Number(id))) continue;
     const outs = gives.map(([g, n]) => `${name(g)}×${n}`).join(' + ');
     (swampUncraft.has(Number(id)) ? swampEntries : list).push({ text: `拆解：${name(Number(id))} → ${outs}` });
   }

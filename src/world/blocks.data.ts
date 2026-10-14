@@ -277,6 +277,19 @@ export const BAG_WOOL_DEEPGREEN = 207;
 export const BAMBOO = 208;             // 竹子：竹林中的茎，每格挖掉掉 1 个竹子
 export const BAMBOO_SHOOT_PLANT = 209; // 竹笋植株
 export const BAMBOO_SHOOT = 210;       // 挖竹笋植株得到的物品
+// —— 南瓜与西瓜（224~235）：实心果实 → 切片（可吃）→ 种子（按 L 播种），苗期 3 阶段长成结果 ——
+export const PUMPKIN = 224;            // 南瓜（实心方块，不能直接吃）
+export const MELON = 225;              // 西瓜（实心方块，不能直接吃）
+export const PUMPKIN_SLICE = 226;      // 南瓜片（+2 饥饿 +1 血）
+export const MELON_SLICE = 227;        // 西瓜片（+1 饥饿 +1 血）
+export const PUMPKIN_SEED = 228;       // 南瓜籽（对着草地/泥土按 L 播种）
+export const MELON_SEED = 229;         // 西瓜籽（对着草地/泥土按 L 播种）
+export const PUMPKIN_STAGE1 = 230;     // 南瓜小苗（刚种下）
+export const PUMPKIN_STAGE2 = 231;     // 南瓜幼苗
+export const PUMPKIN_STAGE3 = 232;     // 南瓜大苗（带叶）
+export const MELON_STAGE1 = 233;       // 西瓜小苗（刚种下）
+export const MELON_STAGE2 = 234;       // 西瓜幼苗
+export const MELON_STAGE3 = 235;       // 西瓜大苗（带叶）
 
 export const WAISTBAG_SLOT = 1; // 装备栏从上往下第二格，也就是从下往上第三格
 export const WOOL_BAG_DYES = [
@@ -590,6 +603,19 @@ export const BLOCKS: Record<number, BlockDef> = {
   [GS_BUCKET_PHANTOM]: { cn: '玻璃桶(幻泽液)',   tex: { top: 'gbucket_sw_phantom', side: 'gbucket_sw_phantom' }, solid: false, seeThrough: true, hardness: 0, item: true },
   [GS_BUCKET_DEEP]:    { cn: '玻璃桶(深泽液)',   tex: { top: 'gbucket_sw_deep', side: 'gbucket_sw_deep' }, solid: false, seeThrough: true, hardness: 0, item: true },
   [GS_BUCKET_DROWN]:   { cn: '玻璃桶(溺泽液)',   tex: { top: 'gbucket_sw_drown', side: 'gbucket_sw_drown' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  // —— 南瓜与西瓜：果实为实心方块（不能直接吃），苗期打掉不掉东西，切片可吃，籽可播种 ——
+  [PUMPKIN]:        { cn: '南瓜',     tex: { top: 'pumpkin_top', side: 'pumpkin_side' }, solid: true, seeThrough: false, hardness: 0.6 },
+  [MELON]:          { cn: '西瓜',     tex: { top: 'melon_top', side: 'melon_side' }, solid: true, seeThrough: false, hardness: 0.6 },
+  [PUMPKIN_SLICE]:  { cn: '南瓜片',   tex: { top: 'pumpkin_slice', side: 'pumpkin_slice' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [MELON_SLICE]:    { cn: '西瓜片',   tex: { top: 'melon_slice', side: 'melon_slice' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [PUMPKIN_SEED]:   { cn: '南瓜籽',   tex: { top: 'pumpkin_seed', side: 'pumpkin_seed' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [MELON_SEED]:     { cn: '西瓜籽',   tex: { top: 'melon_seed', side: 'melon_seed' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [PUMPKIN_STAGE1]: { cn: '南瓜小苗', tex: { top: 'pumpkin_stage1', side: 'pumpkin_stage1' }, solid: false, seeThrough: true, hardness: 0.05, shape: 'cross', targetable: true, drop: AIR },
+  [PUMPKIN_STAGE2]: { cn: '南瓜幼苗', tex: { top: 'pumpkin_stage2', side: 'pumpkin_stage2' }, solid: false, seeThrough: true, hardness: 0.05, shape: 'cross', targetable: true, drop: AIR },
+  [PUMPKIN_STAGE3]: { cn: '南瓜大苗', tex: { top: 'pumpkin_stage3', side: 'pumpkin_stage3' }, solid: false, seeThrough: true, hardness: 0.05, shape: 'cross', targetable: true, drop: AIR },
+  [MELON_STAGE1]:   { cn: '西瓜小苗', tex: { top: 'melon_stage1', side: 'melon_stage1' }, solid: false, seeThrough: true, hardness: 0.05, shape: 'cross', targetable: true, drop: AIR },
+  [MELON_STAGE2]:   { cn: '西瓜幼苗', tex: { top: 'melon_stage2', side: 'melon_stage2' }, solid: false, seeThrough: true, hardness: 0.05, shape: 'cross', targetable: true, drop: AIR },
+  [MELON_STAGE3]:   { cn: '西瓜大苗', tex: { top: 'melon_stage3', side: 'melon_stage3' }, solid: false, seeThrough: true, hardness: 0.05, shape: 'cross', targetable: true, drop: AIR },
 };
 
 /** 创造模式面板里能直接拿的东西（全部方块 + 物品） */
@@ -631,9 +657,11 @@ export const ALL_ITEMS = [
   DYE_GOLD, BAG_GOLD, GOLD_CRAFT_TABLE, GOLD_DYE_TABLE, GOLD_CHEM_DECOMP,
   ICE_MOLECULE, POTION_ICE, GOLD_PICKAXE, DIY_GOLD_MANUAL,
   DIY_GOLD_CRAFT_TABLE, DIY_GOLD_DYE_TABLE, DIY_GOLD_CHEM_DECOMP, DIY_GOLD_PICKAXE,
+  // 南瓜与西瓜系列
+  PUMPKIN, MELON, PUMPKIN_SLICE, MELON_SLICE, PUMPKIN_SEED, MELON_SEED,
 ];
 
-/** 庄稼生长链：半天走一级（水稻和胡萝卜共用）；最后一级不在表里 = 熟透了不再长 */
+/** 庄稼生长链：每 60 秒走一级（水稻/胡萝卜/南瓜/西瓜共用）；最后一级不在表里 = 熟透了不再长 */
 export const CROP_NEXT: Record<number, number> = {
   [RICE_SEED]: RICE_SPROUT,
   [RICE_SPROUT]: RICE_GREEN,
@@ -641,6 +669,12 @@ export const CROP_NEXT: Record<number, number> = {
   [CARROT_SEED]: CARROT_SPROUT,
   [CARROT_SPROUT]: CARROT_GREEN,
   [CARROT_GREEN]: CARROT_MATURE,
+  [PUMPKIN_STAGE1]: PUMPKIN_STAGE2,
+  [PUMPKIN_STAGE2]: PUMPKIN_STAGE3,
+  [PUMPKIN_STAGE3]: PUMPKIN,
+  [MELON_STAGE1]: MELON_STAGE2,
+  [MELON_STAGE2]: MELON_STAGE3,
+  [MELON_STAGE3]: MELON,
 };
 
 /** 挖这个方块掉几个（默认 1 个；金黄水稻收 5 或 10 粒；熟胡萝卜收 1~3 根） */

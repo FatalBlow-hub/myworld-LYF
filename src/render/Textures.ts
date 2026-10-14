@@ -12,6 +12,7 @@ import { addMetalPainters } from './MetalTextures';
 import { SEASONAL_PAINTERS } from './SeasonalTextures';
 import { GOLDEN_PAINTERS, GOLDEN_TILE_NAMES } from './GoldenTextures';
 import { BAG_PAINTERS, BAMBOO_PAINTERS } from './BagTextures';
+import { ISLAND_PAINTERS, ISLAND_TILE_NAMES } from './IslandTextures';
 import { Painter, TILE, fill, shade, speckle } from './TextureUtils';
 export type { Painter } from './TextureUtils';
 
@@ -74,6 +75,7 @@ const TILE_NAMES = [
   ...GOLDEN_TILE_NAMES,
   // —— 竹子（方块要进图集，不然世界里的竹子没贴图）——
   'bamboo', 'bamboo_shoot',
+  ...ISLAND_TILE_NAMES,
 ];
 
 const PAINTERS: Record<string, Painter> = { ...BASE_PAINTERS };
@@ -330,7 +332,7 @@ for (const [name, col] of Object.entries(SW_BUCKET_LIQ)) {
 }
 
 // 庄稼/羽毛/煤贴图拆出去了（CropTextures / BirdTextures / CoalTextures），合并进大表
-Object.assign(PAINTERS, CROP_PAINTERS, FEATHER_PAINTERS, COAL_PAINTERS, LAMP_PAINTERS, FIRE_PAINTERS, GOLDEN_PAINTERS, BAG_PAINTERS, BAMBOO_PAINTERS);
+Object.assign(PAINTERS, CROP_PAINTERS, FEATHER_PAINTERS, COAL_PAINTERS, LAMP_PAINTERS, FIRE_PAINTERS, GOLDEN_PAINTERS, BAG_PAINTERS, BAMBOO_PAINTERS, ISLAND_PAINTERS);
 
 export interface Atlas {
   texture: THREE.CanvasTexture;
