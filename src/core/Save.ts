@@ -1,11 +1,12 @@
 /** 存档 — 把当前游戏打包成 JSON 存进浏览器，刷新/关掉页面后还能继续玩 */
 
 import * as THREE from 'three';
-import { SKATES } from '../config';
+import { HUNGER, SKATES } from '../config';
 import { Animal, AnimalKind } from '../entities/Animal';
 import { ItemDrop } from '../entities/ItemDrop';
 import { spawnDrop } from '../entities/drops';
 import { GameMode, Health } from '../player/Health';
+import { Hunger } from '../player/Hunger';
 import { Inventory } from '../player/Inventory';
 import { PlayerBody } from '../player/Physics';
 import { ROLLER_SKATES, Slots, Stack } from '../world/Block';
@@ -32,10 +33,14 @@ export function isSupportedSave(d: SaveData | null | undefined): d is SaveData {
   return !!d && typeof d.v === 'number' && d.v > 0 && d.v <= SAVE_VERSION;
 }
 
-/** 老版本存档升级成当前版本（现在只有 v1；以后加字段就在这里加一个分支） */
+/** 老版本存档升级成当前版本（现在只有 v1；老档缺的字段在这里补默认值） */
 export function migrateSave(d: SaveData): SaveData {
-  if (d.v === SAVE_VERSION) return d;
-  return { ...d, v: SAVE_VERSION };
+  return {
+    ...d,
+    v: SAVE_VERSION,
+    hunger: d.hunger ?? HUNGER.MAX,
+    hungerOn: d.hungerOn ?? false,
+  };
 }
 
 export interface SaveData {
@@ -47,6 +52,10 @@ export interface SaveData {
   body: { x: number; y: number; z: number; yaw: number; pitch: number; boostT?: number };
   hp: number;
   oxygen: number;
+  /** 当前饥饿值（0~7；老档没有就默认 7 格满） */
+  hunger?: number;
+  /** 饥饿模式开关（每档独立；老档没有就默认关闭） */
+  hungerOn?: boolean;
   /** 快捷栏选到哪格 */
   slot: number;
   inv: {
@@ -208,6 +217,7 @@ export function buildSave(g: {
   spawn: { x: number; y: number; z: number };
   body: PlayerBody;
   health: Health;
+  hunger: Hunger;
   slot: number;
   inv: Inventory;
   world: World;
@@ -230,6 +240,8 @@ export function buildSave(g: {
     body: { x: g.body.x, y: g.body.y, z: g.body.z, yaw: g.body.yaw, pitch: g.body.pitch, boostT: g.body.speedBoostT },
     hp: g.health.hp,
     oxygen: g.health.oxygen,
+    hunger: g.hunger.value,
+    hungerOn: g.hunger.enabled,
     slot: g.slot,
     inv: {
       hotbar: g.inv.hotbar, storage: g.inv.storage, armor: g.inv.armor, waistbag: g.inv.waistbag,
@@ -257,9 +269,9 @@ export function buildSave(g: {
 /** 还原：把存档里的东西一件件摆回去；返回出生点和选中的格子由调用方接 */
 export function applySave(
   d: SaveData,
-  into: { inv: Inventory; health: Health; world: World; scene: THREE.Scene; animals: Animal[]; zombies: Zombie[]; drops: ItemDrop[]; tanks: Tank[]; challenge: Challenge },
+  into: { inv: Inventory; health: Health; hunger: Hunger; world: World; scene: THREE.Scene; animals: Animal[]; zombies: Zombie[]; drops: ItemDrop[]; tanks: Tank[]; challenge: Challenge },
 ): { spawn: { x: number; y: number; z: number }; slot: number; learned: number[]; golden?: SaveData['golden']; paused: boolean; dayTime: number; zombieAttack: boolean; zombieSpawn: boolean } {
-  const { inv, health, world, scene, animals, zombies, drops, tanks, challenge } = into;
+  const { inv, health, hunger, world, scene, animals, zombies, drops, tanks, challenge } = into;
   const copy = (dst: Slots, src: Slots) => src.forEach((s, i) => { dst[i] = s; });
   copy(inv.hotbar, d.inv.hotbar);
   copy(inv.storage, d.inv.storage);
@@ -280,6 +292,8 @@ export function applySave(
   normalizeSkates(inv.held);
   health.hp = d.hp;
   health.oxygen = d.oxygen;
+  hunger.value = Math.min(HUNGER.MAX, Math.max(0, d.hunger ?? HUNGER.MAX));
+  hunger.enabled = d.hungerOn ?? false;
   world.applyDiffs(d.chunks);
   world.applyMeta(d.meta);
   for (const [k, v] of Object.entries(d.chests)) world.chests.set(k, v);

@@ -4,6 +4,7 @@ import { BOOST, CHUNK, GOLDEN, PLAYER, POTION, SWAMP_HURT } from '../config';
 import { Animal } from '../entities/Animal';
 import { Controller } from '../player/Controller';
 import { Health } from '../player/Health';
+import { Hunger, applySpeedBoost } from '../player/Hunger';
 import { Inventory } from '../player/Inventory';
 import { PlayerBody, collidesAABB } from '../player/Physics';
 import { hurtPlayer } from '../player/damage';
@@ -19,6 +20,7 @@ export interface SurvivalDeps {
   controller: Controller;
   inventory: Inventory;
   health: Health;
+  hunger: Hunger;
   hud: Hud;
   world: World;
   /** 快捷栏选到哪格（只读） */
@@ -32,9 +34,17 @@ export interface SurvivalDeps {
 export class Survival {
   constructor(private d: SurvivalDeps) {}
 
-  /** E 吃东西：按食物表扣血/回血；腌菜桶吃完脚底生风 1 分钟；药水瓶喝了各有各的效 */
+  /** O 切换饥饿模式开关（每档独立，关闭时暂停消耗、保留当前值） */
+  toggleHungerKey(): void {
+    const { controller, hunger, hud } = this.d;
+    if (!controller.take('toggleHunger')) return;
+    const on = hunger.toggle();
+    hud.showMessage(on ? '饥饿模式已开启' : '饥饿模式已关闭');
+  }
+
+  /** E 吃东西：按食物表恢复饥饿与扣血/回血；腌菜桶吃完脚底生风 1 分钟；药水瓶喝了各有各的效 */
   eatKey(body: PlayerBody): void {
-    const { controller, inventory, hud, health } = this.d;
+    const { controller, inventory, hud, health, hunger } = this.d;
     if (!controller.take('eat')) return;
     const s = inventory.hotbar[this.d.slot()];
     // 喝药水瓶：喝完瓶子还回来
@@ -66,17 +76,24 @@ export class Survival {
       }
       return;
     }
-    const d = s ? health.eat(s.id) : null;
-    if (s && d !== null) {
+    const fx = s ? health.eat(s.id) : null;
+    if (s && fx !== null) {
       if (!inventory.infinite) {
         s.count--;
         if (s.count <= 0) inventory.hotbar[this.d.slot()] = null;
       }
+      hunger.eat(fx.hunger);
+      if (fx.boostSeconds) {
+        applySpeedBoost(body, fx.boostSeconds, fx.boostMult);
+      }
+      if (health.hp <= 0) this.d.respawn();
       if (s.id === PICKLE_BARREL) {
         body.speedBoostT = BOOST.SECONDS; // 腌菜桶吃完跑得快
-        hud.showMessage(`真香！+${d} 血，脚底生风 ${BOOST.SECONDS} 秒！`);
+        hud.showMessage(`真香！+${fx.hp} 血，脚底生风 ${BOOST.SECONDS} 秒！`);
       } else {
-        hud.showMessage(d < 0 ? `好难吃！${d} 血` : `真香！+${d} 血`);
+        const hPart = fx.hunger > 0 ? `+${fx.hunger} 饥饿，` : '';
+        const hpPart = fx.hp >= 0 ? `+${fx.hp} 血` : `${fx.hp} 血`;
+        hud.showMessage(fx.hp < 0 ? `好难吃！${hPart}${hpPart}` : `真香！${hPart}${hpPart}`);
       }
     } else {
       hud.showMessage('这个不能吃');

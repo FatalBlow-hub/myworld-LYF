@@ -1,6 +1,6 @@
 /** 生命 — 血条、氧气、伤害结算；创造模式同一套事件进来但全部免疫 */
 
-import { EAT_HP, HEALTH, SWAMP_HURT, SWAY } from '../config';
+import { EAT_HP, FoodEffect, HEALTH, SWAMP_HURT, SWAY } from '../config';
 import { SWAMP_DEEP, SWAMP_LIGHT, SWAMP_MID, SWAMP_PHANTOM } from '../world/Block';
 import { PlayerBody } from './Physics';
 import { TimedEffects } from './TimedEffects';
@@ -32,7 +32,7 @@ export class Health {
   private poisons = new TimedEffects(); // 中的毒（药水瓶砸的/喝的）
   private swampId = 0;
 
-  constructor(private mode: GameMode) {}
+  constructor(private mode: GameMode, private onRespawn?: () => void) {}
 
   /** 统一的伤害入口：摔落/溺水/以后的怪物攻击都走这里 */
   damage(amount: number): boolean {
@@ -113,17 +113,17 @@ export class Health {
     this.poisons.add(dmg, every, dur);
   }
 
-  /** 吃东西：按 EAT_HP 表回血/扣血，返回血量变化（不能吃返回 null） */
-  eat(itemId: number): number | null {
-    const d = EAT_HP[itemId];
-    if (d === undefined) return null;
+  /** 吃东西：按 EAT_HP 表回血/扣血，返回食物效果（不能吃返回 null） */
+  eat(itemId: number): FoodEffect | null {
+    const fx = EAT_HP[itemId];
+    if (fx === undefined) return null;
     if (this.mode !== 'creative') {
-      this.hp = Math.min(HEALTH.MAX_HP, Math.max(0, this.hp + d));
+      this.hp = Math.min(HEALTH.MAX_HP, Math.max(0, this.hp + fx.hp));
     }
-    return d;
+    return fx;
   }
 
-  /** 重生：满血满氧，毒也解了，送几秒无敌 */
+  /** 重生：满血满氧，毒也解了，送几秒无敌（顺便通知饥饿复位） */
   respawn(): void {
     this.hp = HEALTH.MAX_HP;
     this.oxygen = HEALTH.OXYGEN_MAX;
@@ -133,5 +133,6 @@ export class Health {
     this.swampId = 0;
     this.regenT = 0;
     this.invincible = HEALTH.RESPAWN_INVINCIBLE;
+    this.onRespawn?.();
   }
 }

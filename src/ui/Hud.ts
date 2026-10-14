@@ -1,6 +1,6 @@
 /** HUD — 准星、挖掘进度、血条、氧气、快捷栏（显示背包里真实的东西）、提示消息 */
 
-import { HEALTH } from '../config';
+import { HEALTH, HUNGER } from '../config';
 import { BLOCKS } from '../world/Block';
 import { Atlas } from '../render/Textures';
 import { Inventory } from '../player/Inventory';
@@ -9,6 +9,7 @@ export class Hud {
   private root = document.getElementById('hud')!;
   private heartsEl = document.getElementById('hearts')!;
   private oxygenEl = document.getElementById('oxygen')!;
+  private hungerEl: HTMLElement;
   private hotbarEl = document.getElementById('hotbar')!;
   private messageEl = document.getElementById('message')!;
   private pausedEl = document.getElementById('paused')!;
@@ -16,11 +17,26 @@ export class Hud {
   private minefillEl = document.getElementById('minefill')!;
   private slotEls: HTMLElement[] = [];
   private lastHotbarSig = '';
+  private lastHungerSig = '';
   private msgTimer = 0;
 
   /** 快捷栏 9 个空格子开局，装什么显示什么；hideCount=创造模式不显示数量 */
   constructor(private showHealth: boolean, private atlas: Atlas, private hideCount = false) {
     this.root.style.display = 'block';
+    let hungerEl = document.getElementById('hunger');
+    if (!hungerEl) {
+      hungerEl = document.createElement('div');
+      hungerEl.id = 'hunger';
+      hungerEl.style.fontSize = '18px';
+      hungerEl.style.letterSpacing = '2px';
+      this.heartsEl.insertAdjacentElement('afterend', hungerEl);
+    }
+    this.hungerEl = hungerEl;
+    if (!showHealth) {
+      this.heartsEl.textContent = '';
+      this.oxygenEl.textContent = '';
+      this.hungerEl.innerHTML = '';
+    }
     for (let i = 0; i < 9; i++) {
       const slot = document.createElement('div');
       slot.className = 'slot';
@@ -74,10 +90,18 @@ export class Hud {
     this.minefillEl.style.width = `${Math.min(100, p * 100)}%`;
   }
 
-  update(dt: number, hp: number, oxygen: number): void {
+  update(dt: number, hp: number, oxygen: number, hunger = HUNGER.MAX): void {
     if (this.showHealth) {
       const full = Math.ceil(hp / 2);
       this.heartsEl.textContent = '♥'.repeat(full) + '♡'.repeat(HEALTH.MAX_HP / 2 - full);
+      const fullHunger = Math.max(0, Math.min(HUNGER.MAX, Math.ceil(hunger)));
+      const hungerSig = String(fullHunger);
+      if (hungerSig !== this.lastHungerSig) {
+        this.lastHungerSig = hungerSig;
+        this.hungerEl.innerHTML =
+          '🍗'.repeat(fullHunger) +
+          `<span style="opacity:0.3;filter:grayscale(1)">${'🍗'.repeat(HUNGER.MAX - fullHunger)}</span>`;
+      }
       if (oxygen < HEALTH.OXYGEN_MAX) {
         const bubbles = Math.ceil((oxygen / HEALTH.OXYGEN_MAX) * 10);
         this.oxygenEl.textContent = '●'.repeat(bubbles) + '○'.repeat(10 - bubbles);

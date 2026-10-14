@@ -13,6 +13,7 @@ import { SkateSystem, wearingSkates } from '../player/Skates';
 import { cameraFallRoll, cameraYawSway } from '../player/CameraEffects';
 import { WorldCycles } from '../world/WorldCycles';
 import { GameMode, Health } from '../player/Health';
+import { Hunger } from '../player/Hunger';
 import { Inventory } from '../player/Inventory';
 import { pick, pickWater } from '../interact/BlockPicker';
 import { runMenuFlow } from './Menus';
@@ -52,6 +53,7 @@ export class Game {
 
   private body: PlayerBody | null = null;
   private health: Health | null = null;
+  private hunger: Hunger | null = null;
   private inventory: Inventory | null = null;
   private hud: Hud | null = null;
   private panel: Panel | null = null;
@@ -148,7 +150,8 @@ export class Game {
     this.saveSlot = slot;
     this.mobs.zombieAttack = zombieAttack;
     this.mobs.zombieSpawn = true;
-    this.health = new Health(mode);
+    this.hunger = new Hunger(mode);
+    this.health = new Health(mode, () => this.hunger!.respawn());
     this.inventory = new Inventory(mode);
     this.hud = new Hud(this.health.showStats, this.atlas, this.inventory.infinite);
     this.panel = new Panel(this.inventory, this.atlas);
@@ -190,7 +193,7 @@ export class Game {
     });
     const setSpawn = (p: { x: number; y: number; z: number }) => { this.spawn = p; };
     this.survival = new Survival({
-      controller: this.controller, inventory: this.inventory, health: this.health, hud: this.hud,
+      controller: this.controller, inventory: this.inventory, health: this.health, hunger: this.hunger, hud: this.hud,
       world: this.world, slot: () => this.slot, setSpawn, respawn: () => this.respawn(),
     });
     this.pickup = new Pickup({
@@ -212,7 +215,7 @@ export class Game {
     if (save) {
       // 读档：出生点/背包/血量/世界改动/动物/掉落物全部还原
       const r = applySave(save, {
-        inv: this.inventory, health: this.health, world: this.world,
+        inv: this.inventory, health: this.health, hunger: this.hunger, world: this.world,
         scene: this.renderer.scene, animals: this.mobs.animals, zombies: this.mobs.zombies, drops: this.drops,
         tanks: this.vehicles!.tanks, challenge: this.challenge,
       });
@@ -257,10 +260,10 @@ export class Game {
 
   /** 把当前游戏打包存进浏览器（自动存 + 按 1 + 关页面时都会调它） */
   private saveNow(): void {
-    if (!this.started || !this.body || !this.inventory || !this.health) return;
+    if (!this.started || !this.body || !this.inventory || !this.health || !this.hunger) return;
     writeSave(this.saveSlot, buildSave({
       mode: this.inventory.mode, spawn: this.spawn, body: this.body,
-      health: this.health, slot: this.slot, inv: this.inventory,
+      health: this.health, hunger: this.hunger, slot: this.slot, inv: this.inventory,
       world: this.world, animals: this.mobs.animals, zombies: this.mobs.zombies, drops: this.drops,
       tanks: this.vehicles!.tanks, challenge: this.challenge,
       learned: this.book.learnedIds(),
@@ -378,6 +381,7 @@ export class Game {
     }
 
     if (!this.paused) {
+      this.survival!.toggleHungerKey();
       if (this.controller.take('toggleZombieSpawn')) {
         this.mobs.zombieSpawn = !this.mobs.zombieSpawn;
         hud.showMessage(this.mobs.zombieSpawn
@@ -398,10 +402,16 @@ export class Game {
       // 轮滑计时：连着滑会摔一跤，鞋上的数 = 还能摔几次
       const skateMessage = this.skates.update(body, this.inventory!.armor, dt, pev.horizontalDistance > 0);
       if (skateMessage) hud.showMessage(skateMessage, 1.5);
-      // 2. 生命：氧气 + 摔落/溺水结算
+      // 2. 生命与饥饿：氧气 + 摔落/溺水/饥饿结算
       const hev = health.update(dt, body, pev.fallDistance);
       if (hev.hurt) hud.showMessage('哎呀！', 0.6);
       if (hev.died) this.respawn();
+      const starveDmg = this.hunger!.update(dt);
+      if (starveDmg > 0) {
+        const sr = hurtPlayer(health, starveDmg);
+        if (sr.hurt) hud.showMessage('好饿！快吃东西！', 0.8);
+        if (sr.died) this.respawn();
+      }
       // 挖穿世界底掉进虚空：掉太深直接算摔死重生
       if (body.y < VOID_Y) { this.respawn(); hud.showMessage('掉出世界啦！', 1.2); }
 
@@ -475,7 +485,7 @@ export class Game {
 
       // 5. HUD 刷新
       hud.refreshHotbar(this.inventory!, this.slot);
-      hud.update(dt, health.hp, health.oxygen);
+      hud.update(dt, health.hp, health.oxygen, this.hunger!.value);
     }
 
     this.renderFrame(body);

@@ -76,15 +76,32 @@ export const HEALTH = {
   REGEN_HP: 1,           // 每次回多少血
 };
 
+export const HUNGER = {
+  MAX: 7,                // 饥饿条满格数（7 个鸡腿）
+  DRAIN_EVERY: 60,       // 开启后每隔几秒掉 1 格饥饿
+  STARVE_EVERY: 2,       // 饿到 0 后每隔几秒扣一次血
+  STARVE_DAMAGE: 1,      // 每次饥饿扣血量
+  ORANGE_BOOST_SECONDS: 3, // 橙子速度加成持续秒数（A11 预留）
+  ORANGE_BOOST_MULT: 1.25, // 橙子速度加成倍率（A11 预留）
+};
+
 export const SMELT_TIME = 3; // 熔炉烧一个东西要几秒
 
-/** 吃东西的效果：物品ID → 回血（负数=扣血，生肉难吃！） */
-export const EAT_HP: Record<number, number> = {
-  100: -1, // 生肉 -1 血
-  101: 4,  // 熟肉 +4 血
-  120: 1,  // 稻粒 +1 血（半颗心）
-  125: 3,  // 腌菜桶 +3 血，吃完还跑得快（看下面的 BOOST）
-  139: 2,  // 胡萝卜 +2 血（一整颗心）
+/** 食物效果：饥饿变化 + 血量变化（为 A8 南瓜片/西瓜片、A11 三种水果预留） */
+export interface FoodEffect {
+  hunger: number;
+  hp: number;
+  boostSeconds?: number;
+  boostMult?: number;
+}
+
+/** 吃东西的效果：物品ID → { hunger: 回饥饿, hp: 回血（负数=扣血，生肉难吃！） } */
+export const EAT_HP: Record<number, FoodEffect> = {
+  100: { hunger: 1, hp: -1 }, // 生肉 +1 饥饿 -1 血
+  101: { hunger: 1, hp: 4 },  // 熟肉 +1 饥饿 +4 血
+  120: { hunger: 1, hp: 1 },  // 稻粒 +1 饥饿 +1 血（半颗心）
+  125: { hunger: 0, hp: 3, boostSeconds: 60, boostMult: 1.5 }, // 腌菜桶 +3 血，吃完还跑得快（看下面的 BOOST）
+  139: { hunger: 1, hp: 2 },  // 胡萝卜 +1 饥饿 +2 血（一整颗心）
 };
 
 /** 鸟：三种都会飞不动只会蹦跶（先当地上走的小动物做）；命比别的动物短 */
@@ -113,10 +130,12 @@ export const SKATES = {
   MAX_FALLS: 3,      // 摔几次鞋就烂了
 };
 
-/** 吃完腌菜桶的加速效果 */
+/** 吃完腌菜桶/橙子等食物的加速效果 */
 export const BOOST = {
-  SECONDS: 60, // 加速持续多少秒
-  MULT: 1.5,   // 走路速度变几倍
+  SECONDS: 60,        // 腌菜桶加速持续多少秒
+  MULT: 1.5,          // 腌菜桶走路速度变几倍
+  ORANGE_SECONDS: 3,  // 橙子加速持续多少秒（A11 预留）
+  ORANGE_MULT: 1.25,  // 橙子走路速度变几倍（A11 预留）
 };
 
 export const ANIMAL = {
@@ -226,6 +245,7 @@ export const KEYS = {
   inventory: ['Digit9', 'Numpad9'],
   split: ['KeyK'],
   eat: ['KeyE'],
+  toggleHunger: ['KeyO'],
   toggleZombieSpawn: ['KeyN'],
   pause: ['Escape'],
   save: ['Digit1', 'Numpad1'], // 手动存档
