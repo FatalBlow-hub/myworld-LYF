@@ -4,12 +4,16 @@ import { HEALTH, HUNGER, ISLAND_TYPES, IslandType } from '../config';
 import { BLOCKS } from '../world/Block';
 import { Atlas } from '../render/Textures';
 import { Inventory } from '../player/Inventory';
+import { NetStatus } from '../net/Protocol';
 
 export class Hud {
   private root = document.getElementById('hud')!;
   private heartsEl = document.getElementById('hearts')!;
   private oxygenEl = document.getElementById('oxygen')!;
   private hungerEl: HTMLElement;
+  private netEl: HTMLElement;
+  private netStatus: NetStatus = 'disconnected';
+  private onlineList: string[] = [];
   private hotbarEl = document.getElementById('hotbar')!;
   private messageEl = document.getElementById('message')!;
   private pausedEl = document.getElementById('paused')!;
@@ -32,6 +36,19 @@ export class Hud {
       this.heartsEl.insertAdjacentElement('afterend', hungerEl);
     }
     this.hungerEl = hungerEl;
+    let netEl = document.getElementById('net-status');
+    if (!netEl) {
+      netEl = document.createElement('div');
+      netEl.id = 'net-status';
+      netEl.style.position = 'absolute';
+      netEl.style.top = '12px';
+      netEl.style.left = '14px';
+      netEl.style.fontSize = '14px';
+      netEl.style.textShadow = '1px 1px 2px var(--hud-shadow)';
+      this.root.appendChild(netEl);
+    }
+    this.netEl = netEl;
+    this.renderNetStatus();
     if (!showHealth) {
       this.heartsEl.textContent = '';
       this.oxygenEl.textContent = '';
@@ -127,5 +144,30 @@ export class Hud {
 
   setPaused(paused: boolean): void {
     this.pausedEl.style.display = paused ? 'flex' : 'none';
+  }
+
+  /** 更新联机连接状态与在线名单（固定位置状态灯：绿=已连接、黄=重连中、红=已断开） */
+  setNetState(status: NetStatus, online?: string[]): void {
+    this.netStatus = status;
+    if (online) this.onlineList = online;
+    this.renderNetStatus();
+  }
+
+  private renderNetStatus(): void {
+    if (this.netStatus === 'connected') {
+      const count = this.onlineList.length;
+      const suffix = count > 0 ? ` (${count}人在线)` : '';
+      this.netEl.textContent = `联机 ●${suffix}`;
+      this.netEl.style.color = '#66bb6a';
+      this.netEl.title = count > 0 ? `在线：${this.onlineList.join('、')}` : '已连接';
+    } else if (this.netStatus === 'reconnecting') {
+      this.netEl.textContent = '联机 ○ 重连中…';
+      this.netEl.style.color = '#ffd54a';
+      this.netEl.title = '正在尝试重连服务器…';
+    } else {
+      this.netEl.textContent = '联机 ● 已断开';
+      this.netEl.style.color = '#ef5350';
+      this.netEl.title = '未连接服务器';
+    }
   }
 }

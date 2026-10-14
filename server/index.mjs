@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import Database from 'better-sqlite3';
+import { attachWs } from './ws.mjs';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..'); // 项目根目录
 const DIST = join(ROOT, 'dist');          // vite 打包出来的静态文件
@@ -283,5 +284,8 @@ const server = createServer(async (req, res) => {
 
 // 每次启动顺手清掉过期的登录凭证
 q.dropExpired.run(Math.floor(Date.now() / 1000));
+
+// 挂上 WebSocket 长连接服务（复用同一端口，处理 /ws 的 upgrade）
+attachWs(server, currentUser);
 
 server.listen(PORT, HOST, () => console.log(`方块世界服务器跑起来啦 → http://${HOST}:${PORT}`));

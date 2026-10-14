@@ -41,16 +41,16 @@ import { spawnDrop } from '../entities/drops';
 import { ZOMBIE_NAMES } from '../entities/Zombie';
 import { FireSystem } from '../entities/Fire';
 import { hurtPlayer } from '../player/damage';
+import { NetClient } from '../net/Client';
+import { probeAuth } from '../ui/Auth';
 
 export class Game {
   private renderer: Renderer;
   private controller = new Controller();
   private world = new World();
   private atlas: Atlas = createAtlas();
-  /** 区块网格缓存：脏区块重建 + 旧网格释放 */
   private chunkMeshes: ChunkMeshCache;
   private highlight: THREE.LineSegments;
-
   private body: PlayerBody | null = null;
   private health: Health | null = null;
   private hunger: Hunger | null = null;
@@ -64,24 +64,15 @@ export class Game {
   private lastTime = 0;
   private saveSlot = 0; // 当前玩的是几号账号存档（1~3）
   private islandType: IslandType = 'apple'; // 本存档的专属岛屿类型
-
-  /** 玩家对方块做的动作：挖/放/用（begin() 时装好） */
-  private playerActions: PlayerActions | null = null;
-  /** 掉落物拾取（begin() 时装好） */
-  private pickup: Pickup | null = null;
-  /** 生存动作：吃喝 / 快捷栏 / 重生点 / 卡墙自救（begin() 时装好） */
-  private survival: Survival | null = null;
-  /** 打活物（begin() 时装好） */
-  private combat: MobCombat | null = null;
-  /** 点火/烧火系统（constructor 时装好） */
-  private fires!: FireSystem;
+  private playerActions: PlayerActions | null = null; // 挖/放/用（begin 装配）
+  private pickup: Pickup | null = null;               // 掉落物拾取（begin 装配）
+  private survival: Survival | null = null;           // 吃喝/快捷栏/重生（begin 装配）
+  private combat: MobCombat | null = null;            // 打活物（begin 装配）
+  private fires!: FireSystem;                         // 点火/烧火系统
   private mobs: Mobs;
-  /** 载具总管：坦克停车/上车/开炮（constructor 时装好） */
-  private vehicles!: Vehicles;
-  /** 挑战房：盖房/门票/四关怪/发奖（constructor 时装好） */
-  private challenge!: Challenge;
-  /** 扔出去的药水瓶：抛物线飞行 + 溅到僵尸身上（constructor 时装好） */
-  private potions!: Potions;
+  private vehicles!: Vehicles;                        // 载具总管：坦克停车/上车/开炮
+  private challenge!: Challenge;                      // 挑战房：盖房/门票/四关怪/发奖
+  private potions!: Potions;                          // 药水瓶：抛物线飞行 + 溅射
   private drops: ItemDrop[] = [];
   private saveTimer = SAVE.EVERY; // 自动存档倒计时
   private worldCycles = new WorldCycles();
@@ -89,8 +80,8 @@ export class Game {
   private container: ContainerPanel | null = null;
   private dyePanel: DyePanel | null = null;
   private book = new RecipeBook(); // 制作方法收集册：捡到 DIY 手册学会的方法都记在这
-  /** 面板管理器：谁占着画面、按键交给谁（背包/箱子/染色/收集册/睡觉黑屏） */
-  private panels = new PanelStack();
+  private net: NetClient | null = null;
+  private panels = new PanelStack(); // 面板管理器：谁占着画面、按键交给谁
   // 昼夜 + 睡觉：天黑了就提示可以上床睡觉
   private day = new DayCycle(
     () => this.hud?.showMessage('天黑了！小心血尸和星空尸出没，对着床按 M 可以睡觉', 3),
@@ -133,6 +124,20 @@ export class Game {
   async start(): Promise<void> {
     // 先问后端"我是谁"，再按结果走本地菜单 / 登录界面 / 账号菜单（细节在 Menus.ts）
     await runMenuFlow((mode, save, zombieAttack, slot) => this.begin(mode, save, zombieAttack, slot));
+    const who = await probeAuth();
+    this.net = new NetClient(who !== 'off' && who.name ? who.name : undefined, {
+      onStatusChange: (status, prev) => {
+        this.hud?.setNetState(status, this.net?.getOnlineList());
+        if (status === 'connected' && prev === 'reconnecting') this.hud?.showMessage('已重新连接服务器', 1.5);
+        else if (status === 'reconnecting' && prev === 'connected') this.hud?.showMessage('与服务器断开，重连中…', 1.5);
+      },
+      onOnlineChange: (online, ev) => {
+        this.hud?.setNetState(this.net!.getStatus(), online);
+        if (ev?.type === 'online') this.hud?.showMessage(`${ev.name} 上线了`, 1.5);
+        else if (ev?.type === 'offline') this.hud?.showMessage(`${ev.name} 下线了`, 1.5);
+      },
+    });
+    this.net.connect();
     // 关掉/刷新页面前存一次档
     addEventListener('beforeunload', () => this.saveNow());
     this.lastTime = performance.now();
@@ -155,6 +160,7 @@ export class Game {
     this.health = new Health(mode, () => this.hunger!.respawn());
     this.inventory = new Inventory(mode);
     this.hud = new Hud(this.health.showStats, this.atlas, this.inventory.infinite);
+    if (this.net) this.hud.setNetState(this.net.getStatus(), this.net.getOnlineList());
     this.panel = new Panel(this.inventory, this.atlas);
     this.container = new ContainerPanel(this.inventory, this.atlas);
     this.dyePanel = new DyePanel(this.inventory, (t) => this.hud!.showMessage(t));
@@ -299,13 +305,11 @@ export class Game {
   private dropAt(id: number, n: number, x: number, y: number, z: number): void {
     spawnDrop({ scene: this.renderer.scene, drops: this.drops }, id, n, x, y + 0.5, z);
   }
-
   /** 退出账号：先把当前进度存进本账号的档，再刷新页面回到账号菜单（整个重来最干净） */
   private quitToMenu(): void {
     this.saveNow();
     location.reload();
   }
-
   /** 按 3 回城：瞬移回重生点。不是死，血量和身上的效果都保持原样 */
   private goHome(): void {
     if (this.challenge.active) { this.hud!.showMessage('挑战中不能回城，先完成挑战'); return; }
@@ -315,7 +319,6 @@ export class Game {
     body.fellFrom = body.y; // 别算成摔落
     this.hud!.showMessage('嗖——回到重生点！');
   }
-
   private respawn(): void {
     const body = this.body!;
     this.challenge.onPlayerDeath(this.hud!); // 挑战房里死了：怪清场、门票没收
