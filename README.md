@@ -36,4 +36,7 @@ npm run dev
 - `src/player/` — 移动、物理、血量
 - `src/interact/` — 挖方块、放方块
 - `src/ui/` — 菜单和屏幕上的界面
-- `docs/architecture.md` — 架构设计文档
+- `docs/架构/架构文档.md` — 架构设计文档（模块划分与依赖铁律）
+- `docs/架构/需求文档.md` — 游戏规则与玩法需求
+- `docs/变更历史.md` — 每次迭代的变更记录、接口约定与验证存档
+- `docs/README.md` — docs 目录完整清单索引

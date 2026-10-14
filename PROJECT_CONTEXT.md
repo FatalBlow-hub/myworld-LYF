@@ -21,7 +21,8 @@
 - 依赖方向：`ui/interact/player → render/world → config`，禁止循环依赖
 - 魔法数字集中在 `src/config.ts`；业务文件 ≤500 行；注释中文、代码英文
 - 存档格式 v1；测试禁止动正式账号的存档和 localStorage
-- 变更历史、接口约定、验证记录 → `docs/changelog.md`；架构细节 → `docs/architecture.md`
+- 变更历史、接口约定、验证记录 → `docs/变更历史.md`；架构细节 → `docs/架构/架构文档.md`
+- 游戏规则与玩法需求 → `docs/架构/需求文档.md`；docs 完整清单 → `docs/README.md`
 
 ### 部署（云服务器）
 - 腾讯云 `49.235.124.163`，本机 `ssh tencent` 直连（密钥 `~/.ssh/tencent_key`）
