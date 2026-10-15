@@ -260,6 +260,15 @@ export const KEYS = {
   hall: ['KeyH'], // 在自己的岛与大厅之间来回切换
 } as const;
 
+/** 手机版域名：Nginx 把这些域名反代到同一个服务，前端据此切换手机 UI */
+export const MOBILE = {
+  /** 域名前缀：`m.7shu.asia` 这类一级子域，命中即手机版。
+   *  注意要用一级子域：现有证书是 `*.7shu.asia` 通配，三层域名（m.ms.7shu.asia）吃不到，得再签证书 */
+  HOST_PREFIXES: ['m.'],
+  /** 完整域名白名单：域名不满足前缀规则时写这里 */
+  HOSTS: [] as readonly string[],
+} as const;
+
 export const MANUAL = {
   DROP_CHANCE: 0.5, // 打死动物掉 DIY 手册的概率
   GOLD_CHANCE: 0.01,

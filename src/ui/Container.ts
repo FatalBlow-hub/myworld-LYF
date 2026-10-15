@@ -6,6 +6,7 @@ import { FurnaceState } from '../world/World';
 import { Atlas } from '../render/Textures';
 import { Inventory } from '../player/Inventory';
 import { createHeldEl, bindSlot, renderStack } from './slots';
+import { isMobile } from './Platform';
 
 export class ContainerPanel {
   private el: HTMLDivElement;
@@ -77,7 +78,7 @@ export class ContainerPanel {
   private finishOpen(): void {
     const hint = document.createElement('div');
     hint.className = 'inv-hint';
-    hint.textContent = 'ontouchstart' in window
+    hint.textContent = isMobile()
       ? '轻点拿/放整摞 · 长按放1个/拿半摞 · 点空白关闭'
       : '左键拿/放 · 右键放1个/拿半摞 · 9/ESC 或点空白关闭';
     this.win.appendChild(hint);

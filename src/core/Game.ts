@@ -18,7 +18,8 @@ import { Hunger } from '../player/Hunger';
 import { Inventory } from '../player/Inventory';
 import { pick, pickWater } from '../interact/BlockPicker';
 import { runMenuFlow } from './Menus';
-import { TouchControls, isTouchDevice } from '../ui/TouchControls';
+import { TouchControls } from '../ui/TouchControls';
+import { isMobile } from '../ui/Platform';
 import { Hud } from '../ui/Hud';
 import { Panel } from '../ui/Panel';
 import { Mobs } from '../entities/Mobs';
@@ -220,7 +221,7 @@ export class Game {
     this.chunkMeshes.rebuildDirty(this.world);
     if (!save) this.mobs.spawnInitial(this.spawn.x, this.spawn.z);
     this.controller.active = true;
-    if (isTouchDevice()) new TouchControls(this.controller);
+    if (isMobile()) new TouchControls(this.controller);
     this.started = true;
     this.saveNow();
     if (toHall) this.enterHallWhenReady();

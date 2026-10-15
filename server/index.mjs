@@ -29,6 +29,8 @@ const DIST = join(ROOT, 'dist');          // vite 打包出来的静态文件
 const DB_FILE = join(ROOT, 'server', 'data.db');
 
 const PORT = Number(process.env.PORT ?? 8787);
+/** Cookie 域名：填 .7shu.asia 这类值，几个子域（主站/手机版）就能共用同一份登录态；留空只对当前域名生效 */
+const COOKIE_DOMAIN = (process.env.COOKIE_DOMAIN ?? '').trim();
 const HOST = process.env.HOST ?? '127.0.0.1'; // 默认只听本机回环，外网走 Nginx 反代
 const COOKIE = 'bw_token';          // 登录凭证的 Cookie 名
 const SESSION_DAYS = 30;            // 登录一次管 30 天
@@ -127,11 +129,13 @@ function readBody(req) {
   });
 }
 
-/** 写 Cookie；https（或 Caddy 转发来的 https）才加 Secure，不然 http 调试时 Cookie 存不上 */
+/** 写 Cookie；https（或反向代理转发来的 https）才加 Secure，不然 http 调试时 Cookie 存不上。
+ *  配了 COOKIE_DOMAIN 时 Cookie 对所有子域生效（例如 m. 手机版域名和主域名共用登录态） */
 function setSessionCookie(req, res, token, maxAge) {
   const https = req.socket.encrypted || req.headers['x-forwarded-proto'] === 'https';
+  const domain = COOKIE_DOMAIN ? ` Domain=${COOKIE_DOMAIN};` : '';
   res.setHeader('set-cookie',
-    `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}` + (https ? '; Secure' : ''));
+    `${COOKIE}=${token}; Path=/;${domain} HttpOnly; SameSite=Lax; Max-Age=${maxAge}` + (https ? '; Secure' : ''));
 }
 
 /** 从 Cookie 里认出当前用户；过期顺手清掉 */

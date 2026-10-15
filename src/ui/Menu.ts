@@ -1,6 +1,31 @@
 /** 主菜单 — 账号制：继续已有的账号存档，或者添加新账号开新档（最多 3 个） */
 
 import type { GameMode } from '../player/Health';
+import { isMobile } from './Platform';
+
+/** 菜单底部的操作说明 — 手机看虚拟按键怎么说，电脑看键盘怎么说 */
+function hintHtml(): string {
+  if (isMobile()) {
+    return [
+      '左下摇杆走路 + 转弯 · 右边 ▲▼ 看上下',
+      '按住「挖」挖方块 / 打动物 · 「放」放方块 · 「用」开关门、上下车',
+      '◀▶ 换格子 · 「包」开背包（能合成）· 「吃」吃东西 · 「跳」跳起来',
+      '顶上一排：「书」制作方法 · 「存」存档 · 「家」回重生点 · 「厅」进出大厅 · 「停」暂停退出',
+      '拿着稻粒对水按「放」种水稻，拿着胡萝卜对草地或泥土按「放」种地里',
+      '创造模式会飞：「跳」上升 · 「降」下降',
+    ].join('<br/>');
+  }
+  return [
+    '↑↓ 走路 · ←→ 转弯 · 8/2 看上下',
+    '按住 P 挖方块 / 打动物 · L 放方块 · M 开关门',
+    '4/6 选格子 · 9 打开背包（能合成）· E 吃东西 · 空格 跳',
+    '1 存档（也会自动存）· 3 回重生点 · 7 制作方法 · N 切换僵尸生成 · 天黑对着床按 M 睡觉',
+    '拿着稻粒对水按 L 种水稻，拿着胡萝卜对草地或泥土按 L 种地里 · H 进出大厅',
+    '坦克：L 放地上 · 对着按 M 上车 · 拿炮弹按 L 装弹 · P 开炮 · M 下车',
+    '挑战房：5×5 空地放 · 对门按 M 交 10 生肉打 4 关，中途不许出来',
+    '创造模式会飞：空格 上升 · Shift 下降',
+  ].join('<br/>');
+}
 
 export interface MenuActions {
   /** 继续某个账号的存档 */
@@ -35,16 +60,7 @@ export class Menu {
         <button data-mode="creative">创造模式（不会死）</button>
       </div>
       <label class="zombie-toggle"><input type="checkbox" data-zombie ${opts.zombieChecked ? 'checked' : ''}/> 僵尸会攻击人（生存模式）</label>
-      <div class="hint">
-        ↑↓ 走路 · ←→ 转弯 · 8/2 看上下<br/>
-        按住 P 挖方块 / 打动物 · L 放方块 · M 开关门<br/>
-        4/6 选格子 · 9 打开背包（能合成）· E 吃东西 · 空格 跳<br/>
-        1 存档（也会自动存）· 3 回重生点 · 7 制作方法 · N 切换僵尸生成 · 天黑对着床按 M 睡觉<br/>
-        拿着稻粒对水按 L 种水稻，拿着胡萝卜对草地或泥土按 L 种地里 · H 进出大厅<br/>
-        坦克：L 放地上 · 对着按 M 上车 · 拿炮弹按 L 装弹 · P 开炮 · M 下车<br/>
-        挑战房：5×5 空地放 · 对门按 M 交 10 生肉打 4 关，中途不许出来<br/>
-        创造模式会飞：空格 上升 · Shift 下降
-      </div>
+      <div class="hint">${hintHtml()}</div>
     `;
     const zombieBox = () => this.el.querySelector('input[data-zombie]') as HTMLInputElement;
     const zombieOn = () => zombieBox().checked;
@@ -131,16 +147,7 @@ export class AccountMenu {
       </div>
       <label class="zombie-toggle"><input type="checkbox" data-zombie ${(opts.save?.zombieAttack ?? true) ? 'checked' : ''}/> 僵尸会攻击人（生存模式）</label>
       <button data-logout style="opacity:.6;font-size:14px;padding:8px 24px">退出登录</button>
-      <div class="hint">
-        ↑↓ 走路 · ←→ 转弯 · 8/2 看上下<br/>
-        按住 P 挖方块 / 打动物 · L 放方块 · M 开关门<br/>
-        4/6 选格子 · 9 打开背包（能合成）· E 吃东西 · 空格 跳<br/>
-        1 存档（也会自动存）· 3 回重生点 · 7 制作方法 · N 切换僵尸生成 · 天黑对着床按 M 睡觉<br/>
-        拿着稻粒对水按 L 种水稻，拿着胡萝卜对草地或泥土按 L 种地里 · H 进出大厅<br/>
-        坦克：L 放地上 · 对着按 M 上车 · 拿炮弹按 L 装弹 · P 开炮 · M 下车<br/>
-        挑战房：5×5 空地放 · 对门按 M 交 10 生肉打 4 关，中途不许出来<br/>
-        创造模式会飞：空格 上升 · Shift 下降
-      </div>
+      <div class="hint">${hintHtml()}</div>
     `;
     const zombieOn = () => (this.el.querySelector('input[data-zombie]') as HTMLInputElement).checked;
     this.el.querySelector('button[data-continue]')?.addEventListener('click', () => {

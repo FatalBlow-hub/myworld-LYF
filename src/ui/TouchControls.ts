@@ -4,11 +4,6 @@
 import { Action } from '../config';
 import { Controller } from '../player/Controller';
 
-/** 是触屏设备吗（网址带 ?touch=1 可以强制开，电脑上想试也行） */
-export function isTouchDevice(): boolean {
-  return navigator.maxTouchPoints > 0 || location.search.includes('touch=1');
-}
-
 /** 摇杆死区（像素）：推过这段距离才算按下那个方向 */
 const DEADZONE = 14;
 
@@ -41,6 +36,7 @@ export class TouchControls {
         <button class="tbtn sm" data-act="book">书</button>
         <button class="tbtn sm" data-act="save">存</button>
         <button class="tbtn sm" data-act="respawn">家</button>
+        <button class="tbtn sm" data-act="hall">厅</button>
         <button class="tbtn sm" data-act="toggleZombieSpawn">尸</button>
         <button class="tbtn sm" data-act="pause">停</button>
       </div>

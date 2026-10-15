@@ -7,6 +7,7 @@ import { Inventory, Slots, stackMaxFor } from '../player/Inventory';
 import { Controller } from '../player/Controller';
 import { SKATES, STACK_MAX, WAISTBAG } from '../config';
 import { createHeldEl, bindSlot, renderStack } from './slots';
+import { isMobile } from './Platform';
 
 const ARMOR_NAMES = ['头盔', '腰包', '护腿', '靴子'];
 
@@ -76,7 +77,7 @@ export class Panel {
 
     const hint = document.createElement('div');
     hint.className = 'inv-hint';
-    const touch = 'ontouchstart' in window;
+    const touch = isMobile();
     hint.textContent = this.bigMode
       ? touch
         ? '轻点拿/放整摞 · 长按放1个/拿半摞 · 数量要按配方放正好 · 点空白关闭'
