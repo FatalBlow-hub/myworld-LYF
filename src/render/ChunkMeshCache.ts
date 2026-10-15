@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { meshChunk } from './ChunkMesher';
 import { Atlas } from './Textures';
+import { attachWindSway, createWaterMaterial } from './WaterMaterial';
 import { World } from '../world/World';
 
 interface ChunkMeshes {
@@ -26,12 +27,8 @@ export class ChunkMeshCache {
       alphaTest: 0.5,
       vertexColors: true,
     });
-    this.waterMat = new THREE.MeshLambertMaterial({
-      map: this.atlas.texture,
-      transparent: true,
-      depthWrite: false, // 水/玻璃不挡后面的东西
-      vertexColors: true,
-    });
+    attachWindSway(this.opaqueMat, this.clock);
+    this.waterMat = createWaterMaterial(this.atlas.texture, this.clock);
     this.glowMat = new THREE.MeshBasicMaterial({
       map: this.atlas.texture,
       alphaTest: 0.5,

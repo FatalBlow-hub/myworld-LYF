@@ -1,8 +1,8 @@
 /** 区块网格化 — 把方块数据变成三角形：普通方块只画看得见的面，异形方块按碰撞盒画 */
 
 import * as THREE from 'three';
-import { AO_CURVE, CHUNK, FACE_SHADE } from '../config';
-import { AIR, BLOCKS, BlockDef, WATER } from '../world/Block';
+import { AO_CURVE, CHUNK, FACE_SHADE, WIND_FX } from '../config';
+import { AIR, BLOCKS, BlockDef, DANDELION, POPPY, SEAWEED, TALL_GRASS, WATER, isSwamp } from '../world/Block';
 import { Box, FOUNTAIN_WATER, META_DIRS, renderBoxes } from '../world/Shapes';
 import { World } from '../world/World';
 import { Atlas } from './Textures';
@@ -45,6 +45,16 @@ function createGeoArrays(): GeoArrays {
 }
 
 const DEFAULT_AO: readonly [number, number, number, number] = [1, 1, 1, 1];
+const DEFAULT_EFFECT: readonly [number, number, number, number] = [0, 0, 0, 0];
+const WATER_TOP_EFFECT: readonly [number, number, number, number] = [1, 1, 1, 1];
+const CROSS_FRONT_EFFECT: readonly [number, number, number, number] = [0, 0, 1, 1];
+const CROSS_BACK_EFFECT: readonly [number, number, number, number] = [1, 1, 0, 0];
+const WILD_PLANTS = new Set<number>([TALL_GRASS, DANDELION, POPPY, SEAWEED]);
+
+/** 属于液体族（水 + 五种泽液） */
+function isLiquid(id: number): boolean {
+  return id === WATER || isSwamp(id);
+}
 
 /** 面法线 → 面方向明暗系数（顶 1.0 / ±z 0.86 / ±x 0.76 / 底 0.6） */
 function faceShade(n: readonly number[]): number {
@@ -62,6 +72,7 @@ function pushQuad(
   flipY = false,
   ao: readonly [number, number, number, number] = DEFAULT_AO,
   shade = 1,
+  effects: readonly [number, number, number, number] = DEFAULT_EFFECT,
 ): void {
   const base = g.pos.length / 3;
   for (let i = 0; i < 4; i++) {
@@ -73,7 +84,7 @@ function pushQuad(
     );
     const c = ao[i] * shade;
     g.color.push(c, c, c);
-    g.effect.push(0);
+    g.effect.push(effects[i]);
   }
   if (ao[0] + ao[2] < ao[1] + ao[3]) {
     g.index.push(base + 1, base + 2, base + 3, base, base + 1, base + 3);
@@ -192,7 +203,7 @@ export function meshChunk(world: World, cx: number, cz: number, atlas: Atlas): C
         // 花草：两张交叉薄片，不走盒子逻辑；底下是水就往水里沉一点（水稻像插在水里）
         if (def.shape === 'cross') {
           const dip = world.getBlock(wx, y - 1, wz) === WATER ? CROP_DIP : 0;
-          emitCross(solid, atlas, wx, y - dip, wz, def.tex.side);
+          emitCross(solid, atlas, wx, y - dip, wz, id, def.tex.side);
           continue;
         }
 
@@ -201,8 +212,8 @@ export function meshChunk(world: World, cx: number, cz: number, atlas: Atlas): C
           const shapeTarget = def.glow ? glow : solid;
           for (const b of renderBoxes(id, meta)) emitBox(shapeTarget, atlas, world, wx, y, wz, b, def, meta);
           if (def.shape === 'fence') emitFenceBars(shapeTarget, atlas, world, wx, y, wz, def, meta);
-          // 喷泉水面画到半透明层，真·透明水
-          if (def.shape === 'fountain') for (const b of FOUNTAIN_WATER) emitPlainBox(water, atlas, wx, y, wz, b, 'water');
+          // 喷泉水面画到半透明层，真·透明水，顶面打标参与波浪波光
+          if (def.shape === 'fountain') for (const b of FOUNTAIN_WATER) emitPlainBox(water, atlas, wx, y, wz, b, 'water', true);
           continue;
         }
 
@@ -227,7 +238,8 @@ export function meshChunk(world: World, cx: number, cz: number, atlas: Atlas): C
           });
           const ao = def.glow ? DEFAULT_AO : sampleFaceAO(world, wx, y, wz, face);
           const shade = def.glow ? 1 : faceShade(face.n);
-          pushQuad(target, verts, face.n, uvRect, false, ao, shade);
+          const effects = isLiquid(id) && face.n[1] === 1 && !isLiquid(nid) ? WATER_TOP_EFFECT : DEFAULT_EFFECT;
+          pushQuad(target, verts, face.n, uvRect, false, ao, shade, effects);
         }
       }
     }
@@ -237,7 +249,16 @@ export function meshChunk(world: World, cx: number, cz: number, atlas: Atlas): C
 }
 
 /** 画一个六面都出的盒子、指定贴图：给喷泉的水面用（不查遮挡，反正藏在造型里） */
-function emitPlainBox(g: GeoArrays, atlas: Atlas, wx: number, y: number, wz: number, b: Box, tex: string): void {
+function emitPlainBox(
+  g: GeoArrays,
+  atlas: Atlas,
+  wx: number,
+  y: number,
+  wz: number,
+  b: Box,
+  tex: string,
+  markTopWater = false,
+): void {
   const uvRect = atlas.uv(tex);
   for (const face of FACES) {
     const verts = face.v.map(([vx, vy, vz]) => [
@@ -245,22 +266,46 @@ function emitPlainBox(g: GeoArrays, atlas: Atlas, wx: number, y: number, wz: num
       y + b[1] + vy * (b[4] - b[1]),
       wz + b[2] + vz * (b[5] - b[2]),
     ]);
-    pushQuad(g, verts, face.n, uvRect);
+    const effects = markTopWater && face.n[1] === 1 ? WATER_TOP_EFFECT : DEFAULT_EFFECT;
+    pushQuad(g, verts, face.n, uvRect, false, DEFAULT_AO, 1, effects);
   }
 }
 
-/** 花草画成两张交叉的斜面薄片（沿格子对角线），正反两面都画，空白处靠 alphaTest 裁掉 */
-function emitCross(g: GeoArrays, atlas: Atlas, wx: number, y: number, wz: number, tex: string): void {
+/** 基于世界坐标 (wx, wz) 的确定性哈希（0~1），保证同一格植物角度/偏移/高度恒定 */
+function hashCoord(wx: number, wz: number, salt: number): number {
+  let h = Math.imul(wx ^ salt, 374761393) + Math.imul(wz ^ (salt << 1), 668265263);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+/** 花草画成两张交叉的斜面薄片，带确定性随机角度/格内微移（野生植物带随机高度），底边钉死顶边随风摆 */
+function emitCross(g: GeoArrays, atlas: Atlas, wx: number, y: number, wz: number, id: number, tex: string): void {
   const uvRect = atlas.uv(tex);
-  const planes: { v: number[][]; n: number[] }[] = [
-    { v: [[0, 0, 0], [1, 0, 1], [1, 1, 1], [0, 1, 0]], n: [-0.707, 0, 0.707] },
-    { v: [[1, 0, 0], [0, 0, 1], [0, 1, 1], [1, 1, 0]], n: [-0.707, 0, -0.707] },
-  ];
-  for (const p of planes) {
-    const verts = p.v.map(([vx, vy, vz]) => [wx + vx, y + vy, wz + vz]);
-    pushQuad(g, verts, p.n, uvRect);
-    // 背面：顶点倒过来画一遍，法线取反（薄片两面都能看到）；顶点反了贴图上下要跟着翻，不然这面看过去草是倒的
-    pushQuad(g, [...verts].reverse(), [-p.n[0], p.n[1], -p.n[2]], uvRect, true);
+  const theta = hashCoord(wx, wz, 1) * Math.PI;
+  const ox = (hashCoord(wx, wz, 2) * 2 - 1) * WIND_FX.OFFSET_MAX;
+  const oz = (hashCoord(wx, wz, 3) * 2 - 1) * WIND_FX.OFFSET_MAX;
+  const h = WILD_PLANTS.has(id)
+    ? WIND_FX.HEIGHT_MIN + hashCoord(wx, wz, 4) * (WIND_FX.HEIGHT_MAX - WIND_FX.HEIGHT_MIN)
+    : 1;
+  const cx = wx + 0.5 + ox;
+  const cz = wz + 0.5 + oz;
+  const r = WIND_FX.HALF_SPAN;
+  const c = Math.cos(theta);
+  const s = Math.sin(theta);
+  const dirs: [number, number][] = [[c, s], [-s, c]];
+  for (const [dx, dz] of dirs) {
+    const rx = dx * r;
+    const rz = dz * r;
+    const verts = [
+      [cx - rx, y, cz - rz],
+      [cx + rx, y, cz + rz],
+      [cx + rx, y + h, cz + rz],
+      [cx - rx, y + h, cz - rz],
+    ];
+    const n = [-dz, 0, dx];
+    pushQuad(g, verts, n, uvRect, false, DEFAULT_AO, 1, CROSS_FRONT_EFFECT);
+    // 背面：顶点倒过来画一遍，法线取反，贴图上下翻转，effect 数组同步反序保证底0顶1
+    pushQuad(g, [...verts].reverse(), [-n[0], n[1], -n[2]], uvRect, true, DEFAULT_AO, 1, CROSS_BACK_EFFECT);
   }
 }
 
