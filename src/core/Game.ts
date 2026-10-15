@@ -84,7 +84,7 @@ export class Game {
 
   constructor(container: HTMLElement) {
     this.renderer = new Renderer(container);
-    this.chunkMeshes = new ChunkMeshCache(this.renderer.scene, this.atlas);
+    this.chunkMeshes = new ChunkMeshCache(this.renderer.scene, this.atlas, this.renderer.clock);
     const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002));
     this.highlight = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x111111 }));
     this.highlight.visible = false;

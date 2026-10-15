@@ -1,10 +1,15 @@
 /** 渲染器 — 封装 Three.js 的场景、相机、灯光，外面只管调 render() */
 
 import * as THREE from 'three';
+import { QUALITY_ADAPT } from '../config';
+import { QualityMonitor } from './Quality';
 
 export class Renderer {
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
+  /** 全渲染层共享动画时钟（秒，按 3600 取模防 float32 精度抖动） */
+  readonly clock = { value: 0 };
+  readonly quality: QualityMonitor;
   private renderer: THREE.WebGLRenderer;
   private hemi: THREE.HemisphereLight;
   private sun: THREE.DirectionalLight;
@@ -13,13 +18,16 @@ export class Renderer {
   private nightSky = new THREE.Color(0x0b1026);
 
   constructor(container: HTMLElement) {
+    this.quality = new QualityMonitor();
+    const preset = this.quality.preset;
+
     this.scene.background = this.daySky.clone(); // 天空蓝
     this.scene.fog = new THREE.Fog(0x87ceeb, 40, 90);  // 远处起雾，盖住没生成的区块
 
     this.camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 200);
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    this.renderer = new THREE.WebGLRenderer({ antialias: preset.antialias });
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, preset.pixelRatioMax));
     this.renderer.setSize(innerWidth, innerHeight);
     container.appendChild(this.renderer.domElement);
 
@@ -56,6 +64,11 @@ export class Renderer {
   }
 
   render(): void {
+    const now = performance.now();
+    this.clock.value = (now * 0.001) % QUALITY_ADAPT.CLOCK_MOD_SECONDS;
+    if (this.quality.recordFrame(now)) {
+      this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.quality.preset.pixelRatioMax));
+    }
     this.renderer.render(this.scene, this.camera);
   }
 }

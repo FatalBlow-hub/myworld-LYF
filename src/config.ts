@@ -383,3 +383,61 @@ export const ORE = {
 };
 
 export type Action = keyof typeof KEYS;
+
+/** 渲染质量 — 三档预设与自动降档参数 */
+export type QualityTier = 'high' | 'medium' | 'low';
+
+export interface QualityPreset {
+  pixelRatioMax: number;
+  antialias: boolean;
+  viewDistance: number;
+  shadows: boolean;
+  shadowMapSize: number;
+  bloom: boolean;
+  ao: boolean;
+  waterWave: boolean;
+  windSway: boolean;
+}
+
+export const QUALITY_PRESETS: Record<QualityTier, QualityPreset> = {
+  high: {
+    pixelRatioMax: 2,
+    antialias: true,
+    viewDistance: 4,
+    shadows: true,
+    shadowMapSize: 2048,
+    bloom: true,
+    ao: true,
+    waterWave: true,
+    windSway: true,
+  },
+  medium: {
+    pixelRatioMax: 1.5,
+    antialias: true,
+    viewDistance: 4,
+    shadows: true,
+    shadowMapSize: 1024,
+    bloom: false,
+    ao: true,
+    waterWave: true,
+    windSway: true,
+  },
+  low: {
+    pixelRatioMax: 1,
+    antialias: false,
+    viewDistance: 3,
+    shadows: false,
+    shadowMapSize: 0,
+    bloom: false,
+    ao: true,
+    waterWave: true,
+    windSway: true,
+  },
+};
+
+export const QUALITY_ADAPT = {
+  WINDOW_FRAMES: 90,        // 帧时间滑窗大小（帧数）
+  DOWNGRADE_MS: 35,         // 滑窗平均帧耗超过此阈值（< 28 FPS）触发降档
+  MAX_FRAME_MS: 250,        // 单帧耗时夹紧上限，防止切后台回来瞬间误降档
+  CLOCK_MOD_SECONDS: 3600,  // 共享渲染时钟取模周期（秒），防 float32 精度抖动
+};

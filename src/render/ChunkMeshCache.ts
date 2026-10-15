@@ -14,20 +14,37 @@ interface ChunkMeshes {
 
 export class ChunkMeshCache {
   private meshes = new Map<string, ChunkMeshes>();
-  private opaqueMat: THREE.MeshLambertMaterial;
+  private opaqueMat!: THREE.MeshLambertMaterial;
   /** 发光材质：不受光照影响，黑夜里也亮堂堂 */
-  private glowMat: THREE.MeshBasicMaterial;
-  private waterMat: THREE.MeshLambertMaterial;
+  private glowMat!: THREE.MeshBasicMaterial;
+  private waterMat!: THREE.MeshLambertMaterial;
 
-  constructor(private scene: THREE.Scene, private atlas: Atlas) {
+  private buildMaterials(): void {
     // alphaTest 让花草贴图的透明部分被裁掉（不然透明处会变成黑色方块）
-    this.opaqueMat = new THREE.MeshLambertMaterial({ map: atlas.texture, alphaTest: 0.5 });
+    this.opaqueMat = new THREE.MeshLambertMaterial({
+      map: this.atlas.texture,
+      alphaTest: 0.5,
+      vertexColors: true,
+    });
     this.waterMat = new THREE.MeshLambertMaterial({
-      map: atlas.texture,
+      map: this.atlas.texture,
       transparent: true,
       depthWrite: false, // 水/玻璃不挡后面的东西
+      vertexColors: true,
     });
-    this.glowMat = new THREE.MeshBasicMaterial({ map: atlas.texture, alphaTest: 0.5 });
+    this.glowMat = new THREE.MeshBasicMaterial({
+      map: this.atlas.texture,
+      alphaTest: 0.5,
+      vertexColors: true,
+    });
+  }
+
+  constructor(
+    private scene: THREE.Scene,
+    private atlas: Atlas,
+    readonly clock: { value: number } = { value: 0 },
+  ) {
+    this.buildMaterials();
   }
 
   /** 把标脏的区块重新生成网格，换掉旧网格 */
@@ -76,12 +93,6 @@ export class ChunkMeshCache {
     this.opaqueMat.dispose();
     this.waterMat.dispose();
     this.glowMat.dispose();
-    this.opaqueMat = new THREE.MeshLambertMaterial({ map: this.atlas.texture, alphaTest: 0.5 });
-    this.waterMat = new THREE.MeshLambertMaterial({
-      map: this.atlas.texture,
-      transparent: true,
-      depthWrite: false,
-    });
-    this.glowMat = new THREE.MeshBasicMaterial({ map: this.atlas.texture, alphaTest: 0.5 });
+    this.buildMaterials();
   }
 }

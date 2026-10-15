@@ -35,7 +35,13 @@ interface GeoArrays {
   pos: number[];
   normal: number[];
   uv: number[];
+  color: number[];
+  effect: number[];
   index: number[];
+}
+
+function createGeoArrays(): GeoArrays {
+  return { pos: [], normal: [], uv: [], color: [], effect: [], index: [] };
 }
 
 function pushQuad(g: GeoArrays, verts: number[][], normal: readonly number[], uvRect: [number, number, number, number], flipY = false): void {
@@ -47,6 +53,8 @@ function pushQuad(g: GeoArrays, verts: number[][], normal: readonly number[], uv
       uvRect[0] + QUAD_UV[i][0] * (uvRect[2] - uvRect[0]),
       uvRect[1] + (flipY ? 1 - QUAD_UV[i][1] : QUAD_UV[i][1]) * (uvRect[3] - uvRect[1]),
     );
+    g.color.push(1, 1, 1);
+    g.effect.push(0);
   }
   g.index.push(base, base + 1, base + 2, base, base + 2, base + 3);
 }
@@ -57,6 +65,8 @@ function toGeometry(g: GeoArrays): THREE.BufferGeometry | null {
   geo.setAttribute('position', new THREE.Float32BufferAttribute(g.pos, 3));
   geo.setAttribute('normal', new THREE.Float32BufferAttribute(g.normal, 3));
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(g.uv, 2));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(g.color, 3));
+  geo.setAttribute('aEffect', new THREE.Float32BufferAttribute(g.effect, 1));
   geo.setIndex(g.index);
   return geo;
 }
@@ -112,9 +122,9 @@ export interface ChunkMesh {
 
 /** 为一个区块生成三套网格：不透明、半透明（水/玻璃）、发光各一套 */
 export function meshChunk(world: World, cx: number, cz: number, atlas: Atlas): ChunkMesh {
-  const solid: GeoArrays = { pos: [], normal: [], uv: [], index: [] };
-  const water: GeoArrays = { pos: [], normal: [], uv: [], index: [] };
-  const glow: GeoArrays = { pos: [], normal: [], uv: [], index: [] };
+  const solid = createGeoArrays();
+  const water = createGeoArrays();
+  const glow = createGeoArrays();
   const baseX = cx * CHUNK.SIZE;
   const baseZ = cz * CHUNK.SIZE;
 
