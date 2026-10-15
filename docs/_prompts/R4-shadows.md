@@ -9,7 +9,7 @@
 
 | 项 | 决策 |
 | --- | --- |
-| 开关 | 按 R0 的质量档位：`renderer.shadowMap.enabled = quality.shadows`；类型 `PCFSoftShadowMap` |
+| 开关 | 按 R0 的质量档位：`renderer.shadowMap.enabled = quality.shadows`；类型用 `PCFShadowMap`（**three r186 已移除 `PCFSoftShadowMap`**，写它只会在控制台打 warning 并静默回退） |
 | 太阳 | `sun.castShadow`（档位关时 false）；`scene.add(sun.target)`；正交相机覆盖玩家周围约 40~48 格，`near ≈ 10`、`far ≈ 160`；`mapSize` 取档位表（高档 2048 / 中档 1024） |
 | 跟随 | `sun` 与 `sun.target` **按玩家整格坐标跟随**（每移动一格才更新，避免影子边缘抖动/闪烁）；太阳方向保持固定倾角 |
 | 抗伪影 | `sun.shadow.bias ≈ -0.0005`、`sun.shadow.normalBias ≈ 0.03`；参数进 `config.ts` |
