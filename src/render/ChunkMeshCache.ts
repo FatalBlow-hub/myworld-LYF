@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { meshChunk } from './ChunkMesher';
 import { Atlas } from './Textures';
-import { attachWindSway, createWaterMaterial } from './WaterMaterial';
+import { attachWindSway, createDepthMaterial, createWaterMaterial } from './WaterMaterial';
 import { World } from '../world/World';
 
 interface ChunkMeshes {
@@ -16,6 +16,7 @@ interface ChunkMeshes {
 export class ChunkMeshCache {
   private meshes = new Map<string, ChunkMeshes>();
   private opaqueMat!: THREE.MeshLambertMaterial;
+  private depthMat!: THREE.MeshDepthMaterial;
   /** 发光材质：不受光照影响，黑夜里也亮堂堂 */
   private glowMat!: THREE.MeshBasicMaterial;
   private waterMat!: THREE.MeshLambertMaterial;
@@ -28,6 +29,7 @@ export class ChunkMeshCache {
       vertexColors: true,
     });
     attachWindSway(this.opaqueMat, this.clock);
+    this.depthMat = createDepthMaterial(this.atlas.texture, this.clock);
     this.waterMat = createWaterMaterial(this.atlas.texture, this.clock);
     this.glowMat = new THREE.MeshBasicMaterial({
       map: this.atlas.texture,
@@ -61,14 +63,20 @@ export class ChunkMeshCache {
       const entry: ChunkMeshes = { opaque: null, water: null, glow: null };
       if (geo.opaque) {
         entry.opaque = new THREE.Mesh(geo.opaque, this.opaqueMat);
+        entry.opaque.castShadow = true;
+        entry.opaque.receiveShadow = true;
+        entry.opaque.customDepthMaterial = this.depthMat;
         this.scene.add(entry.opaque);
       }
       if (geo.water) {
         entry.water = new THREE.Mesh(geo.water, this.waterMat);
+        entry.water.castShadow = false;
+        entry.water.receiveShadow = true;
         this.scene.add(entry.water);
       }
       if (geo.glow) {
         entry.glow = new THREE.Mesh(geo.glow, this.glowMat);
+        entry.glow.receiveShadow = true;
         this.scene.add(entry.glow);
       }
       this.meshes.set(key, entry);
@@ -88,6 +96,7 @@ export class ChunkMeshCache {
     }
     this.meshes.clear();
     this.opaqueMat.dispose();
+    this.depthMat.dispose();
     this.waterMat.dispose();
     this.glowMat.dispose();
     this.buildMaterials();

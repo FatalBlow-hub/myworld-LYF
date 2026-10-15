@@ -239,6 +239,7 @@ export class Animal {
     const box = (w: number, h: number, l: number, x: number, y: number, z: number, c: number) => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, l), mat(c));
       m.position.set(x, y, z);
+      m.castShadow = true;
       this.group.add(m);
       return m;
     };
@@ -273,6 +274,7 @@ export class Animal {
     const box = (w: number, h: number, l: number, x: number, y: number, z: number, c: number) => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, l), mat(c));
       m.position.set(x, y, z);
+      m.castShadow = true;
       this.group.add(m);
       return m;
     };

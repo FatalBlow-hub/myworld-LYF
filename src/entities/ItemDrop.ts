@@ -28,6 +28,7 @@ export class ItemDrop {
       new THREE.BoxGeometry(SIZE, SIZE, SIZE),
       new THREE.MeshLambertMaterial({ color: c, emissive: glow ? c : 0x000000 }),
     );
+    this.mesh.castShadow = true;
     this.x = x; this.y = y; this.z = z;
     this.mesh.position.set(x, y + SIZE / 2, z);
   }

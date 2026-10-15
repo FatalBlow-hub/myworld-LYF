@@ -455,38 +455,19 @@ export const FACE_SHADE = {
 
 /** 水面波浪与波光参数（只作用于 aEffect > 0 的暴露液面顶点） */
 export const WATER_FX = {
-  WAVE1_FREQ_X: 1.8,
-  WAVE1_FREQ_Z: 1.3,
-  WAVE1_SPEED: 2.2,
-  WAVE1_AMP: 0.018,
-  WAVE2_FREQ_X: 2.9,
-  WAVE2_FREQ_Z: 2.4,
-  WAVE2_SPEED: 3.1,
-  WAVE2_AMP: 0.012,
-  NORMAL_STRENGTH: 3.2,
-  UV_SCALE: 3.5,
-  UV1_SPEED_X: 0.65,
-  UV1_SPEED_Z: 0.45,
-  UV2_SPEED_X: -0.5,
-  UV2_SPEED_Z: 0.7,
-  SHIMMER_STRENGTH: 0.16,
-  SPEC_POWER: 48.0,
-  SPEC_STRENGTH: 0.55,
-  FRESNEL_POWER: 3.0,
-  FRESNEL_STRENGTH: 0.18,
+  WAVE1_FREQ_X: 1.8, WAVE1_FREQ_Z: 1.3, WAVE1_SPEED: 2.2, WAVE1_AMP: 0.018,
+  WAVE2_FREQ_X: 2.9, WAVE2_FREQ_Z: 2.4, WAVE2_SPEED: 3.1, WAVE2_AMP: 0.012,
+  NORMAL_STRENGTH: 3.2, UV_SCALE: 3.5,
+  UV1_SPEED_X: 0.65, UV1_SPEED_Z: 0.45, UV2_SPEED_X: -0.5, UV2_SPEED_Z: 0.7,
+  SHIMMER_STRENGTH: 0.16, SPEC_POWER: 48.0, SPEC_STRENGTH: 0.55,
+  FRESNEL_POWER: 3.0, FRESNEL_STRENGTH: 0.18,
   SUN_DIR: [0.4264, 0.8528, 0.2558] as const,
 } as const;
 
 /** 花草庄稼随机化与风摆参数（只作用于 aEffect > 0 的 cross 顶边顶点） */
 export const WIND_FX = {
-  SWAY_AMP: 0.055,
-  SWAY_SPEED: 2.4,
-  PHASE_X: 1.7,
-  PHASE_Z: 2.3,
-  OFFSET_MAX: 0.1,
-  HALF_SPAN: 0.38,
-  HEIGHT_MIN: 0.82,
-  HEIGHT_MAX: 1.0,
+  SWAY_AMP: 0.055, SWAY_SPEED: 2.4, PHASE_X: 1.7, PHASE_Z: 2.3,
+  OFFSET_MAX: 0.1, HALF_SPAN: 0.38, HEIGHT_MIN: 0.82, HEIGHT_MAX: 1.0,
 } as const;
 
 /** 天空渐变球与地平线雾（三段昼夜色 + 雾距系数） */
@@ -496,4 +477,15 @@ export const SKY = {
   DUSK: { zenith: 0x383268, horizon: 0xf08a4b },
   NIGHT: { zenith: 0x060918, horizon: 0x101836 },
   CURVE: 0.6, SUN_GLOW: 0.22, SUN_POWER: 16.0,
+} as const;
+
+/** 跟随式平行光软阴影参数（正交范围、近远裁切面、抗摩尔纹偏移、夜晚关闭阈值） */
+export const SHADOW = {
+  EXTENT: 44,
+  NEAR: 10,
+  FAR: 160,
+  BIAS: -0.0005,
+  NORMAL_BIAS: 0.03,
+  NIGHT_THRESHOLD: 0.15,
+  SUN_OFFSET: [50, 100, 30] as const,
 } as const;

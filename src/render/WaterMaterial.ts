@@ -67,10 +67,11 @@ vWorldPos = worldPos;`,
 
 /** 为不透明材质注入花草风摆：仅 aEffect > 0 的植物顶边顶点摆动，实心方块与根部恒静止 */
 export function attachWindSway(
-  mat: THREE.MeshLambertMaterial,
+  mat: THREE.Material,
   clock: { value: number },
+  cacheKey = 'voxel-opaque-sway-v1',
 ): void {
-  mat.customProgramCacheKey = () => 'voxel-opaque-sway-v1';
+  mat.customProgramCacheKey = () => cacheKey;
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = clock;
     shader.vertexShader =
@@ -86,4 +87,18 @@ if (aEffect > 0.0) {
 }`,
       );
   };
+}
+
+/** 创建带 alphaTest 与同步风摆的自定义深度材质，确保花草/树叶/梯子投出镂空动态阴影而非实心方片 */
+export function createDepthMaterial(
+  texture: THREE.Texture,
+  clock: { value: number },
+): THREE.MeshDepthMaterial {
+  const mat = new THREE.MeshDepthMaterial({
+    depthPacking: THREE.RGBADepthPacking,
+    map: texture,
+    alphaTest: 0.5,
+  });
+  attachWindSway(mat, clock, 'voxel-depth-sway-v1');
+  return mat;
 }

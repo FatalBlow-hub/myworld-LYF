@@ -214,6 +214,7 @@ export class Zombie {
     const box = (w: number, h: number, l: number, x: number, y: number, z: number, c: number) => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, l), mat(c));
       m.position.set(x, y, z);
+      m.castShadow = true;
       this.group.add(m);
     };
     box(0.42, 0.42, 0.42, 0, 1.55, 0, skin);              // 头
@@ -234,6 +235,7 @@ export class Zombie {
     const box = (w: number, h: number, l: number, x: number, y: number, z: number, c: number, glow = false) => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, l), mat(c, glow));
       m.position.set(x, y, z);
+      m.castShadow = true;
       this.group.add(m);
     };
     box(0.3, 0.22, 0.5, 0, 0.16, 0, fur);                 // 趴着的身子
