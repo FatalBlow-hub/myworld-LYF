@@ -1,7 +1,7 @@
 /** 区块网格化 — 把方块数据变成三角形：普通方块只画看得见的面，异形方块按碰撞盒画 */
 
 import * as THREE from 'three';
-import { CHUNK } from '../config';
+import { AO_CURVE, CHUNK, FACE_SHADE } from '../config';
 import { AIR, BLOCKS, BlockDef, WATER } from '../world/Block';
 import { Box, FOUNTAIN_WATER, META_DIRS, renderBoxes } from '../world/Shapes';
 import { World } from '../world/World';
@@ -44,7 +44,25 @@ function createGeoArrays(): GeoArrays {
   return { pos: [], normal: [], uv: [], color: [], effect: [], index: [] };
 }
 
-function pushQuad(g: GeoArrays, verts: number[][], normal: readonly number[], uvRect: [number, number, number, number], flipY = false): void {
+const DEFAULT_AO: readonly [number, number, number, number] = [1, 1, 1, 1];
+
+/** 面法线 → 面方向明暗系数（顶 1.0 / ±z 0.86 / ±x 0.76 / 底 0.6） */
+function faceShade(n: readonly number[]): number {
+  if (n[1] === 1) return FACE_SHADE.TOP;
+  if (n[1] === -1) return FACE_SHADE.BOTTOM;
+  if (n[2] !== 0) return FACE_SHADE.SIDE_Z;
+  return FACE_SHADE.SIDE_X;
+}
+
+function pushQuad(
+  g: GeoArrays,
+  verts: number[][],
+  normal: readonly number[],
+  uvRect: [number, number, number, number],
+  flipY = false,
+  ao: readonly [number, number, number, number] = DEFAULT_AO,
+  shade = 1,
+): void {
   const base = g.pos.length / 3;
   for (let i = 0; i < 4; i++) {
     g.pos.push(verts[i][0], verts[i][1], verts[i][2]);
@@ -53,10 +71,15 @@ function pushQuad(g: GeoArrays, verts: number[][], normal: readonly number[], uv
       uvRect[0] + QUAD_UV[i][0] * (uvRect[2] - uvRect[0]),
       uvRect[1] + (flipY ? 1 - QUAD_UV[i][1] : QUAD_UV[i][1]) * (uvRect[3] - uvRect[1]),
     );
-    g.color.push(1, 1, 1);
+    const c = ao[i] * shade;
+    g.color.push(c, c, c);
     g.effect.push(0);
   }
-  g.index.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  if (ao[0] + ao[2] < ao[1] + ao[3]) {
+    g.index.push(base + 1, base + 2, base + 3, base, base + 1, base + 3);
+  } else {
+    g.index.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  }
 }
 
 function toGeometry(g: GeoArrays): THREE.BufferGeometry | null {
@@ -79,6 +102,34 @@ function texOf(tex: BlockDef['tex'], faceTex: string): string {
 function opaqueCube(id: number): boolean {
   const d = BLOCKS[id];
   return !!d && d.solid && !d.seeThrough && !d.shape && !d.doorPanel;
+}
+
+/** 采样完整方块某面 4 个顶点的 AO 亮度系数（沿法线偏移到相邻空气格后看两正交侧邻 + 对角邻） */
+function sampleFaceAO(world: World, wx: number, y: number, wz: number, face: (typeof FACES)[number]): [number, number, number, number] {
+  const [nx, ny, nz] = face.n;
+  const ax = wx + nx, ay = y + ny, az = wz + nz;
+  const out: [number, number, number, number] = [1, 1, 1, 1];
+  for (let i = 0; i < 4; i++) {
+    const [vx, vy, vz] = face.v[i];
+    const sx = nx === 0 ? (vx ? 1 : -1) : 0;
+    const sy = ny === 0 ? (vy ? 1 : -1) : 0;
+    const sz = nz === 0 ? (vz ? 1 : -1) : 0;
+    let s1 = 0, s2 = 0;
+    if (nx !== 0) {
+      s1 = opaqueCube(world.getBlock(ax, ay + sy, az)) ? 1 : 0;
+      s2 = opaqueCube(world.getBlock(ax, ay, az + sz)) ? 1 : 0;
+    } else if (ny !== 0) {
+      s1 = opaqueCube(world.getBlock(ax + sx, ay, az)) ? 1 : 0;
+      s2 = opaqueCube(world.getBlock(ax, ay, az + sz)) ? 1 : 0;
+    } else {
+      s1 = opaqueCube(world.getBlock(ax + sx, ay, az)) ? 1 : 0;
+      s2 = opaqueCube(world.getBlock(ax, ay + sy, az)) ? 1 : 0;
+    }
+    const corner = (s1 && s2) ? 0 : (opaqueCube(world.getBlock(ax + sx, ay + sy, az + sz)) ? 1 : 0);
+    const occ = (s1 && s2) ? 3 : (s1 + s2 + corner);
+    out[i] = AO_CURVE[occ];
+  }
+  return out;
 }
 
 /** 盒子的某个面贴在格子边界上吗（贴了才需要查邻居遮挡） */
@@ -109,7 +160,7 @@ function emitBox(g: GeoArrays, atlas: Atlas, world: World, wx: number, y: number
       y + b[1] + vy * (b[4] - b[1]),
       wz + b[2] + vz * (b[5] - b[2]),
     ]);
-    pushQuad(g, verts, n, atlas.uv(tex));
+    pushQuad(g, verts, n, atlas.uv(tex), false, DEFAULT_AO, def.glow ? 1 : faceShade(n));
   }
 }
 
@@ -145,10 +196,11 @@ export function meshChunk(world: World, cx: number, cz: number, atlas: Atlas): C
           continue;
         }
 
-        // 异形方块：按渲染盒画
+        // 异形方块：按渲染盒画（星空床/星空地毯等发光异形走 glow 层）
         if (def.shape || def.doorPanel) {
-          for (const b of renderBoxes(id, meta)) emitBox(solid, atlas, world, wx, y, wz, b, def, meta);
-          if (def.shape === 'fence') emitFenceBars(solid, atlas, world, wx, y, wz, def, meta);
+          const shapeTarget = def.glow ? glow : solid;
+          for (const b of renderBoxes(id, meta)) emitBox(shapeTarget, atlas, world, wx, y, wz, b, def, meta);
+          if (def.shape === 'fence') emitFenceBars(shapeTarget, atlas, world, wx, y, wz, def, meta);
           // 喷泉水面画到半透明层，真·透明水
           if (def.shape === 'fountain') for (const b of FOUNTAIN_WATER) emitPlainBox(water, atlas, wx, y, wz, b, 'water');
           continue;
@@ -173,7 +225,9 @@ export function meshChunk(world: World, cx: number, cz: number, atlas: Atlas): C
               ? WATER_TOP_DIP : 0;
             return [wx + vx, y + vy - dip, wz + vz];
           });
-          pushQuad(target, verts, face.n, uvRect);
+          const ao = def.glow ? DEFAULT_AO : sampleFaceAO(world, wx, y, wz, face);
+          const shade = def.glow ? 1 : faceShade(face.n);
+          pushQuad(target, verts, face.n, uvRect, false, ao, shade);
         }
       }
     }

@@ -441,3 +441,14 @@ export const QUALITY_ADAPT = {
   MAX_FRAME_MS: 250,        // 单帧耗时夹紧上限，防止切后台回来瞬间误降档
   CLOCK_MOD_SECONDS: 3600,  // 共享渲染时钟取模周期（秒），防 float32 精度抖动
 };
+
+/** 逐顶点 AO 曲线：occ 0~3 对应的亮度系数 */
+export const AO_CURVE = [1.0, 0.82, 0.65, 0.5] as const;
+
+/** 面方向明暗：顶面最亮、底面最暗、侧面分两档增强立体感 */
+export const FACE_SHADE = {
+  TOP: 1.0,
+  SIDE_Z: 0.86,
+  SIDE_X: 0.76,
+  BOTTOM: 0.6,
+} as const;
