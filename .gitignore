@@ -6,3 +6,4 @@ saves-snapshot-*/
 server/data.db*
 .playwright-mcp/
 .DS_Store
+_auggie/
