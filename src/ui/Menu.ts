@@ -5,6 +5,8 @@ import type { GameMode } from '../player/Health';
 export interface MenuActions {
   /** 继续某个账号的存档 */
   onContinue: (slot: number, zombieAttack: boolean) => void;
+  /** 带着某个账号的存档直接去大厅排队 */
+  onHall: (slot: number, zombieAttack: boolean) => void;
   /** 开新账号（slot 由外面决定是哪个空位） */
   onNew: (mode: GameMode, zombieAttack: boolean) => void;
   /** 手动从 saves/ 备份找回存档 */
@@ -18,14 +20,14 @@ export class Menu {
 
   constructor(
     actions: MenuActions,
-    opts: { saves: { slot: number; mode: GameMode; zombieAttack: boolean }[]; nextSlot: number | null; zombieChecked: boolean },
+    opts: { saves: { slot: number; mode: GameMode; zombieAttack: boolean }[]; nextSlot: number | null; zombieChecked: boolean; hall: boolean },
   ) {
     this.el = document.createElement('div');
     this.el.className = 'overlay';
     this.el.innerHTML = `
       <h1>方块世界</h1>
       <p>选一个账号开始玩</p>
-      ${opts.saves.map((s) => `<div class="saverow" style="display:flex;gap:6px"><button data-slot="${s.slot}" style="flex:1">继续账号${s.slot}（${s.mode === 'survival' ? '生存' : '创造'}）</button><button data-del="${s.slot}" style="flex:0 0 auto;opacity:.6" title="删掉这个账号的存档">删</button></div>`).join('\n')}
+      ${opts.saves.map((s) => `<div class="saverow" style="display:flex;gap:6px"><button data-slot="${s.slot}" style="flex:1">继续账号${s.slot}（${s.mode === 'survival' ? '生存' : '创造'}）</button>${opts.hall ? `<button data-hall="${s.slot}" style="flex:0 0 auto" title="读档后直接去大厅排队">大厅</button>` : ''}<button data-del="${s.slot}" style="flex:0 0 auto;opacity:.6" title="删掉这个账号的存档">删</button></div>`).join('\n')}
       ${opts.nextSlot !== null ? `<button data-add="1">＋ 添加账号${opts.nextSlot}</button>` : ''}
       <button data-restore style="opacity:.6;font-size:12px">存档不见了？点我找回</button>
       <div class="newgame" style="display:none">
@@ -38,7 +40,7 @@ export class Menu {
         按住 P 挖方块 / 打动物 · L 放方块 · M 开关门<br/>
         4/6 选格子 · 9 打开背包（能合成）· E 吃东西 · 空格 跳<br/>
         1 存档（也会自动存）· 3 回重生点 · 7 制作方法 · N 切换僵尸生成 · 天黑对着床按 M 睡觉<br/>
-        拿着稻粒对水按 L 种水稻，拿着胡萝卜对草地或泥土按 L 种地里<br/>
+        拿着稻粒对水按 L 种水稻，拿着胡萝卜对草地或泥土按 L 种地里 · H 进出大厅<br/>
         坦克：L 放地上 · 对着按 M 上车 · 拿炮弹按 L 装弹 · P 开炮 · M 下车<br/>
         挑战房：5×5 空地放 · 对门按 M 交 10 生肉打 4 关，中途不许出来<br/>
         创造模式会飞：空格 上升 · Shift 下降
@@ -56,6 +58,13 @@ export class Menu {
         const slot = Number((btn as HTMLElement).dataset.slot);
         this.hide();
         actions.onContinue(slot, zombieOn());
+      });
+    });
+    this.el.querySelectorAll('button[data-hall]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const slot = Number((btn as HTMLElement).dataset.hall);
+        this.hide();
+        actions.onHall(slot, zombieOn());
       });
     });
     this.el.querySelectorAll('button[data-del]').forEach((btn) => {
@@ -91,6 +100,8 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 export interface AccountMenuActions {
   /** 继续这个账号的存档 */
   onContinue: (zombieAttack: boolean) => void;
+  /** 带着这个账号的存档直接去大厅排队 */
+  onHall: (zombieAttack: boolean) => void;
   /** 开新档（会把服务器上的旧档顶掉，旧档进服务器 backup） */
   onNew: (mode: GameMode, zombieAttack: boolean) => void;
   /** 退出登录 → 回登录界面 */
@@ -112,7 +123,7 @@ export class AccountMenu {
     this.el.innerHTML = `
       <h1>方块世界</h1>
       <p class="account-name">你好，${esc(opts.name)}</p>
-      ${opts.save ? `<div class="saverow" style="display:flex;gap:6px"><button data-continue style="flex:1">继续游戏（${opts.save.mode === 'survival' ? '生存' : '创造'}）</button><button data-del style="flex:0 0 auto;opacity:.6" title="删掉这个账号的存档">删</button></div>` : ''}
+      ${opts.save ? `<div class="saverow" style="display:flex;gap:6px"><button data-continue style="flex:1">继续游戏（${opts.save.mode === 'survival' ? '生存' : '创造'}）</button><button data-hall style="flex:0 0 auto" title="读档后直接去大厅排队">大厅</button><button data-del style="flex:0 0 auto;opacity:.6" title="删掉这个账号的存档">删</button></div>` : ''}
       <button data-add="1">${opts.save ? '重新开档' : '＋ 开始新游戏'}</button>
       <div class="newgame" style="display:none">
         <button data-mode="survival">生存模式（有血条）</button>
@@ -125,7 +136,7 @@ export class AccountMenu {
         按住 P 挖方块 / 打动物 · L 放方块 · M 开关门<br/>
         4/6 选格子 · 9 打开背包（能合成）· E 吃东西 · 空格 跳<br/>
         1 存档（也会自动存）· 3 回重生点 · 7 制作方法 · N 切换僵尸生成 · 天黑对着床按 M 睡觉<br/>
-        拿着稻粒对水按 L 种水稻，拿着胡萝卜对草地或泥土按 L 种地里<br/>
+        拿着稻粒对水按 L 种水稻，拿着胡萝卜对草地或泥土按 L 种地里 · H 进出大厅<br/>
         坦克：L 放地上 · 对着按 M 上车 · 拿炮弹按 L 装弹 · P 开炮 · M 下车<br/>
         挑战房：5×5 空地放 · 对门按 M 交 10 生肉打 4 关，中途不许出来<br/>
         创造模式会飞：空格 上升 · Shift 下降
@@ -135,6 +146,10 @@ export class AccountMenu {
     this.el.querySelector('button[data-continue]')?.addEventListener('click', () => {
       this.hide();
       actions.onContinue(zombieOn());
+    });
+    this.el.querySelector('button[data-hall]')?.addEventListener('click', () => {
+      this.hide();
+      actions.onHall(zombieOn());
     });
     this.el.querySelector('button[data-del]')?.addEventListener('click', () => {
       if (confirm('确定删掉存档？里面的东西就没啦')) actions.onDelete();

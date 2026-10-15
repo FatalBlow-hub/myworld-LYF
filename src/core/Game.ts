@@ -77,6 +77,7 @@ export class Game {
   private container: ContainerPanel | null = null; private dyePanel: DyePanel | null = null;
   private hallMenu: HallMenu | null = null; private visitMenu: VisitMenu | null = null;
   private book = new RecipeBook(); private net: NetClient | null = null; private panels = new PanelStack();
+  private pendingHall = false; private pendingHallT = 0; // 主菜单点「大厅」后等联机连上再进
   private day = new DayCycle(
     () => this.hud?.showMessage('天黑了！小心血尸和星空尸出没，对着床按 M 可以睡觉', 3),
     () => { this.survival!.wakeUp(this.body!, this.spawn); this.pickup!.dropStarShard(this.spawn.x, this.spawn.y, this.spawn.z); },
@@ -112,7 +113,7 @@ export class Game {
   }
 
   async start(): Promise<void> {
-    await runMenuFlow((mode, save, zombieAttack, slot) => this.begin(mode, save, zombieAttack, slot));
+    await runMenuFlow((mode, save, zombieAttack, slot, toHall) => this.begin(mode, save, zombieAttack, slot, toHall));
     const who = await probeAuth();
     const denyMsgs: Record<string, string> = {
       offline: '对方不在线', rejected: '对方拒绝了你的访问申请',
@@ -122,6 +123,7 @@ export class Game {
     this.net = new NetClient(who !== 'off' && who.name ? who.name : undefined, {
       onStatusChange: (status, prev) => {
         this.hud?.setNetState(status, this.net?.getOnlineList());
+        if (status === 'connected' && this.pendingHall) { this.pendingHall = false; this.enterHall(); }
         if (status === 'connected' && prev === 'reconnecting') {
           this.hud?.showMessage('已重新连接服务器', 1.5);
           if (this.scene === 'hall') this.net?.joinHallQueue();
@@ -150,7 +152,7 @@ export class Game {
     requestAnimationFrame(loop);
   }
 
-  private begin(mode: GameMode, save: SaveData | undefined, zombieAttack: boolean, slot: number): void {
+  private begin(mode: GameMode, save: SaveData | undefined, zombieAttack: boolean, slot: number, toHall = false): void {
     this.fires.clear(); this.saveSlot = slot;
     this.everCreative = Boolean(mode === 'creative' || save?.everCreative || save?.mode === 'creative');
     this.mobs.zombieAttack = zombieAttack; this.mobs.zombieSpawn = true;
@@ -221,6 +223,14 @@ export class Game {
     if (isTouchDevice()) new TouchControls(this.controller);
     this.started = true;
     this.saveNow();
+    if (toHall) this.enterHallWhenReady();
+  }
+
+  /** 主菜单「大厅」按钮：联机已连就直接进，没连上等它连上（最多 8 秒，超时留在岛上） */
+  private enterHallWhenReady(): void {
+    if (this.net?.getStatus() === 'connected') { this.enterHall(); return; }
+    this.pendingHall = true; this.pendingHallT = 8;
+    this.hud?.showMessage('正在连接服务器，连上就去大厅…', 3);
   }
 
   private restoreSaveState(save: SaveData) {
@@ -279,6 +289,7 @@ export class Game {
 
   /** 按 H 进大厅（从自己岛或副本岛）：①本岛先存档 → ②清空场景 → ③造大厅并传过去 → ④联机时自动入队 */
   private enterHall(): void {
+    this.pendingHall = false;
     if (this.scene === 'island') this.saveNow();
     this.panels.closeAll(); this.clearScene();
     setTerrainConfig(WORLD_SEED, false);
@@ -426,6 +437,10 @@ export class Game {
     if (!this.started) { this.renderer.render(); return; }
     this.saveTimer -= dt;
     if (this.saveTimer <= 0) { this.saveTimer = SAVE.EVERY; this.saveNow(); }
+    if (this.pendingHall && (this.pendingHallT -= dt) <= 0) {
+      this.pendingHall = false;
+      this.hud?.showMessage('连不上服务器，先在自己岛上玩吧，随时可按 H 再试', 3);
+    }
     if (this.controller.take('save')) { this.saveNow(); this.hud!.showMessage('进度已保存 ✓', 1); }
     const body = this.body!, health = this.health!, hud = this.hud!, panel = this.panel!;
     if (this.panels.handleFrame(dt, this.controller)) { this.renderFrame(body); return; }

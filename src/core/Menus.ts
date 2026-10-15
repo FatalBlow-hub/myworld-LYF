@@ -5,11 +5,11 @@ import { Auth, logout, probeAuth } from '../ui/Auth';
 import { AccountMenu, Menu } from '../ui/Menu';
 import { MAX_SLOTS, SaveData, deleteSave, listSaves, restoreBackups, setServerMode, syncServerSave } from './Save';
 
-/** 菜单选好之后：mode + 存档 + 僵尸开关 + 槽位 → 开局 */
-export type BeginGame = (mode: GameMode, save: SaveData | undefined, zombieAttack: boolean, slot: number) => void;
+/** 菜单选好之后：mode + 存档 + 僵尸开关 + 槽位 + 是否直接去大厅 → 开局 */
+export type BeginGame = (mode: GameMode, save: SaveData | undefined, zombieAttack: boolean, slot: number, toHall?: boolean) => void;
 
-/** 本地模式：浏览器存档 + 老的 3 槽位菜单（后端没开时的退路） */
-export async function showLocalMenu(begin: BeginGame): Promise<void> {
+/** 本地模式：浏览器存档 + 老的 3 槽位菜单（后端没开时的退路）；hallOk=false 时不显示大厅按钮 */
+export async function showLocalMenu(begin: BeginGame, hallOk: boolean): Promise<void> {
   // 浏览器里的档被清了的话，先从项目 saves/ 文件夹把备份搬回来
   await restoreBackups();
   const saves = listSaves();
@@ -20,6 +20,10 @@ export async function showLocalMenu(begin: BeginGame): Promise<void> {
       onContinue: (slot, z) => {
         const s = saves.find((x) => x.slot === slot)!;
         begin(s.data.mode, s.data, z, slot);
+      },
+      onHall: (slot, z) => {
+        const s = saves.find((x) => x.slot === slot)!;
+        begin(s.data.mode, s.data, z, slot, true);
       },
       onNew: (mode, z) => begin(mode, undefined, z, nextSlot!),
       onRestore: () => void restoreBackups(true).then(() => location.reload()),
@@ -32,6 +36,7 @@ export async function showLocalMenu(begin: BeginGame): Promise<void> {
       saves: saves.map((s) => ({ slot: s.slot, mode: s.data.mode, zombieAttack: s.data.zombieAttack ?? true })),
       nextSlot,
       zombieChecked: saves[0]?.data.zombieAttack ?? true, // 开关默认按 1 号账号上次存的显示
+      hall: hallOk, // 后端在才显示「大厅」按钮（排队要走联机）
     },
   );
 }
@@ -43,6 +48,7 @@ export async function showAccountMenu(name: string, begin: BeginGame): Promise<v
   new AccountMenu(
     {
       onContinue: (z) => begin(save!.mode, save!, z, 1),
+      onHall: (z) => begin(save!.mode, save!, z, 1, true),
       onNew: (mode, z) => begin(mode, undefined, z, 1),
       onLogout: () => void logout().then(() => location.reload()),
       onDelete: () => {
@@ -61,11 +67,11 @@ export async function showAccountMenu(name: string, begin: BeginGame): Promise<v
 export async function runMenuFlow(begin: BeginGame): Promise<void> {
   const who = await probeAuth();
   if (who === 'off') {
-    await showLocalMenu(begin);
+    await showLocalMenu(begin, false);
   } else if (!who.name) {
     new Auth({
       onDone: () => location.reload(), // 登录成功刷新重进，带着 Cookie 走账号流程
-      onLocal: () => void showLocalMenu(begin), // 不想登录也能玩本地档
+      onLocal: () => void showLocalMenu(begin, true), // 不想登录也能玩本地档
     });
   } else {
     await showAccountMenu(who.name, begin);
