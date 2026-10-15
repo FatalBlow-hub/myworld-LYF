@@ -1,7 +1,11 @@
 /** 渲染器 — 封装 Three.js 的场景、相机、灯光，外面只管调 render() */
 
 import * as THREE from 'three';
-import { CHUNK, QUALITY_ADAPT, SHADOW, SKY, VIEW_DISTANCE } from '../config';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { BLOOM, CHUNK, QUALITY_ADAPT, SHADOW, SKY, VIEW_DISTANCE } from '../config';
 import { QualityMonitor } from './Quality';
 
 export class Renderer {
@@ -11,6 +15,9 @@ export class Renderer {
   readonly clock = { value: 0 };
   readonly quality: QualityMonitor;
   private renderer: THREE.WebGLRenderer;
+  private composer: EffectComposer | null = null;
+  private bloomPass: UnrealBloomPass | null = null;
+  private outputPass: OutputPass | null = null;
   private hemi: THREE.HemisphereLight;
   private sun: THREE.DirectionalLight;
   /** 反面渲染的天空渐变球：每帧跟随相机，按昼夜三段颜色平滑插值 */
@@ -101,12 +108,46 @@ void main() {
     this.scene.add(this.sun);
     this.scene.add(this.sun.target);
     this.setDaylight(1);
+    this.syncBloomComposer();
 
     addEventListener('resize', () => {
       this.camera.aspect = innerWidth / innerHeight;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(innerWidth, innerHeight);
+      this.composer?.setSize(innerWidth, innerHeight);
     });
+  }
+
+  /** 按当前档位的 bloom 开关创建或销毁后处理链（WebGL2 MSAA samples=4 防丢抗锯齿，OutputPass 保 sRGB） */
+  private syncBloomComposer(): void {
+    const preset = this.quality.preset;
+    if (preset.bloom) {
+      if (this.composer) return;
+      const pr = this.renderer.getPixelRatio();
+      const rt = new THREE.WebGLRenderTarget(innerWidth * pr, innerHeight * pr, {
+        type: THREE.HalfFloatType,
+        samples: BLOOM.SAMPLES,
+      });
+      this.composer = new EffectComposer(this.renderer, rt);
+      this.composer.addPass(new RenderPass(this.scene, this.camera));
+      this.bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(innerWidth * pr, innerHeight * pr),
+        BLOOM.STRENGTH,
+        BLOOM.RADIUS,
+        BLOOM.THRESHOLD,
+      );
+      this.composer.addPass(this.bloomPass);
+      this.outputPass = new OutputPass();
+      this.composer.addPass(this.outputPass);
+      this.composer.setSize(innerWidth, innerHeight);
+    } else if (this.composer) {
+      this.bloomPass?.dispose();
+      this.outputPass?.dispose();
+      this.composer.dispose();
+      this.bloomPass = null;
+      this.outputPass = null;
+      this.composer = null;
+    }
   }
 
   /** 昼夜亮度：1 = 大白天，0 = 深夜。灯变暗、天空与地平线雾按三段颜色平滑插值，夜间自动关闭阴影省 GPU */
@@ -151,10 +192,11 @@ void main() {
     }
   }
 
-  /** 自适应降档后同步更新像素比与阴影开关/贴图尺寸 */
+  /** 自适应降档后同步更新像素比、阴影开关/贴图尺寸与泛光后处理链 */
   private applyQualityPreset(): void {
     const preset = this.quality.preset;
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, preset.pixelRatioMax));
+    const pr = Math.min(devicePixelRatio, preset.pixelRatioMax);
+    this.renderer.setPixelRatio(pr);
     this.renderer.shadowMap.enabled = preset.shadows;
     this.sun.castShadow = preset.shadows && this.lastDaylight >= SHADOW.NIGHT_THRESHOLD;
     if (preset.shadows && preset.shadowMapSize > 0) {
@@ -167,6 +209,8 @@ void main() {
       this.sun.shadow.map.dispose();
       this.sun.shadow.map = null;
     }
+    this.syncBloomComposer();
+    this.composer?.setPixelRatio(pr);
   }
 
   render(): void {
@@ -175,6 +219,10 @@ void main() {
     if (this.quality.recordFrame(now)) {
       this.applyQualityPreset();
     }
-    this.renderer.render(this.scene, this.camera);
+    if (this.composer) {
+      this.composer.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 }

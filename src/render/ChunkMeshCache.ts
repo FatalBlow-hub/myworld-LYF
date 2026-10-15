@@ -1,6 +1,7 @@
 /** 区块网格缓存 — 标脏的区块重建网格、旧网格释放；材质也归它管，Game 只管喊"刷新" */
 
 import * as THREE from 'three';
+import { BLOOM } from '../config';
 import { meshChunk } from './ChunkMesher';
 import { Atlas } from './Textures';
 import { attachWindSway, createDepthMaterial, createWaterMaterial } from './WaterMaterial';
@@ -35,6 +36,7 @@ export class ChunkMeshCache {
       map: this.atlas.texture,
       alphaTest: 0.5,
       vertexColors: true,
+      color: new THREE.Color(...BLOOM.GLOW_COLOR),
     });
   }
 

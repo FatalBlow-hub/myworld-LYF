@@ -481,11 +481,13 @@ export const SKY = {
 
 /** 跟随式平行光软阴影参数（正交范围、近远裁切面、抗摩尔纹偏移、夜晚关闭阈值） */
 export const SHADOW = {
-  EXTENT: 44,
-  NEAR: 10,
-  FAR: 160,
-  BIAS: -0.0005,
-  NORMAL_BIAS: 0.03,
-  NIGHT_THRESHOLD: 0.15,
-  SUN_OFFSET: [50, 100, 30] as const,
+  EXTENT: 44, NEAR: 10, FAR: 160,
+  BIAS: -0.0005, NORMAL_BIAS: 0.03,
+  NIGHT_THRESHOLD: 0.15, SUN_OFFSET: [50, 100, 30] as const,
+} as const;
+
+/** HIGH 档轻量泛光后处理参数（阈值避开白天雪地/白羊毛，发光材质用 HDR 倍率触发） */
+export const BLOOM = {
+  THRESHOLD: 0.88, STRENGTH: 0.35, RADIUS: 0.3,
+  SAMPLES: 4, GLOW_COLOR: [1.35, 1.35, 1.45] as const,
 } as const;
