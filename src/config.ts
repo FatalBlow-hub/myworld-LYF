@@ -488,3 +488,12 @@ export const WIND_FX = {
   HEIGHT_MIN: 0.82,
   HEIGHT_MAX: 1.0,
 } as const;
+
+/** 天空渐变球与地平线雾（三段昼夜色 + 雾距系数） */
+export const SKY = {
+  RADIUS: 150, W_SEG: 32, H_SEG: 16, FOG_NEAR: 0.65, FOG_FAR: 1.1,
+  DAY: { zenith: 0x3b86e0, horizon: 0x9bd7f2 },
+  DUSK: { zenith: 0x383268, horizon: 0xf08a4b },
+  NIGHT: { zenith: 0x060918, horizon: 0x101836 },
+  CURVE: 0.6, SUN_GLOW: 0.22, SUN_POWER: 16.0,
+} as const;
