@@ -14,6 +14,10 @@ export class Renderer {
   /** 全渲染层共享动画时钟（秒，按 3600 取模防 float32 精度抖动） */
   readonly clock = { value: 0 };
   readonly quality: QualityMonitor;
+  /** 画布本体：指针锁定（鼠标视角）要挂在这上面 */
+  get canvas(): HTMLCanvasElement {
+    return this.renderer.domElement;
+  }
   private renderer: THREE.WebGLRenderer;
   private composer: EffectComposer | null = null;
   private bloomPass: UnrealBloomPass | null = null;

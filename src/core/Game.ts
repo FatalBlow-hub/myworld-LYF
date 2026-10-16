@@ -1,7 +1,7 @@
 /** 游戏主循环 — 把所有模块装配起来，每帧按固定顺序驱动它们 */
 
 import * as THREE from 'three';
-import { CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, PLAYER, SAVE, VIEW_DISTANCE, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
+import { CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, SAVE, VIEW_DISTANCE, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
 import { World } from '../world/World';
 import { buildHall } from '../world/HallMap';
 import { findGrassSpawn, heightAt, randomGrassSpawn, setTerrainConfig } from '../world/TerrainGen';
@@ -10,6 +10,7 @@ import { ChunkMeshCache } from '../render/ChunkMeshCache';
 import { Renderer } from '../render/Renderer';
 import { Controller } from '../player/Controller';
 import { PlayerBody, createBody, stepPhysics } from '../player/Physics';
+import { MouseLook } from '../player/MouseLook';
 import { SkateSystem, wearingSkates } from '../player/Skates';
 import { cameraFallRoll, cameraYawSway } from '../player/CameraEffects';
 import { WorldCycles } from '../world/WorldCycles';
@@ -78,6 +79,10 @@ export class Game {
   private container: ContainerPanel | null = null; private dyePanel: DyePanel | null = null;
   private hallMenu: HallMenu | null = null; private visitMenu: VisitMenu | null = null;
   private book = new RecipeBook(); private net: NetClient | null = null; private panels = new PanelStack();
+  /** PC 端鼠标视角；手机版不建（用虚拟按键转视角），保持 null */
+  private mouseLook: MouseLook | null = null;
+  /** 手机版触屏控制（摇杆 + 视角板）；PC 不建，保持 null */
+  private touch: TouchControls | null = null;
   private pendingHall = false; private pendingHallT = 0; // 主菜单点「大厅」后等联机连上再进
   private day = new DayCycle(
     () => this.hud?.showMessage('天黑了！小心血尸和星空尸出没，对着床按 M 可以睡觉', 3),
@@ -160,6 +165,9 @@ export class Game {
     this.hunger = new Hunger(mode); this.health = new Health(mode, () => this.hunger!.respawn());
     this.inventory = new Inventory(mode);
     this.hud = new Hud(this.health.showStats, this.atlas, this.inventory.infinite);
+    // 手机上直接点快捷栏那一格就选中它（比 ◀▶ 一格格挪快，所以触屏不再放换格子键）
+    const hudRef = this.hud;
+    hudRef.onSlotPick = (i) => { this.slot = i; hudRef.selectSlot(i); };
     if (this.net) this.hud.setNetState(this.net.getStatus(), this.net.getOnlineList());
     this.panel = new Panel(this.inventory, this.atlas);
     this.container = new ContainerPanel(this.inventory, this.atlas);
@@ -221,7 +229,16 @@ export class Game {
     this.chunkMeshes.rebuildDirty(this.world);
     if (!save) this.mobs.spawnInitial(this.spawn.x, this.spawn.z);
     this.controller.active = true;
-    if (isMobile()) new TouchControls(this.controller);
+    if (isMobile()) {
+      this.touch = new TouchControls(this.controller);
+      // 生存模式下「降」是废键（descend 只在飞行时生效），不占地方
+      this.touch.setFlying(this.body!.flying);
+    } else {
+      // PC：鼠标视角。第一次必须点一下画面才锁得住（浏览器只在用户手势里允许 requestPointerLock）
+      this.mouseLook = new MouseLook(this.renderer.canvas);
+      this.mouseLook.onLockFail = () => this.hud?.showMessage('这次没锁上鼠标，再点一下画面试试', 3);
+      this.hud?.showMessage(MOUSE.HINT, 4);
+    }
     this.started = true;
     this.saveNow();
     if (toHall) this.enterHallWhenReady();
@@ -444,6 +461,8 @@ export class Game {
     }
     if (this.controller.take('save')) { this.saveNow(); this.hud!.showMessage('进度已保存 ✓', 1); }
     const body = this.body!, health = this.health!, hud = this.hud!, panel = this.panel!;
+    // 面板/暂停时必须解锁鼠标，不然指针被锁着，界面上的按钮根本点不到
+    if (this.panels.busy || this.paused) { this.mouseLook?.exit(); this.touch?.cancelLook(); }
     if (this.panels.handleFrame(dt, this.controller)) { this.renderFrame(body); return; }
     if (this.controller.take('pause')) { this.paused = !this.paused; hud.setPaused(this.paused); }
     if (this.paused && this.controller.take('quit')) this.quitToMenu();
@@ -460,6 +479,9 @@ export class Game {
       this.day.update(dt, this.renderer); this.worldCycles.update(dt, this.world);
       body.driving = this.vehicles!.riding !== null; body.skating = wearingSkates(this.inventory!.armor);
       body.glassBag = this.inventory!.armor[WAISTBAG_SLOT]?.id === BAG_GLASS;
+      // 视角要在算物理前加进朝向，移动方向才跟视线一致：PC 走鼠标，手机走视角板
+      this.mouseLook?.applyTo(body);
+      this.touch?.applyLookTo(body);
       const pev = stepPhysics(body, this.world, this.controller, dt);
       const skateMessage = this.skates.update(body, this.inventory!.armor, dt, pev.horizontalDistance > 0);
       if (skateMessage) hud.showMessage(skateMessage, 1.5);

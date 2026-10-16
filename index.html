@@ -83,6 +83,9 @@
       display: flex; flex-direction: column; align-items: center; justify-content: center;
     }
     .slot.active { border-color: var(--slot-active); }
+    /* 快捷栏格子可以点：手机上直接点格子选它，比 ◀▶ 一格格挪快得多。
+       #hud 整体是 pointer-events:none，这里要单独打开才能收到点击 */
+    .slot { pointer-events: auto; cursor: pointer; }
     .slot { position: relative; width: 46px; height: 46px; }
     .slot img.slot-icon { width: 30px; height: 30px; image-rendering: pixelated; }
     .slot span { font-size: 9px; color: var(--hud-text); text-shadow: 1px 1px 1px var(--hud-shadow); }
@@ -204,9 +207,12 @@
     }
     #paused button:hover { background: var(--btn-bg-hover); }
 
-    /* —— 触屏控制层：盖在画面上、藏在面板下面（背包面板开着时不挡事） —— */
+    /* —— 触屏控制层：盖在画面上、藏在面板下面（背包面板开着时不挡事） ——
+       z-index 必须低于 #hud(5)：视角板铺满整屏，压在 #hud 之上会把暂停面板的
+       「回到主菜单」按钮挡住、点不到。低于 #hud 后 #hud 是 pointer-events:none，
+       正常游玩触摸照样穿到按钮上，暂停时暂停按钮又能优先拿到点击 */
     .touch-ui {
-      position: fixed; inset: 0; z-index: 6; pointer-events: none;
+      position: fixed; inset: 0; z-index: 4; pointer-events: none;
       touch-action: none; user-select: none; -webkit-user-select: none;
       -webkit-tap-highlight-color: transparent;
     }
@@ -222,10 +228,14 @@
     .tbtn.sm { width: 44px; height: 44px; font-size: 15px; }
     .tcol { position: absolute; display: flex; flex-direction: column; gap: 10px; align-items: center; }
     .tcol-act { right: 16px; bottom: 130px; }
-    .tcol-look { right: 100px; bottom: 130px; }
+    .tcol-extra { right: 100px; bottom: 130px; }
+    /* 视角板：整屏空白处拖动就转视角。摇杆和按钮排在它后面，自然盖在它上面，
+       所以按按钮不会被视角板吃掉，只有拖空白处才转视角 */
+    .lookpad { position: absolute; inset: 0; pointer-events: auto; touch-action: none; }
     .trow { position: absolute; display: flex; gap: 10px; }
     .trow-top { top: 12px; right: 12px; }
     .trow-slots { left: 50%; bottom: 76px; transform: translateX(-50%); }
+    .trow-turn { right: 14px; bottom: 16px; gap: 8px; }
     .stick {
       position: absolute; left: 20px; bottom: 120px;
       width: 128px; height: 128px; border-radius: 50%;
@@ -241,13 +251,25 @@
     .rotate-tip { display: none; }
     /* 竖屏拿手机时提醒横过来，游戏画面宽一些 */
     @media (orientation: portrait) {
+      /* 提示挪到顶排下面、靠右贴边：原来它跟顶排挤在同一横排上，整条压住「存家厅」 */
       .rotate-tip {
-        display: block; position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+        display: block; position: absolute; top: 64px; right: 12px; left: auto; transform: none;
         font-size: 13px; color: var(--hud-text); opacity: 0.7;
       }
-      .trow-slots { bottom: 150px; }
-      .stick { bottom: 190px; }
-      .tcol-act, .tcol-look { bottom: 200px; }
+      /* 顶排收窄并只占右侧，给左上角的「联机」状态让位（否则右半截压在「书」上） */
+      .trow-top { gap: 6px; }
+      .trow-top .tbtn.sm { width: 38px; height: 38px; font-size: 13px; }
+      /* 摇杆下移到左下角（快捷栏上方那条）：原来在 y526~654，右下角压住「吃」。
+         顺便缩到 104（跟横屏一致）—— 128 的大圈比旁边 44 的键高出一大截，看着不像同一排 */
+      .stick { bottom: 62px; width: 104px; height: 104px; }
+      .stick-knob { width: 44px; height: 44px; }
+      /* 「吃 包」挪到转身键左边、跟它同一条：原来在正中间，被摇杆和「跳」两头夹 */
+      .trow-slots { bottom: 62px; right: 118px; left: auto; transform: none; }
+      .tcol-act, .tcol-extra { bottom: 200px; }
+      .trow-turn { bottom: 62px; }
+      /* 血量/饥饿挪到左上角（顶排下面）：底部中间要留给「◀ 吃 包 ▶」和转身按钮，
+         原来它压在屏幕底部中间，正好和转身按钮撞上 */
+      #stats { left: 12px; top: 62px; bottom: auto; transform: none; align-items: flex-start; }
     }
     /* —— 手机版：.is-mobile 由 Platform 按域名/触屏设备打在 <html> 上 —— */
     .touch-only { display: none; }
@@ -264,7 +286,10 @@
     .is-mobile .overlay p { font-size: 14px; margin-bottom: 14px; }
     /* 直接子元素才是主按钮；存档行里的按钮交给那行的 flex 排版 */
     .is-mobile .overlay > button { font-size: 17px; padding: 12px 20px; margin: 5px; width: min(320px, 86vw); }
-    .is-mobile .overlay .saverow { width: min(320px, 86vw); }
+    .is-mobile .overlay .saverow { width: min(400px, 90vw); }
+    /* 存档行里的按钮不是 .overlay 的直接子元素，会吃到底部那条 56px 内边距，
+       把「删除」撑到 130px 宽、把「继续账号」挤成好几行 —— 这里单独收回来 */
+    .is-mobile .overlay .saverow button { padding: 12px 14px; font-size: 15px; white-space: nowrap; }
     .is-mobile .overlay .newgame button { font-size: 15px; padding: 10px 16px; }
     /* 16px 是关键：再小 iOS 会在聚焦时自动放大页面 */
     .is-mobile .overlay input[type="text"], .is-mobile .overlay input[type="password"] {
@@ -293,6 +318,37 @@
 
     .is-mobile #paused { font-size: 22px; gap: 14px; }
     .is-mobile #paused button { font-size: 16px; padding: 14px 24px; }
+
+    /* —— 横屏手机（真正的游玩方向）：视口只有 ~390px 高 ——
+       基础那套偏移量是按高视口定的（bottom:120~130px），横屏下会把摇杆顶到屏幕正中、
+       把右侧按钮列顶到顶边和顶部小按钮叠在一起。这里全部贴边收拢 */
+    @media (orientation: landscape) and (max-height: 560px) {
+      /* 摇杆回左下角，尺寸略收 */
+      .is-mobile .stick { left: 16px; bottom: 16px; width: 108px; height: 108px; }
+      .is-mobile .stick-knob { width: 46px; height: 46px; }
+      /* 右侧两列从底部往上排：4 个按钮最高也就到 y≈126，够不着顶部小按钮（y≤52） */
+      /* 右侧两列整体上抬 52px（转身按钮 44 + 间距 8），把右下角让给 ↺↻ 转身 */
+      .is-mobile .tcol-act { right: 14px; bottom: 68px; gap: 8px; }
+      .is-mobile .tcol-extra { right: 92px; bottom: 68px; gap: 8px; }
+      .is-mobile .trow-top { top: 8px; right: 10px; gap: 8px; }
+      /* 「◀ 吃 包 ▶」贴着快捷栏上沿（快捷栏 40px + 底距 12px = 52px） */
+      .is-mobile .trow-slots { bottom: 58px; }
+      /* 血量/氧气/饥饿挪到左上角（「联机」状态下面）—— 原来和「◀ 吃 包 ▶」overlap */
+      .is-mobile #stats { left: 12px; top: 42px; bottom: auto; transform: none; align-items: flex-start; }
+      /* 菜单也压一压：横屏只有 390px 高，照竖屏那样排会撑出 90 多像素的滚动条 */
+      .is-mobile .overlay { padding: 8px; }
+      .is-mobile .overlay h1 { font-size: 24px; margin-bottom: 2px; letter-spacing: 2px; }
+      .is-mobile .overlay p { font-size: 13px; margin-bottom: 8px; }
+      .is-mobile .overlay .saverow { width: min(460px, 92vw); }
+      .is-mobile .overlay .saverow button { margin: 2px 0; padding: 9px 14px; }
+      .is-mobile .overlay .zombie-toggle { margin-top: 8px; font-size: 14px; }
+      /* 说明文字分两栏，高度直接砍半；每行是一块，不许从中间劈到下一栏 */
+      .is-mobile .overlay .hint {
+        font-size: 11px; line-height: 1.5; margin-top: 8px;
+        column-count: 2; column-gap: 20px; text-align: left;
+      }
+      .is-mobile .overlay .hint > div { break-inside: avoid; }
+    }
   </style>
 </head>
 <body>

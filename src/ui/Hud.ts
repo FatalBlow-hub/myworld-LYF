@@ -24,6 +24,9 @@ export class Hud {
   private lastHungerSig = '';
   private msgTimer = 0;
 
+  /** 直接点快捷栏格子选中它（手机上比用 ◀▶ 一格格挪快得多）；由 Game 接线 */
+  onSlotPick: ((index: number) => void) | null = null;
+
   /** 快捷栏 9 个空格子开局，装什么显示什么；hideCount=创造模式不显示数量 */
   constructor(private showHealth: boolean, private atlas: Atlas, private hideCount = false) {
     this.root.style.display = 'block';
@@ -62,6 +65,8 @@ export class Hud {
       const count = document.createElement('b');
       count.className = 'count';
       slot.appendChild(count);
+      // 直接点这一格就选中它（配合 CSS 给 .slot 打开 pointer-events，#hud 默认是 none）
+      slot.addEventListener('click', () => this.onSlotPick?.(i));
       this.hotbarEl.appendChild(slot);
       this.slotEls.push(slot);
     }

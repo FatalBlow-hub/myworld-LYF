@@ -64,6 +64,19 @@ export const PLAYER = {
   CLIMB: 2,          // 爬梯子速度（格/秒）：按住前上爬、按住后下爬
 };
 
+/** 鼠标视角（PC 端指针锁定）：点一下画面锁住鼠标，之后移动鼠标就是转视角 */
+export const MOUSE = {
+  SENS: 0.0022,      // 灵敏度：每像素转多少弧度（约 0.13°/px）
+  INVERT_Y: false,   // true = 鼠标上移反而低头（飞行摇杆式），默认跟主流沙盒一致
+  HINT: '点击画面锁定鼠标转视角 · ESC 解锁',
+};
+
+/** 手机端：右侧（其实是整屏空白处）拖动看视角 */
+export const TOUCH = {
+  LOOK_SENS: 0.005,  // 灵敏度：每像素转多少弧度。手指行程比鼠标短，所以比 MOUSE.SENS 调高
+  INVERT_Y: false,   // true = 往上拖反而低头
+};
+
 export const HEALTH = {
   MAX_HP: 20,            // 满血 = 10 颗心 × 2
   OXYGEN_MAX: 15,        // 水下憋气秒数
@@ -234,12 +247,16 @@ export const TANK = {
 };
 
 export const KEYS = {
-  forward: ['ArrowUp'],
-  back: ['ArrowDown'],
+  // 走路交给 WASD：W/S 前后、A/D 横移（方向键不再管走路）
+  forward: ['KeyW'],
+  back: ['KeyS'],
   turnLeft: ['ArrowLeft'],
   turnRight: ['ArrowRight'],
-  lookUp: ['Digit8', 'Numpad8'],
-  lookDown: ['Digit2', 'Numpad2'],
+  strafeLeft: ['KeyA'],
+  strafeRight: ['KeyD'],
+  // 方向键专职调视角：↑↓ 抬头低头、←→ 转身；8/2 留作别名，老习惯不用改
+  lookUp: ['ArrowUp', 'Digit8', 'Numpad8'],
+  lookDown: ['ArrowDown', 'Digit2', 'Numpad2'],
   jump: ['Space'],
   descend: ['ShiftLeft', 'ShiftRight'],
   mine: ['KeyP'],

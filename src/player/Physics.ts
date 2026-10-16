@@ -151,14 +151,22 @@ export function stepPhysics(body: PlayerBody, world: World, input: Controller, d
   body.breathT = Math.max(0, body.breathT - dt); // 防溺药水倒计时
   body.frozenT = Math.max(0, body.frozenT - dt);
   const fwd = body.frozenT > 0 ? 0 : (input.isDown('forward') ? 1 : 0) - (input.isDown('back') ? 1 : 0);
-  const fx = -Math.sin(body.yaw);
+  const strafe = body.frozenT > 0 ? 0 : (input.isDown('strafeRight') ? 1 : 0) - (input.isDown('strafeLeft') ? 1 : 0);
+  const fx = -Math.sin(body.yaw);  // 前方（yaw=0 时朝 -z）
   const fz = -Math.cos(body.yaw);
+  const rx = Math.cos(body.yaw);   // 右手边：前向量绕 Y 转 -90°
+  const rz = -Math.sin(body.yaw);
   const boost = body.speedBoostT > 0 ? body.speedBoostMult : 1;
   const skateMult = body.skating && !body.driving ? SKATES.SPEED_MULT : 1;
   const bagMult = body.glassBag ? WAISTBAG.GLASS_SPEED : 1;
   const speed = PLAYER.SPEED * boost * (body.driving ? TANK.SPEED_MULT : 1) * skateMult * bagMult * (body.inWater ? 0.55 : body.flying ? PLAYER.FLY_MOVE : 1);
-  body.vx = fwd * speed * fx;
-  body.vz = fwd * speed * fz;
+  // 前后 + 横移合成一个方向；斜着走要归一化，不然对角线会比直线快 1.41 倍
+  let mx = fwd * fx + strafe * rx;
+  let mz = fwd * fz + strafe * rz;
+  const mlen = Math.hypot(mx, mz);
+  if (mlen > 1) { mx /= mlen; mz /= mlen; }
+  body.vx = mx * speed;
+  body.vz = mz * speed;
   // 轮滑摔倒躺着：动不了也跳不了（倒计时结束自己站起来）
   if (body.skateFallT > 0) {
     body.skateFallT = Math.max(0, body.skateFallT - dt);
