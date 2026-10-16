@@ -36,6 +36,13 @@
       border: 2px solid rgba(255,255,255,0.4); border-radius: 6px;
     }
     .overlay button:hover { background: var(--btn-bg-hover); }
+    /* 「重新开档」会覆盖存档：做成不显眼的小按钮，别挨着「继续游戏」让人误触 */
+    .overlay button.danger-btn {
+      font-size: 14px; padding: 7px 20px; margin: 4px;
+      background: transparent; color: #ef5350;
+      border: 1px solid rgba(239,83,80,0.45); border-radius: 6px;
+    }
+    .overlay button.danger-btn:hover { background: rgba(239,83,80,0.15); }
     .overlay .zombie-toggle { margin-top: 16px; font-size: 15px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
     .overlay .zombie-toggle input { width: 18px; height: 18px; cursor: pointer; }
     .overlay .hint { margin-top: 28px; font-size: 14px; opacity: 0.6; line-height: 1.8; text-align: center; }
@@ -364,6 +371,7 @@
     <div id="paused">
       <div>已暂停，<span class="kbd-only">按 ESC 继续</span><span class="touch-only">按右上「停」继续</span></div>
       <button id="quitbtn">回到主菜单（自动存档）<span class="kbd-only"> · 按 0</span></button>
+      <button id="logoutbtn" style="opacity:.65;font-size:15px;padding:8px 24px">退出登录</button>
     </div>
   </div>
   <script type="module" src="/src/main.ts"></script>

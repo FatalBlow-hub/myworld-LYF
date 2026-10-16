@@ -142,7 +142,9 @@ export class AccountMenu {
       <h1>方块世界</h1>
       <p class="account-name">你好，${esc(opts.name)}</p>
       ${opts.save ? `<div class="saverow" style="display:flex;gap:6px"><button data-continue style="flex:1">继续游戏（${opts.save.mode === 'survival' ? '生存' : '创造'}）</button><button data-hall style="flex:0 0 auto" title="读档后直接去大厅排队">大厅</button><button data-del style="flex:0 0 auto;opacity:.6" title="删掉这个账号的存档">删</button></div>` : ''}
-      <button data-add="1">${opts.save ? '重新开档' : '＋ 开始新游戏'}</button>
+      ${opts.save
+        ? `<button data-add="1" class="danger-btn">重新开档（会覆盖当前存档）</button>`
+        : `<button data-add="1">＋ 开始新游戏</button>`}
       <div class="newgame" style="display:none">
         <button data-mode="survival">生存模式（有血条）</button>
         <button data-mode="creative">创造模式（不会死）</button>
@@ -165,7 +167,7 @@ export class AccountMenu {
     });
     this.el.querySelector('button[data-add]')?.addEventListener('click', (e) => {
       // 已有档还想新开：先确认会顶掉旧档（服务器留有 backup 后悔药）
-      if (opts.save && !confirm('开新档会顶掉现在的存档，确定？')) return;
+      if (opts.save && !confirm('重新开档会覆盖当前存档，确定？（服务器只保留最近一份备份）')) return;
       (e.currentTarget as HTMLElement).style.display = 'none';
       (this.el.querySelector('.newgame') as HTMLElement).style.display = 'block';
     });

@@ -22,6 +22,7 @@ import { runMenuFlow } from './Menus';
 import { TouchControls } from '../ui/TouchControls';
 import { isMobile } from '../ui/Platform';
 import { Hud } from '../ui/Hud';
+import { logout } from '../ui/Auth';
 import { Panel } from '../ui/Panel';
 import { Mobs } from '../entities/Mobs';
 import { ItemDrop } from '../entities/ItemDrop';
@@ -222,6 +223,7 @@ export class Game {
     this.hud.setPaused(this.paused);
     this.hud.showIslandGreeting(this.islandType);
     document.getElementById('quitbtn')!.onclick = () => this.quitToMenu();
+    document.getElementById('logoutbtn')!.onclick = () => this.logoutToLogin();
     this.body = createBody(this.spawn.x, this.spawn.y, this.spawn.z);
     if (save) this.restoreBodyFromSave(save);
     this.body.flying = this.inventory.infinite;
@@ -430,6 +432,8 @@ export class Game {
   }
   private dropAt(id: number, n: number, x: number, y: number, z: number): void { spawnDrop({ scene: this.renderer.scene, drops: this.drops }, id, n, x, y + 0.5, z); }
   private quitToMenu(): void { this.saveNow(); location.reload(); }
+  /** 退出登录：先存档，再让服务器作废通行证，刷新回到登录界面（暂停菜单里那个低调的「退出登录」） */
+  private logoutToLogin(): void { this.saveNow(); void logout().then(() => location.reload()); }
   private goHome(): void {
     if (this.challenge.active) { this.hud!.showMessage('挑战中不能回城，先完成挑战'); return; }
     const body = this.body!;
