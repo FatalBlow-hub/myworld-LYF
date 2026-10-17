@@ -1,7 +1,7 @@
 /** 联机客户端（Client） — 管理 WebSocket 长连接、JSON 收发、心跳检测、指数退避重连、在线名单与大厅排队收发 */
 
 import type { IslandType, VisitPerm } from '../config';
-import { C2SMsg, NetStatus, S2CMsg, VisitDenyReason } from './Protocol';
+import { C2SMsg, NetStatus, S2CMsg, S2CVisitPeerMsg, VisitDenyReason } from './Protocol';
 
 const PING_INTERVAL_MS = 10_000;   // 客户端每 10 秒发一次 ping
 const TIMEOUT_MS = 30_000;         // 30 秒没收到任何消息判定掉线
@@ -24,8 +24,16 @@ export interface NetClientCallbacks {
   onHallError?: (msg: string) => void;
   /** 岛主收到访客上岛申请时触发 */
   onVisitIncoming?: (from: string) => void;
-  /** 访客收到岛主批准时触发 */
-  onVisitApproved?: (owner: string, perm: VisitPerm, ticket?: string) => void;
+  /** 访客收到岛主批准时触发（pos = 岛主上报的落地参考点，落在本人附近） */
+  onVisitApproved?: (owner: string, perm: VisitPerm, ticket?: string, pos?: { x: number; y: number; z: number }) => void;
+  /** 岛主收到通知：你批准的客人正在上岛（同屏会话已接通） */
+  onVisitGuest?: (guest: string, perm: VisitPerm) => void;
+  /** 同屏对端的实时位置更新 */
+  onVisitPeer?: (msg: S2CVisitPeerMsg) => void;
+  /** 同屏对端改的一批方块 [x, y, z, id, meta][] */
+  onVisitBlocks?: (cells: number[][]) => void;
+  /** 同屏会话结束（对方离开或掉线） */
+  onVisitEnd?: (reason: 'left' | 'offline', name?: string) => void;
   /** 服务器确认收到访岛申请（申请在死管里丢掉时，客户端靠"没回执"发现） */
   onVisitRequested?: (to: string) => void;
   /** 访客收到拒绝/超时/验证失败/不在线时触发 */
@@ -117,10 +125,25 @@ export class NetClient {
     return this.send({ t: 'visit.request', to: to.trim(), everCreative: this.everCreative });
   }
 
-  /** 好友访岛：岛主回应同意/拒绝（同意时附带挖掘权限） */
-  replyVisit(to: string, accept: boolean, perm?: VisitPerm, everCreative?: boolean): void {
+  /** 好友访岛：岛主回应同意/拒绝（同意时附带挖掘权限 + 自己岛上的位置，让访客落在本人附近） */
+  replyVisit(to: string, accept: boolean, perm?: VisitPerm, everCreative?: boolean, pos?: { x: number; y: number; z: number }): void {
     if (everCreative !== undefined) this.everCreative = everCreative;
-    this.send({ t: 'visit.reply', to, accept, perm, everCreative: this.everCreative });
+    this.send({ t: 'visit.reply', to, accept, perm, pos, everCreative: this.everCreative });
+  }
+
+  /** 同屏访岛：上报自己的实时位置（服务器原样转发给对端） */
+  sendVisitPos(m: { x: number; y: number; z: number; yaw: number; pitch: number; kind?: string; day?: number }): void {
+    this.send({ t: 'visit.pos', ...m });
+  }
+
+  /** 同屏访岛：上报本地一批方块改动 [x, y, z, id, meta][] */
+  sendVisitBlocks(cells: number[][]): void {
+    this.send({ t: 'visit.blocks', cells });
+  }
+
+  /** 同屏访岛：主动离开会话（回大厅/回本岛前打声招呼，对端好收摊） */
+  sendVisitLeave(to: string): void {
+    this.send({ t: 'visit.leave', to });
   }
 
   /** 更新本档是否曾开启创造模式标记 */
@@ -323,7 +346,23 @@ export class NetClient {
       }
       case 'visit.approved': {
         this.hallPos = 0;
-        this.callbacks.onVisitApproved?.(msg.owner, msg.perm, msg.ticket);
+        this.callbacks.onVisitApproved?.(msg.owner, msg.perm, msg.ticket, msg.pos);
+        break;
+      }
+      case 'visit.guest': {
+        this.callbacks.onVisitGuest?.(msg.guest, msg.perm);
+        break;
+      }
+      case 'visit.peer': {
+        this.callbacks.onVisitPeer?.(msg);
+        break;
+      }
+      case 'visit.blocks': {
+        this.callbacks.onVisitBlocks?.(msg.cells);
+        break;
+      }
+      case 'visit.end': {
+        this.callbacks.onVisitEnd?.(msg.reason, msg.name);
         break;
       }
       case 'visit.denied': {

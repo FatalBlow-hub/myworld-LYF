@@ -28,6 +28,8 @@ export class World {
   private wetQueue = new Set<string>();
   /** 是否自动用噪声生成新区块地形（大厅等固定场景关闭） */
   terrainGen = true;
+  /** 方块改动钩子：同屏访岛时挂上去收集本地改动广播给对端；平时为 null 零开销 */
+  onBlockChange: ((wx: number, wy: number, wz: number, id: number) => void) | null = null;
 
   /** 清空重置整个世界：区块、朝向表、箱子、熔炉、脏区块、流水队列全清 */
   clear(): void {
@@ -128,6 +130,8 @@ export class World {
     if (lx === CHUNK.SIZE - 1) this.markDirty(cx + 1, cz);
     if (lz === 0) this.markDirty(cx, cz - 1);
     if (lz === CHUNK.SIZE - 1) this.markDirty(cx, cz + 1);
+
+    this.onBlockChange?.(wx, wy, wz, id);
   }
 
   private markDirty(cx: number, cz: number): void {

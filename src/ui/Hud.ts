@@ -190,7 +190,12 @@ export class Hud {
 
   /** 串门时挂上「参观 XX 的岛」常驻标签；回大厅/回自己岛传 null 摘掉 */
   setVisitOwner(name: string | null): void {
-    this.visitEl.textContent = name ? `🏝 参观 ${name} 的岛 · 按 H 回大厅` : '';
+    this.setVisitLabel(name ? `🏝 参观 ${name} 的岛 · 按 H 回大厅` : '');
+  }
+
+  /** 串门标签自定义文案：岛主迎客（🏠 XX 在你家做客）、快照降级（本人走了）等场景用 */
+  setVisitLabel(text: string): void {
+    this.visitEl.textContent = text;
   }
 
   /** 更新联机连接状态与在线名单（固定位置状态灯：绿=已连接、黄=重连中、红=已断开） */

@@ -38,6 +38,7 @@ import { ShopPanel } from '../ui/ShopPanel';
 import { DRINK_GOODS, SPECIAL_GOODS, ShopGood, fmtCoins, rollGood } from '../world/Shop';
 import { SaveData, applySave, buildSave, isSupportedSave, migrateSave, randomIslandType, readSave, writeSave } from './Save';
 import { DayCycle } from './DayCycle';
+import { VisitSync } from './VisitSync';
 import { PlayerActions } from './PlayerActions';
 import { Pickup } from './Pickup';
 import { Survival } from './Survival';
@@ -79,6 +80,8 @@ export class Game {
   private character: CharacterKind = 'steve'; private characterFromSave = false;
   /** 访岛时站在岛主重生点旁的岛主小人 */
   private visitAvatar = new VisitAvatar();
+  /** 真·双人同屏：位置/方块互播、对面小人的渲染与收尾（会话断了自动退回快照模式） */
+  private visitSync: VisitSync;
   /** 岛币余额（大厅三台机器用；收购箱进账、售卖机扣钱） */
   private coins = 0;
   private shopPanel: ShopPanel | null = null;
@@ -137,6 +140,31 @@ export class Game {
     this.challenge = this.createChallenge();
     this.potions = new Potions(this.renderer.scene, this.mobs, (msg) => this.hud!.showMessage(msg, 1.5));
     this.fires = new FireSystem(this.renderer.scene);
+    this.visitSync = new VisitSync({
+      scene: this.renderer.scene,
+      world: this.world,
+      day: this.day,
+      net: () => this.net,
+      onPeerAlive: (name, role) => {
+        if (role === 'guest') {
+          this.visitAvatar.clear(this.renderer.scene); // 真人就位，迎客雕像下岗
+          this.hud?.showMessage(`和 ${name} 见面啦！`, 2.5);
+        } else {
+          this.hud?.showMessage(`${name} 上岛了！`, 2.5);
+        }
+      },
+      onPeerEnd: (reason, name, role) => {
+        const label = name ?? '对方';
+        if (role === 'host') {
+          this.hud?.setVisitLabel('');
+          this.hud?.showMessage(reason === 'left' ? `${label} 回去了` : `${label} 掉线了`, 2.5);
+        } else {
+          // 人走了岛还在：退回"看快照"模式，标签换成快照版免得误以为还是同屏
+          this.hud?.setVisitLabel(`🏝 ${this.visitOwner ?? ''} 的岛（本人已离开）· 按 H 回大厅`);
+          this.hud?.showMessage(`${label}${reason === 'left' ? '离开' : '掉线'}了，你现在看到的是他岛的快照`, 3.5);
+        }
+      },
+    });
   }
 
   private createChallenge(): Challenge {
@@ -168,6 +196,7 @@ export class Game {
         if (status === 'connected' && prev === 'reconnecting') {
           this.hud?.showMessage('已重新连接服务器', 1.5);
           if (this.scene === 'hall') this.net?.joinHallQueue();
+          if (this.visitSync.active) this.visitSync.onPeerEnd('offline'); // 断线时服务器已拆会话，本地跟着收摊退回快照
         } else if (status === 'reconnecting' && prev === 'connected') this.hud?.showMessage('与服务器断开，重连中…', 1.5);
       },
       onOnlineChange: (online, ev) => {
@@ -181,7 +210,11 @@ export class Game {
       onHallError: (msg) => this.hud?.showMessage(msg, 2.5),
       onVisitIncoming: (from) => { this.hud?.showMessage(`${from} 申请访问你的岛屿`, 2.5); this.visitMenu?.openRequest(from); },
       onVisitRequested: () => { window.clearTimeout(this.visitSendTimer); this.hud?.showMessage('对方收到了申请，等他同意…', 2.5); },
-      onVisitApproved: (owner, perm, ticket) => { window.clearTimeout(this.visitSendTimer); if (this.scene === 'hall') void this.enterFriendVisit(owner, perm, ticket); },
+      onVisitApproved: (owner, perm, ticket, pos) => { window.clearTimeout(this.visitSendTimer); if (this.scene === 'hall') void this.enterFriendVisit(owner, perm, ticket, pos); },
+      onVisitGuest: (guest) => this.onGuestArriving(guest),
+      onVisitPeer: (m) => this.visitSync.onPeerPos(m),
+      onVisitBlocks: (cells) => this.visitSync.onRemoteBlocks(cells),
+      onVisitEnd: (reason, name) => this.visitSync.onPeerEnd(reason, name),
       onVisitDenied: (reason) => { window.clearTimeout(this.visitSendTimer); this.hud?.showMessage(denyMsgs[reason] ?? '对方拒绝/未响应', 3); },
     }, this.everCreative);
     this.net.connect();
@@ -224,7 +257,11 @@ export class Game {
     this.visitMenu = new VisitMenu({
       onReply: (visitor, accept, perm) => {
         if (accept && this.scene === 'island') this.saveNow();
-        this.net?.replyVisit(visitor, accept, perm, this.everCreative || this.inventory?.mode === 'creative');
+        // 报个落地参考点：在自己岛上就报实时站位，在大厅/别人家就报存档里的位置（都是岛的坐标系）
+        const pos = !accept ? undefined
+          : this.scene === 'island' && this.body ? { x: this.body.x, y: this.body.y, z: this.body.z }
+          : (this.islandSave ?? readSave(this.saveSlot))?.body;
+        this.net?.replyVisit(visitor, accept, perm, this.everCreative || this.inventory?.mode === 'creative', pos);
       },
     });
     this.panels.register({ name: 'visitRequest', isOpen: () => this.visitMenu!.requestVisible, close: () => this.visitMenu!.closeRequest() });
@@ -424,6 +461,7 @@ export class Game {
 
   /** 清空当前世界网格与场内所有活物、掉落物、飞行药水、载具、火焰 */
   private clearScene(): void {
+    this.visitSync.leave(); // 换场景=离开同屏：跟对端打完招呼再收摊
     this.playerActions?.cancelMining(); this.hud?.setProgress(0); this.highlight.visible = false;
     this.visitAvatar.clear(this.renderer.scene);
     for (const a of this.mobs.animals) this.renderer.scene.remove(a.group);
@@ -540,8 +578,16 @@ export class Game {
     }
   }
 
-  /** 收到 visit.approved：凭一次性票据拉取好友存档并作为临时副本加载（不写回岛主存档） */
-  private async enterFriendVisit(owner: string, perm: VisitPerm, ticket?: string): Promise<void> {
+  /** 同屏·岛主侧：我批准的客人正在路上——人得在自己岛上才能迎客，不在就先回去 */
+  private onGuestArriving(guest: string): void {
+    if (this.scene !== 'island') this.leaveHall();
+    this.visitSync.start('host', guest);
+    this.hud!.setVisitLabel(`🏠 ${guest} 在你家做客 · 按 H 回大厅`);
+    this.hud!.showMessage(`${guest} 来参观你的岛啦！`, 3);
+  }
+
+  /** 收到 visit.approved：凭一次性票据拉取好友存档并作为临时副本加载（不写回岛主存档），同时接通同屏会话 */
+  private async enterFriendVisit(owner: string, perm: VisitPerm, ticket?: string, pos?: { x: number; y: number; z: number }): Promise<void> {
     try {
       const qs = new URLSearchParams({ name: owner });
       if (ticket) qs.set('ticket', ticket);
@@ -560,8 +606,11 @@ export class Game {
       for (const [k, v] of Object.entries(friendSave.furnaces ?? {})) this.world.furnaces.set(k, v);
       this.spawn = { ...friendSave.spawn };
       const body = this.body!;
-      body.x = this.spawn.x; body.y = this.spawn.y; body.z = this.spawn.z;
+      // 岛主报了站位就落在他旁边（开门就见朋友），没报还是落重生点
+      const land = pos ? this.survival!.freeSpot(pos.x, pos.y, pos.z) : this.spawn;
+      body.x = land.x; body.y = land.y; body.z = land.z;
       body.vx = body.vy = body.vz = 0; body.fellFrom = body.y;
+      this.visitSync.start('guest', owner); // 同屏会话接通：之后位置/方块改动自动互播
       this.streamChunks(Infinity); this.chunkMeshes.rebuildDirty(this.world);
       // 岛主的 3D 小人站在重生点前面几格（按他上次的朝向反推，脚踩在那格地面上），
       // 访客落在重生点上、转身正对着他，一进岛就是「见面」这一幕
@@ -696,6 +745,7 @@ export class Game {
       if (this.scene === 'island') this.mobs.update(dt, body.x, body.y, body.z, this.day.time >= DAY.NIGHT_FROM, this.day.time);
       this.potions.update(dt, this.world); this.fires.update(dt);
       this.visitAvatar.update(dt, body.x, body.z);
+      this.visitSync.update(dt, body, this.character, this.day.time);
       this.drops = this.pickup!.update(dt, body);
       if (this.scene === 'island') this.challenge.update(dt, body, this.inventory!, hud);
       if (this.scene !== 'hall') this.streamChunks(2);

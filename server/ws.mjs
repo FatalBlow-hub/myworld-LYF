@@ -68,6 +68,12 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null) {
   const pendingVisits = new Map();
 
   /**
+   * 同屏访岛会话表：ws -> { peer, role }——批准那一刻建立，双方互发位置/方块改动都靠它找对面那个人
+   * @type {Map<import('ws').WebSocket, { peer: import('ws').WebSocket, role: 'owner' | 'guest' }>}
+   */
+  const visitSessions = new Map();
+
+  /**
    * 大厅排队连接队列（按先后顺序排列，保证不重复）
    * @type {import('ws').WebSocket[]}
    */
@@ -189,11 +195,26 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null) {
     return true;
   }
 
+  /**
+   * 结束某连接的同屏会话：拆掉双向指针并通知对端（对端退回"看快照"模式）
+   * expectedPeerName 防止误伤：客户端补发的旧 leave 不该杀掉对端刚建的新会话
+   */
+  function endVisitSession(ws, reason, expectedPeerName = null) {
+    const s = visitSessions.get(ws);
+    if (!s) return;
+    if (expectedPeerName && clients.get(s.peer)?.name !== expectedPeerName) return;
+    visitSessions.delete(ws);
+    if (visitSessions.get(s.peer)?.peer === ws) visitSessions.delete(s.peer);
+    console.log(`[ws] 同屏结束: ${clients.get(ws)?.name ?? '?'} (${reason})`);
+    sendMsg(s.peer, { t: 'visit.end', reason, name: clients.get(ws)?.name });
+  }
+
   /** 清理断开或超时的连接，移出队列与在线名单并广播 offline */
   function cleanup(ws, reason = 'disconnect') {
     const info = clients.get(ws);
     if (!info) return;
     removeFromQueue(ws);
+    endVisitSession(ws, 'offline');
     for (const [k, reqItem] of pendingVisits.entries()) {
       if (reqItem.fromWs === ws || reqItem.toWs === ws) {
         clearTimeout(reqItem.timer);
@@ -278,6 +299,14 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null) {
           if (t.visitorName === finalName || (cookieName && t.visitorAccount === cookieName)) {
             console.log(`[ws] 补发访岛批准: ${t.visitorName} -> ${t.ownerName}`);
             sendMsg(ws, { t: 'visit.approved', owner: t.ownerName, perm: t.perm, ticket });
+            // 岛主还在线就把同屏会话也重新接上，客人这次真能落地
+            const ownerHit = findClientByName(t.ownerName, ws);
+            if (ownerHit) {
+              const [ownerWs] = ownerHit;
+              visitSessions.set(ws, { peer: ownerWs, role: 'guest' });
+              visitSessions.set(ownerWs, { peer: ws, role: 'owner' });
+              sendMsg(ownerWs, { t: 'visit.guest', guest: finalName, perm: t.perm });
+            }
             break;
           }
         }
@@ -425,8 +454,28 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null) {
           expiresAt: Date.now() + TICKET_TTL_MS,
         });
         removeFromQueue(fromWs);
-        console.log(`[ws] 访岛批准: ${fromName} -> ${info.name}，权限=${perm.mode}(fruitEx=${perm.fruitException})`);
-        sendMsg(fromWs, { t: 'visit.approved', owner: info.name, perm, ticket });
+        // 建同屏会话：两边之前的旧会话先拆掉（比如岛主自己正在别人家串门）
+        endVisitSession(fromWs, 'left');
+        endVisitSession(ws, 'left');
+        visitSessions.set(fromWs, { peer: ws, role: 'guest' });
+        visitSessions.set(ws, { peer: fromWs, role: 'owner' });
+        const pos = msg.pos && [msg.pos.x, msg.pos.y, msg.pos.z].every(Number.isFinite) ? msg.pos : undefined;
+        console.log(`[ws] 访岛批准: ${fromName} -> ${info.name}，权限=${perm.mode}(fruitEx=${perm.fruitException})，同屏已接通`);
+        sendMsg(ws, { t: 'visit.guest', guest: fromInfo.name, perm }); // 岛主这边：客人马上到，出来迎客
+        sendMsg(fromWs, { t: 'visit.approved', owner: info.name, perm, ticket, pos });
+        return;
+      }
+
+      // 同屏会话中的转发业务：位置改个名发过去（pos→peer），方块改动原样转发，leave 校验对端名再拆会话
+      if (msg.t === 'visit.pos' || msg.t === 'visit.blocks') {
+        const s = visitSessions.get(ws);
+        if (!s) return;
+        sendMsg(s.peer, msg.t === 'visit.pos' ? { ...msg, t: 'visit.peer' } : msg);
+        return;
+      }
+
+      if (msg.t === 'visit.leave') {
+        endVisitSession(ws, 'left', typeof msg.to === 'string' ? msg.to : null);
         return;
       }
     });

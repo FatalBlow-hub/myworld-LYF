@@ -50,14 +50,39 @@ export interface C2SVisitRequestMsg {
   everCreative?: boolean;
 }
 
-/** 好友访岛：岛主同意/拒绝（同意时带权限配置） */
+/** 好友访岛：岛主同意/拒绝（同意时带权限配置；pos = 访客落地参考点——岛主在自己岛上就报实时位置，否则报存档里的位置） */
 export interface C2SVisitReplyMsg {
   t: 'visit.reply';
   to: string;
   accept: boolean;
   perm?: VisitPerm;
+  pos?: { x: number; y: number; z: number };
   ticket?: string;
   everCreative?: boolean;
+}
+
+/** 同屏访岛：实时位置上报（服务器转发给同屏对端；kind 让对方画出正确小人，day 只有岛主发——访客的钟表跟着岛主走） */
+export interface C2SVisitPosMsg {
+  t: 'visit.pos';
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  pitch: number;
+  kind?: string;
+  day?: number;
+}
+
+/** 同屏访岛：本地一批方块改动上报（挖/放/开关门/流水），cells = [x, y, z, id, meta][] */
+export interface C2SVisitBlocksMsg {
+  t: 'visit.blocks';
+  cells: number[][];
+}
+
+/** 同屏访岛：主动离开（回大厅/回自己岛），to = 对端名字防误杀新会话 */
+export interface C2SVisitLeaveMsg {
+  t: 'visit.leave';
+  to: string;
 }
 
 /** 预留命名空间：后续访客/同步消息（本期不实现逻辑） */
@@ -75,6 +100,9 @@ export type C2SMsg =
   | C2SHallRandomMsg
   | C2SVisitRequestMsg
   | C2SVisitReplyMsg
+  | C2SVisitPosMsg
+  | C2SVisitBlocksMsg
+  | C2SVisitLeaveMsg
   | C2SReservedMsg;
 export type C2SMsgType = C2SMsg['t'];
 
@@ -144,12 +172,45 @@ export interface S2CVisitRequestedMsg {
   to: string;
 }
 
-/** 好友访岛：访客收到批准，凭 ticket 拉取岛主世界 */
+/** 好友访岛：访客收到批准，凭 ticket 拉取岛主世界（pos = 岛主上报的落地参考点，落在本人附近） */
 export interface S2CVisitApprovedMsg {
   t: 'visit.approved';
   owner: string;
   perm: VisitPerm;
   ticket?: string;
+  pos?: { x: number; y: number; z: number };
+}
+
+/** 同屏访岛：发给岛主——你批准的客人正在上岛（客人拉完世界就会出现在你面前） */
+export interface S2CVisitGuestMsg {
+  t: 'visit.guest';
+  guest: string;
+  perm: VisitPerm;
+}
+
+/** 同屏访岛：对端转发来的实时位置（kind/见 C2SVisitPosMsg 说明） */
+export interface S2CVisitPeerMsg {
+  t: 'visit.peer';
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  pitch: number;
+  kind?: string;
+  day?: number;
+}
+
+/** 同屏访岛：对端改的一批方块，cells = [x, y, z, id, meta][] */
+export interface S2CVisitBlocksMsg {
+  t: 'visit.blocks';
+  cells: number[][];
+}
+
+/** 同屏访岛：会话结束（对端离开或掉线，自己退回"看快照"模式） */
+export interface S2CVisitEndMsg {
+  t: 'visit.end';
+  reason: 'left' | 'offline';
+  name?: string;
 }
 
 /** 好友访岛：拒绝 / 验证失败（creative）/ 超时 / 不在线；offline 时附带当前真实在线名单帮客户端刷新 */
@@ -178,5 +239,9 @@ export type S2CMsg =
   | S2CVisitRequestedMsg
   | S2CVisitApprovedMsg
   | S2CVisitDeniedMsg
+  | S2CVisitGuestMsg
+  | S2CVisitPeerMsg
+  | S2CVisitBlocksMsg
+  | S2CVisitEndMsg
   | S2CReservedMsg;
 export type S2CMsgType = S2CMsg['t'];
