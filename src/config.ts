@@ -387,6 +387,7 @@ export const SELL_PRICE: Record<number, { coins: number; per: number }> = {
   225: { coins: 3, per: 1 },     // 整个西瓜
   244: { coins: 1, per: 1 },     // 椰子
   7:   { coins: 0.01, per: 1 },  // 树叶
+  111: { coins: 1, per: 1 },     // 铁粒
   // 羊毛什么颜色都收，一律 0.75
   34: { coins: 0.75, per: 1 }, 35: { coins: 0.75, per: 1 }, 36: { coins: 0.75, per: 1 },
   37: { coins: 0.75, per: 1 }, 38: { coins: 0.75, per: 1 }, 39: { coins: 0.75, per: 1 },
