@@ -291,7 +291,7 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null) {
         const wasOnline = isNameOnline(finalName);
         info.name = finalName;
         const list = onlineList();
-        console.log(`[ws] 玩家上线: ${finalName}，当前在线: ${list.length}`);
+        console.log(`[ws] 玩家上线: ${finalName} (ver=${typeof msg.ver === 'string' ? msg.ver : '旧版'})，当前在线: ${list.length}`);
         sendMsg(ws, { t: 'welcome', name: finalName, online: list });
         // 补发没送达到的访岛批准：approved 可能进了死管/掉线前发出——门票没用过（还在表里）就重发
         for (const [ticket, t] of visitTickets) {
@@ -469,7 +469,11 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null) {
       // 同屏会话中的转发业务：位置改个名发过去（pos→peer），方块改动原样转发，leave 校验对端名再拆会话
       if (msg.t === 'visit.pos' || msg.t === 'visit.blocks') {
         const s = visitSessions.get(ws);
-        if (!s) return;
+        if (!s) return; // 没会话的消息直接丢（比如断线重连后旧会话已拆）
+        if (!s.relayed) { // 每个方向第一次转发记一笔，排查"通了没"不用猜
+          s.relayed = true;
+          console.log(`[ws] 同屏转发开始: ${info.name} -> ${clients.get(s.peer)?.name ?? '?'} (${msg.t})`);
+        }
         sendMsg(s.peer, msg.t === 'visit.pos' ? { ...msg, t: 'visit.peer' } : msg);
         return;
       }

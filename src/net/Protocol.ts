@@ -10,11 +10,12 @@ export type VisitDenyReason = 'offline' | 'rejected' | 'creative' | 'timeout' | 
 
 /* ---------------- 客户端 → 服务端（C2S） ---------------- */
 
-/** 握手上报身份（可附带本档是否曾开启过创造模式，供双标签页/本地档双重验证兜底） */
+/** 握手上报身份（可附带本档是否曾开启过创造模式，供双标签页/本地档双重验证兜底；ver = 客户端代码版本号，排查旧缓存用） */
 export interface C2SHelloMsg {
   t: 'hello';
   name: string;
   everCreative?: boolean;
+  ver?: string;
 }
 
 /** 客户端心跳 */

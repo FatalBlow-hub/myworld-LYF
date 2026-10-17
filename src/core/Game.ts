@@ -210,7 +210,13 @@ export class Game {
       onHallError: (msg) => this.hud?.showMessage(msg, 2.5),
       onVisitIncoming: (from) => { this.hud?.showMessage(`${from} 申请访问你的岛屿`, 2.5); this.visitMenu?.openRequest(from); },
       onVisitRequested: () => { window.clearTimeout(this.visitSendTimer); this.hud?.showMessage('对方收到了申请，等他同意…', 2.5); },
-      onVisitApproved: (owner, perm, ticket, pos) => { window.clearTimeout(this.visitSendTimer); if (this.scene === 'hall') void this.enterFriendVisit(owner, perm, ticket, pos); },
+      onVisitApproved: (owner, perm, ticket, pos) => {
+        window.clearTimeout(this.visitSendTimer);
+        // 批准来了但在哪都照去：在大厅正常进，回了本岛先存档再去（以前只认大厅，回本岛的批准被静默吞掉，客人永远等不到）
+        if (this.scene === 'visit') return;
+        if (this.scene === 'island') this.saveNow();
+        void this.enterFriendVisit(owner, perm, ticket, pos);
+      },
       onVisitGuest: (guest) => this.onGuestArriving(guest),
       onVisitPeer: (m) => this.visitSync.onPeerPos(m),
       onVisitBlocks: (cells) => this.visitSync.onRemoteBlocks(cells),

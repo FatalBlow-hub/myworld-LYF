@@ -3,6 +3,7 @@
 import type { IslandType, VisitPerm } from '../config';
 import { C2SMsg, NetStatus, S2CMsg, S2CVisitPeerMsg, VisitDenyReason } from './Protocol';
 
+const CLIENT_VER = 'coscreen-1017'; // 客户端代码版本号：hello 上报，日志里能看出谁还在跑旧缓存
 const PING_INTERVAL_MS = 10_000;   // 客户端每 10 秒发一次 ping
 const TIMEOUT_MS = 30_000;         // 30 秒没收到任何消息判定掉线
 const WATCHDOG_CHECK_MS = 2_000;   // 检查超时定时器的轮询间隔
@@ -157,7 +158,7 @@ export class NetClient {
     if (!trimmed || trimmed === this.name) return;
     this.name = trimmed;
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.send({ t: 'hello', name: this.name, everCreative: this.everCreative });
+      this.send({ t: 'hello', name: this.name, everCreative: this.everCreative, ver: CLIENT_VER });
     }
   }
 
@@ -250,7 +251,7 @@ export class NetClient {
       this.lastRecvTime = Date.now();
       console.log(`[net] WebSocket 已连接 (${url})，身份: ${this.name}`);
       this.setStatus('connected');
-      this.send({ t: 'hello', name: this.name, everCreative: this.everCreative });
+      this.send({ t: 'hello', name: this.name, everCreative: this.everCreative, ver: CLIENT_VER });
       this.startHeartbeat();
     };
 
