@@ -327,7 +327,7 @@ export const ISLAND_TYPES: Record<IslandType, { id: IslandType; cn: string; frui
 };
 
 export const ISLAND = {
-  LEAF_FRUIT_CHANCE: 0.01,  // 挖掉本岛树叶掉专属水果的概率（1%）
+  LEAF_FRUIT_CHANCE: 0.05,  // 挖掉本岛树叶掉专属水果的概率（5%）
 };
 
 /** 访客挖掘权限：模式三选一 + 水果例外开关（仅在 none / all 下生效） */

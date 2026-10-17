@@ -290,7 +290,7 @@ export const PUMPKIN_STAGE3 = 232;     // 南瓜大苗（带叶）
 export const MELON_STAGE1 = 233;       // 西瓜小苗（刚种下）
 export const MELON_STAGE2 = 234;       // 西瓜幼苗
 export const MELON_STAGE3 = 235;       // 西瓜大苗（带叶）
-// —— 专属岛屿水果（236~238）：挖掉本岛树叶 1% 概率掉落，各有食用加成 ——
+// —— 专属岛屿水果（236~238）：挖掉本岛树叶 5% 概率掉落，各有食用加成 ——
 export const APPLE = 236;              // 苹果（+1 饥饿 +1.5 血）
 export const PEACH = 237;              // 桃子（+2 饥饿 +0.5 血）
 export const ORANGE = 238;             // 橙子（+1 饥饿 +1 血 + 3 秒移动速度 ×1.25）

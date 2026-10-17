@@ -157,7 +157,7 @@ export class PlayerActions {
         inventory.add(RUBBER, n);
         hud.showMessage(`树干里蹦出 ${n} 块橡胶！`);
       }
-      // 挖掉树叶：在自己的岛上有 1% 概率掉本岛专属水果（不受工具影响，走统一掉落物入口）
+      // 挖掉树叶：在自己的岛上有 5% 概率掉本岛专属水果（不受工具影响，走统一掉落物入口）
       if (id === LEAVES) {
         const fruitId = this.d.islandFruit();
         if (fruitId !== null && Math.random() < ISLAND.LEAF_FRUIT_CHANCE) {
