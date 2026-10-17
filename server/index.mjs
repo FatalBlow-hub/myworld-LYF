@@ -248,15 +248,16 @@ function readSaveByUserName(name) {
 function handleVisitWorld(req, res, ip) {
   if (limited(ip, 'api', API_LIMIT)) return sendErr(res, 429, '请求太频繁啦');
   if (req.method !== 'GET') return sendErr(res, 405, 'method not allowed');
-  const visitor = currentUser(req);
-  if (!visitor) return sendErr(res, 401, 'not logged in');
-
   const u = new URL(req.url ?? '/', 'http://localhost');
   const ownerName = (u.searchParams.get('name') ?? '').trim();
   const ticketParam = (u.searchParams.get('ticket') ?? '').trim() || null;
   if (!ownerName) return sendErr(res, 400, 'missing name');
 
-  const consumed = consumeVisitTicket(ownerName, visitor.name, ticketParam);
+  // 登录态或有效票据二选一：票据本身就是一次性凭证（128 位随机数），没登录的访客凭票也能进
+  const visitor = currentUser(req);
+  if (!visitor && !ticketParam) return sendErr(res, 401, 'not logged in');
+
+  const consumed = consumeVisitTicket(ownerName, visitor?.name ?? null, ticketParam);
   if (!consumed) return sendErr(res, 403, 'invalid or expired visit ticket');
 
   const ownerUser = q.userByName.get(consumed.ownerAccount) ?? q.userByName.get(ownerName.split('#')[0]);

@@ -347,6 +347,7 @@ export const HALL = {
   QUEUE_MAX: 32,                    // 大厅排队人数上限
   RANDOM_COIN_COST: 5,              // 随机陌生岛消耗岛币数量
   VISIT_TIMEOUT_MS: 60_000,         // 访岛申请 60 秒无响应超时
+  VISIT_ACK_MS: 8_000,              // 访岛申请发出后 8 秒没等到服务器回执 = 申请多半丢在死管里，自动重连
   TICKET_TTL_MS: 5 * 60_000,        // 访问票据 5 分钟有效
   /** 大厅角落三台机器：沿北墙（z=1）从角上摆开，y = FLOOR_Y + 1 */
   MACHINES: [
@@ -384,6 +385,7 @@ export const SELL_PRICE: Record<number, { coins: number; per: number }> = {
   139: { coins: 0.25, per: 1 },  // 胡萝卜
   224: { coins: 3, per: 1 },     // 整个南瓜
   225: { coins: 3, per: 1 },     // 整个西瓜
+  244: { coins: 1, per: 1 },     // 椰子
   // 羊毛什么颜色都收，一律 0.75
   34: { coins: 0.75, per: 1 }, 35: { coins: 0.75, per: 1 }, 36: { coins: 0.75, per: 1 },
   37: { coins: 0.75, per: 1 }, 38: { coins: 0.75, per: 1 }, 39: { coins: 0.75, per: 1 },

@@ -652,7 +652,7 @@ export const BLOCKS: Record<number, BlockDef> = {
   // —— 椰子树：浅色木头 + 四瓣叶子 + 挂在叶下的椰子（挖椰子掉椰子，能榨汁也能卖） ——
   [PALM_WOOD]:   { cn: '椰子树干', tex: { top: 'palm_wood_top', side: 'palm_wood' }, solid: true, seeThrough: false, hardness: 1.2 },
   [PALM_LEAVES]: { cn: '椰子叶',   tex: { top: 'palm_leaves', side: 'palm_leaves' }, solid: true, seeThrough: false, hardness: 0.25 },
-  [COCONUT]:     { cn: '椰子',     tex: { top: 'coconut', side: 'coconut' }, solid: false, seeThrough: true, hardness: 0.2, drop: COCONUT },
+  [COCONUT]:     { cn: '椰子',     tex: { top: 'coconut', side: 'coconut' }, solid: false, seeThrough: true, hardness: 0.2, targetable: true, drop: COCONUT },
   // —— 饮料：水果/材料 + 玻璃瓶榨的，E 喝了有各自的效果，也能卖给收购箱 ——
   [JUICE_APPLE]:   { cn: '苹果汁',   tex: { top: 'juice_apple', side: 'juice_apple' }, solid: false, seeThrough: true, hardness: 0, item: true },
   [JUICE_ORANGE]:  { cn: '橘子汁',   tex: { top: 'juice_orange', side: 'juice_orange' }, solid: false, seeThrough: true, hardness: 0, item: true },

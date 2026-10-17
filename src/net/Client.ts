@@ -26,6 +26,8 @@ export interface NetClientCallbacks {
   onVisitIncoming?: (from: string) => void;
   /** 访客收到岛主批准时触发 */
   onVisitApproved?: (owner: string, perm: VisitPerm, ticket?: string) => void;
+  /** 服务器确认收到访岛申请（申请在死管里丢掉时，客户端靠"没回执"发现） */
+  onVisitRequested?: (to: string) => void;
   /** 访客收到拒绝/超时/验证失败/不在线时触发 */
   onVisitDenied?: (reason: VisitDenyReason) => void;
   /** 收到任意服务端消息时触发 */
@@ -51,7 +53,20 @@ export class NetClient {
     const trimmed = (name ?? '').trim();
     this.name = trimmed || `guest-${Math.floor(1000 + Math.random() * 9000)}`;
     this.everCreative = everCreative;
+    document.addEventListener('visibilitychange', this.onVisible);
   }
+
+  /** 页面回到前台：手机后台时连接多半已经死了但 readyState 还装着 OPEN，立刻体检重连，不等 30 秒看门狗 */
+  private onVisible = () => {
+    if (document.visibilityState !== 'visible' || this.manualClosed) return;
+    const alive = this.ws && this.ws.readyState === WebSocket.OPEN && Date.now() - this.lastRecvTime <= TIMEOUT_MS;
+    if (alive || this.status === 'disconnected') return;
+    console.log('[net] 页面回到前台，连接已陈旧，立即重连');
+    this.clearReconnectTimer();
+    this.retryCount = 0;
+    this.setStatus('reconnecting');
+    this.openSocket();
+  };
 
   /** 当前连接状态 */
   getStatus(): NetStatus {
@@ -147,8 +162,35 @@ export class NetClient {
     return !!this.ws && this.ws.readyState === WebSocket.OPEN;
   }
 
+  /** 立刻重连（申请没回音、自检发现死管时调用），不等看门狗 */
+  forceReconnect(): void {
+    if (this.manualClosed) return;
+    this.clearReconnectTimer();
+    this.retryCount = 0;
+    this.setStatus('reconnecting');
+    this.openSocket();
+  }
+
+  /** 回收死管（30 秒没收到消息但 readyState 还装 OPEN 的那种），并安排重连 */
+  private recycleSocket(): void {
+    this.stopHeartbeat();
+    this.online = [];
+    if (this.ws) {
+      const dead = this.ws;
+      this.ws = null;
+      try { dead.close(); } catch { /* 忽略 */ }
+    }
+    this.scheduleReconnect();
+  }
+
   /** 发送 JSON 消息给服务端；返回是否真的发出去了（false = 连接是死的，消息被丢） */
   send(msg: C2SMsg): boolean {
+    // 手机切后台/切网络后 TCP 变"死管"：readyState 还装 OPEN，但发啥都进黑洞——30 秒没收到消息就当成死的
+    if (this.ws && this.ws.readyState === WebSocket.OPEN && Date.now() - this.lastRecvTime > TIMEOUT_MS) {
+      this.recycleSocket();
+      console.warn('[net] 发现死管（30秒无响应），回收并重连，本次消息未发出:', msg.t);
+      return false;
+    }
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
       return true;
@@ -206,6 +248,7 @@ export class NetClient {
     socket.onclose = () => {
       if (this.ws !== socket) return;
       this.ws = null;
+      this.online = []; // 名单是旧连接的遗物，留着会显示"幽灵在线"，清空等 welcome 重发
       this.stopHeartbeat();
       if (this.manualClosed) {
         this.setStatus('disconnected');
@@ -274,6 +317,10 @@ export class NetClient {
         this.callbacks.onVisitIncoming?.(msg.from);
         break;
       }
+      case 'visit.requested': {
+        this.callbacks.onVisitRequested?.(msg.to);
+        break;
+      }
       case 'visit.approved': {
         this.hallPos = 0;
         this.callbacks.onVisitApproved?.(msg.owner, msg.perm, msg.ticket);
@@ -303,13 +350,7 @@ export class NetClient {
     this.watchdogTimer = window.setInterval(() => {
       if (Date.now() - this.lastRecvTime > TIMEOUT_MS) {
         console.warn('[net] 超过 30 秒未收到服务端消息，判定掉线并重连');
-        this.stopHeartbeat();
-        if (this.ws) {
-          const dead = this.ws;
-          this.ws = null;
-          try { dead.close(); } catch { /* 忽略 */ }
-        }
-        this.scheduleReconnect();
+        this.recycleSocket();
       }
     }, WATCHDOG_CHECK_MS);
   }

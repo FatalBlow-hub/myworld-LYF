@@ -359,6 +359,7 @@ export function attachWs(server, resolveUser, readUserSave) {
         pendingVisits.set(key, { fromWs: ws, toWs, fromName: info.name, toName, timer });
         console.log(`[ws] 访岛申请: ${info.name} -> ${toName}`);
         sendMsg(toWs, { t: 'visit.incoming', from: info.name });
+        sendMsg(ws, { t: 'visit.requested', to: toName }); // 回执：证明申请真到了服务器，客户端靠它发现"发出去但没送到"的死管
         return;
       }
 

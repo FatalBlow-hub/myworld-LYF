@@ -101,6 +101,7 @@ export class Game {
   /** 手机版触屏控制（摇杆 + 视角板）；PC 不建，保持 null */
   private touch: TouchControls | null = null;
   private pendingHall = false; private pendingHallT = 0; // 主菜单点「大厅」后等联机连上再进
+  private visitSendTimer = 0; // 访岛申请"送达回执"的超时定时器（0=没在等）
   private day = new DayCycle(
     () => this.hud?.showMessage('天黑了！小心血尸和星空尸出没，对着床按 M 可以睡觉', 3),
     () => { this.survival!.wakeUp(this.body!, this.spawn); this.pickup!.dropStarShard(this.spawn.x, this.spawn.y, this.spawn.z); },
@@ -155,7 +156,7 @@ export class Game {
     };
     this.net = new NetClient(who !== 'off' && who.name ? who.name : undefined, {
       onStatusChange: (status, prev) => {
-        this.hud?.setNetState(status, this.net?.getOnlineList());
+        this.hud?.setNetState(status, status === 'connected' ? this.net?.getOnlineList() : []); // 断线时别再显示旧的幽灵名单
         if (status === 'connected' && this.pendingHall) { this.pendingHall = false; this.enterHall(); }
         if (status === 'connected' && prev === 'reconnecting') {
           this.hud?.showMessage('已重新连接服务器', 1.5);
@@ -172,8 +173,9 @@ export class Game {
       onHallMatched: (id, type) => { if (this.scene === 'hall') this.enterVisit(id, type); },
       onHallError: (msg) => this.hud?.showMessage(msg, 2.5),
       onVisitIncoming: (from) => { this.hud?.showMessage(`${from} 申请访问你的岛屿`, 2.5); this.visitMenu?.openRequest(from); },
-      onVisitApproved: (owner, perm, ticket) => { if (this.scene === 'hall') void this.enterFriendVisit(owner, perm, ticket); },
-      onVisitDenied: (reason) => this.hud?.showMessage(denyMsgs[reason] ?? '对方拒绝/未响应', 3),
+      onVisitRequested: () => { window.clearTimeout(this.visitSendTimer); this.hud?.showMessage('对方收到了申请，等他同意…', 2.5); },
+      onVisitApproved: (owner, perm, ticket) => { window.clearTimeout(this.visitSendTimer); if (this.scene === 'hall') void this.enterFriendVisit(owner, perm, ticket); },
+      onVisitDenied: (reason) => { window.clearTimeout(this.visitSendTimer); this.hud?.showMessage(denyMsgs[reason] ?? '对方拒绝/未响应', 3); },
     }, this.everCreative);
     this.net.connect();
     addEventListener('beforeunload', () => this.saveNow());
@@ -190,7 +192,7 @@ export class Game {
     this.everCreative = Boolean(mode === 'creative' || save?.everCreative || save?.mode === 'creative');
     this.character = save?.character ?? 'steve';
     this.characterFromSave = Boolean(save?.character);
-    this.mobs.zombieAttack = zombieAttack; this.mobs.zombieSpawn = true;
+    this.mobs.zombieAttack = zombieAttack; this.mobs.zombieSpawn = zombieAttack;
     this.hunger = new Hunger(mode); this.health = new Health(mode, () => this.hunger!.respawn());
     this.inventory = new Inventory(mode);
     this.hud = new Hud(this.health.showStats, this.atlas, this.inventory.infinite);
@@ -209,7 +211,7 @@ export class Game {
       onRandom: () => this.pickRandomIsland(),
       onFriend: (name) => this.pickFriendIsland(name),
       onCancel: () => { if (this.scene === 'hall') this.net?.leaveHallQueue(); },
-      onlineNames: () => this.net?.getOnlineList() ?? [],
+      onlineNames: () => (this.net?.getStatus() === 'connected' ? this.net.getOnlineList() : []), // 断线时名单是幽灵，别让人点
       selfName: () => this.net?.getName() ?? '',
     });
     this.visitMenu = new VisitMenu({
@@ -301,7 +303,7 @@ export class Game {
     this.spawn = r.spawn; this.slot = r.slot; this.islandType = r.islandType;
     this.coins = r.coins;
     this.everCreative = this.everCreative || r.everCreative || this.inventory!.mode === 'creative';
-    this.mobs.zombieSpawn = r.zombieSpawn;
+    this.mobs.zombieSpawn = r.zombieSpawn && this.mobs.zombieAttack; // 攻击关着的存档不许带着僵尸生成回来
     this.book.importLearned(r.learned);
     this.book.importGoldenState(r.golden?.learned, r.golden?.tasks, r.golden?.waterUses);
     return r;
@@ -515,6 +517,12 @@ export class Game {
     if (this.inventory?.mode === 'creative') this.everCreative = true;
     if (this.net.requestVisit(friendName, this.everCreative)) {
       this.hud!.showMessage(`已向 ${friendName} 发送访岛申请，等待对方回应…`, 3);
+      // 8 秒内没等到服务器回执 = 申请多半丢进"死管"了（手机切后台后 readyState 还装 OPEN），自动重连治它
+      window.clearTimeout(this.visitSendTimer);
+      this.visitSendTimer = window.setTimeout(() => {
+        this.hud!.showMessage('申请好像没送到，连接断了，已帮你重连，请再点一次', 3.5);
+        this.net?.forceReconnect();
+      }, HALL.VISIT_ACK_MS);
     } else {
       this.hud!.showMessage('申请没发出去，请重试', 2.5);
     }
@@ -622,8 +630,13 @@ export class Game {
       if (this.controller.take('hall')) { if (this.scene === 'hall') this.leaveHall(); else this.enterHall(); }
       this.survival!.toggleHungerKey();
       if (this.controller.take('toggleZombieSpawn')) {
-        this.mobs.zombieSpawn = !this.mobs.zombieSpawn;
-        hud.showMessage(this.mobs.zombieSpawn ? '僵尸生成已开启' : '僵尸生成已关闭，已有僵尸不会消失');
+        if (!this.mobs.zombieAttack) {
+          this.mobs.zombieSpawn = false;
+          hud.showMessage('僵尸攻击关着，僵尸不会生成，开也没用');
+        } else {
+          this.mobs.zombieSpawn = !this.mobs.zombieSpawn;
+          hud.showMessage(this.mobs.zombieSpawn ? '僵尸生成已开启' : '僵尸生成已关闭，已有僵尸不会消失');
+        }
       }
       if (this.controller.take('respawn')) this.goHome();
       this.day.update(dt, this.renderer); this.worldCycles.update(dt, this.world);

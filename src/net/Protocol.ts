@@ -138,6 +138,12 @@ export interface S2CVisitIncomingMsg {
   from: string;
 }
 
+/** 好友访岛：服务器回执——申请确实送到了（申请丢失时客户端能靠"没收到回执"发现死管） */
+export interface S2CVisitRequestedMsg {
+  t: 'visit.requested';
+  to: string;
+}
+
 /** 好友访岛：访客收到批准，凭 ticket 拉取岛主世界 */
 export interface S2CVisitApprovedMsg {
   t: 'visit.approved';
@@ -169,6 +175,7 @@ export type S2CMsg =
   | S2CHallMatchedMsg
   | S2CHallErrorMsg
   | S2CVisitIncomingMsg
+  | S2CVisitRequestedMsg
   | S2CVisitApprovedMsg
   | S2CVisitDeniedMsg
   | S2CReservedMsg;
