@@ -159,6 +159,7 @@ export class Game {
       offline: '对方现在不在线，等他上线再试', rejected: '对方拒绝了你的访问申请',
       creative: '验证失败：双方中有人开启过创造模式', timeout: '对方未响应，申请已超时作废',
       self: '不能申请访问自己', nosave: '对方还没有岛屿存档', noname: '没有人叫这个名字',
+      gone: '对方已掉线，申请作废了',
     };
     this.net = new NetClient(who !== 'off' && who.name ? who.name : undefined, {
       onStatusChange: (status, prev) => {
@@ -449,6 +450,7 @@ export class Game {
     setTerrainConfig(WORLD_SEED, false);
     buildHall(this.world); this.chunkMeshes.rebuildDirty(this.world);
     this.scene = 'hall'; this.visitIslandType = null; this.visitOwner = null; this.visitPerm = null; this.spawn = { ...HALL.SPAWN };
+    this.hud!.setVisitOwner(null);
     const body = this.body!;
     body.x = HALL.SPAWN.x; body.y = HALL.SPAWN.y; body.z = HALL.SPAWN.z;
     body.vx = body.vy = body.vz = 0; body.fellFrom = body.y;
@@ -479,6 +481,7 @@ export class Game {
     this.panels.closeAll(); this.net?.leaveHallQueue(); this.hallMenu?.setQueueState(false, [], 0);
     this.clearScene(); setTerrainConfig(WORLD_SEED, false);
     this.scene = 'island'; this.visitIslandType = null; this.visitOwner = null; this.visitPerm = null;
+    this.hud!.setVisitOwner(null);
     // 岛币跟着人走：存档里的是进大厅那一刻的余额，大厅里挣的/花的不能被读档冲掉
     const keepCoins = this.coins;
     this.withKeptInventory(() => this.restoreSaveState(save));
@@ -505,6 +508,7 @@ export class Game {
     this.panels.closeAll(); this.hallMenu?.setQueueState(false, [], 0);
     this.clearScene(); setTerrainConfig(islandId, true);
     this.scene = 'visit'; this.visitIslandType = islandType; this.visitOwner = null; this.visitPerm = null;
+    this.hud!.setVisitOwner('随机岛'); // 随机串门也挂个牌子，免得以为还在自己家
     const gs = findGrassSpawn(8.5, 8.5);
     this.spawn = { x: gs.x, y: heightAt(Math.floor(gs.x), Math.floor(gs.z)) + 1, z: gs.z };
     const body = this.body!;
@@ -550,6 +554,7 @@ export class Game {
       this.clearScene(); setTerrainConfig(WORLD_SEED, false);
       const ownerIslandType = friendSave.islandType && friendSave.islandType in ISLAND_TYPES ? friendSave.islandType : 'apple';
       this.scene = 'visit'; this.visitOwner = owner; this.visitPerm = perm; this.visitIslandType = ownerIslandType;
+      this.hud!.setVisitOwner(owner);
       this.world.applyDiffs(friendSave.chunks); this.world.applyMeta(friendSave.meta);
       for (const [k, v] of Object.entries(friendSave.chests ?? {})) this.world.chests.set(k, v);
       for (const [k, v] of Object.entries(friendSave.furnaces ?? {})) this.world.furnaces.set(k, v);

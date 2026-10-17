@@ -201,6 +201,10 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null) {
         if (reqItem.toWs === ws && reqItem.fromWs.readyState === reqItem.fromWs.OPEN) {
           sendMsg(reqItem.fromWs, { t: 'visit.denied', reason: 'offline' });
         }
+        // 访客掉线：也吱一声岛主（他可能正看着申请弹窗），不然他点了同意才发现没人来
+        if (reqItem.fromWs === ws && reqItem.toWs.readyState === reqItem.toWs.OPEN) {
+          sendMsg(reqItem.toWs, { t: 'visit.denied', reason: 'gone' });
+        }
       }
     }
     clients.delete(ws);
@@ -268,6 +272,15 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null) {
         const list = onlineList();
         console.log(`[ws] 玩家上线: ${finalName}，当前在线: ${list.length}`);
         sendMsg(ws, { t: 'welcome', name: finalName, online: list });
+        // 补发没送达到的访岛批准：approved 可能进了死管/掉线前发出——门票没用过（还在表里）就重发
+        for (const [ticket, t] of visitTickets) {
+          if (Date.now() > t.expiresAt) { visitTickets.delete(ticket); continue; }
+          if (t.visitorName === finalName || (cookieName && t.visitorAccount === cookieName)) {
+            console.log(`[ws] 补发访岛批准: ${t.visitorName} -> ${t.ownerName}`);
+            sendMsg(ws, { t: 'visit.approved', owner: t.ownerName, perm: t.perm, ticket });
+            break;
+          }
+        }
         const idx = hallQueue.indexOf(ws);
         sendMsg(ws, { t: 'hall.queue', queue: queueNames(), pos: idx >= 0 ? idx + 1 : 0 });
         if (!wasOnline) {
@@ -369,12 +382,22 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null) {
         const fromName = typeof msg.to === 'string' ? msg.to.trim() : '';
         const key = `${fromName}->${info.name}`;
         const pending = pendingVisits.get(key);
-        if (!pending) return;
+        if (!pending) {
+          // 申请已经没了（访客掉线被清掉 / 超时作废）：得告诉点按钮的人，不能装没发生
+          console.log(`[ws] 访岛回执落空: ${info.name} 回应 "${fromName}" 但没有待处理申请`);
+          sendMsg(ws, { t: 'visit.denied', reason: 'gone' });
+          return;
+        }
         clearTimeout(pending.timer);
         pendingVisits.delete(key);
         const { fromWs } = pending;
         const fromInfo = clients.get(fromWs);
-        if (!fromInfo || fromWs.readyState !== fromWs.OPEN) return;
+        if (!fromInfo || fromWs.readyState !== fromWs.OPEN) {
+          // 同意了但访客已经掉线：批准书送不出去，告诉点同意的人
+          console.log(`[ws] 访岛批准落空: ${info.name} 同意了但 ${fromName} 已掉线`);
+          sendMsg(ws, { t: 'visit.denied', reason: 'gone' });
+          return;
+        }
 
         if (!msg.accept) {
           console.log(`[ws] 访岛拒绝: ${info.name} 拒绝了 ${fromName}`);
@@ -389,6 +412,7 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null) {
           return;
         }
 
+        const perm = normalizePerm(msg.perm);
         const ticket = randomBytes(16).toString('hex');
         const ownerAccount = info.cookieName || info.name.split('#')[0];
         const visitorAccount = fromInfo.cookieName || fromInfo.name.split('#')[0];
@@ -397,10 +421,10 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null) {
           visitorName: fromInfo.name,
           ownerAccount,
           ownerName: info.name,
+          perm, // 存进票据：批准消息丢了重连时按原权限补发
           expiresAt: Date.now() + TICKET_TTL_MS,
         });
         removeFromQueue(fromWs);
-        const perm = normalizePerm(msg.perm);
         console.log(`[ws] 访岛批准: ${fromName} -> ${info.name}，权限=${perm.mode}(fruitEx=${perm.fruitException})`);
         sendMsg(fromWs, { t: 'visit.approved', owner: info.name, perm, ticket });
         return;

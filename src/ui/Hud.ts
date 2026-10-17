@@ -14,6 +14,7 @@ export class Hud {
   private hungerEl: HTMLElement;
   private coinsEl: HTMLElement;
   private netEl: HTMLElement;
+  private visitEl: HTMLElement;
   private netStatus: NetStatus = 'disconnected';
   private onlineList: string[] = [];
   private hotbarEl = document.getElementById('hotbar')!;
@@ -63,6 +64,20 @@ export class Hud {
       this.root.appendChild(netEl);
     }
     this.netEl = netEl;
+    // 「正在参观谁的岛」常驻标签：串门时一直挂在网上状态下面，免得忘了自己在别人家
+    let visitEl = document.getElementById('visit-owner');
+    if (!visitEl) {
+      visitEl = document.createElement('div');
+      visitEl.id = 'visit-owner';
+      visitEl.style.position = 'absolute';
+      visitEl.style.top = '32px';
+      visitEl.style.left = '14px';
+      visitEl.style.fontSize = '14px';
+      visitEl.style.color = '#ffe08a';
+      visitEl.style.textShadow = '1px 1px 2px var(--hud-shadow)';
+      this.root.appendChild(visitEl);
+    }
+    this.visitEl = visitEl;
     this.renderNetStatus();
     if (!showHealth) {
       this.heartsEl.textContent = '';
@@ -171,6 +186,11 @@ export class Hud {
 
   setPaused(paused: boolean): void {
     this.pausedEl.style.display = paused ? 'flex' : 'none';
+  }
+
+  /** 串门时挂上「参观 XX 的岛」常驻标签；回大厅/回自己岛传 null 摘掉 */
+  setVisitOwner(name: string | null): void {
+    this.visitEl.textContent = name ? `🏝 参观 ${name} 的岛 · 按 H 回大厅` : '';
   }
 
   /** 更新联机连接状态与在线名单（固定位置状态灯：绿=已连接、黄=重连中、红=已断开） */
