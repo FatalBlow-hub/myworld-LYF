@@ -316,6 +316,12 @@ export const EGG_WARRIOR_ADVANCED = 253; // 高级：血量翻倍
 export const EGG_WARRIOR_EPIC = 254;     // 绝世：血×3 攻×2
 export const WARRIOR_EGG_IDS = [EGG_WARRIOR_NORMAL, EGG_WARRIOR_ADVANCED, EGG_WARRIOR_EPIC];
 
+// —— 四种鱼（255~258）：海里游的小家伙，下水按 P 打，打死掉生鱼 ——
+export const FISH_CLOWN = 255;   // 小丑鱼：橙底白条
+export const FISH_COD = 256;     // 鳕鱼：青背白肚
+export const FISH_SALMON = 257;  // 鲑鱼：粉红身子
+export const FISH_PUFFER = 258;  // 河豚：黄黄圆圆一身刺，会扎人
+
 export const WAISTBAG_SLOT = 1; // 装备栏从上往下第二格，也就是从下往上第三格
 export const WOOL_BAG_DYES = [
   { dye: DYE_RED, id: BAG_WOOL_RED, color: '红', texture: 'bag_wool_red' },
@@ -665,6 +671,11 @@ export const BLOCKS: Record<number, BlockDef> = {
   [EGG_WARRIOR_NORMAL]:   { cn: '小战士蛋（普通）', tex: { top: 'egg_warrior_normal', side: 'egg_warrior_normal' }, solid: false, seeThrough: true, hardness: 0, item: true },
   [EGG_WARRIOR_ADVANCED]: { cn: '小战士蛋（高级）', tex: { top: 'egg_warrior_advanced', side: 'egg_warrior_advanced' }, solid: false, seeThrough: true, hardness: 0, item: true },
   [EGG_WARRIOR_EPIC]:     { cn: '小战士蛋（绝世）', tex: { top: 'egg_warrior_epic', side: 'egg_warrior_epic' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  // —— 四种生鱼：从海里的鱼身上掉的，生吃能填一点肚子（河豚生吃会中毒） ——
+  [FISH_CLOWN]:  { cn: '生小丑鱼', tex: { top: 'fish_clown', side: 'fish_clown' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [FISH_COD]:    { cn: '生鳕鱼',   tex: { top: 'fish_cod', side: 'fish_cod' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [FISH_SALMON]: { cn: '生鲑鱼',   tex: { top: 'fish_salmon', side: 'fish_salmon' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [FISH_PUFFER]: { cn: '生河豚',   tex: { top: 'fish_puffer', side: 'fish_puffer' }, solid: false, seeThrough: true, hardness: 0, item: true },
 };
 
 /** 创造模式面板里能直接拿的东西（全部方块 + 物品） */
@@ -713,6 +724,8 @@ export const ALL_ITEMS = [
   PALM_WOOD, PALM_LEAVES, COCONUT,
   JUICE_APPLE, JUICE_ORANGE, JUICE_PEACH, WINE, JUICE_COCONUT, JUICE_MELON, JUICE_CARROT,
   ...WARRIOR_EGG_IDS,
+  // 四种生鱼（正常靠下海打鱼获得，创造面板也放一份方便）
+  FISH_CLOWN, FISH_COD, FISH_SALMON, FISH_PUFFER,
 ];
 
 /** 庄稼生长链：每 60 秒走一级（水稻/胡萝卜/南瓜/西瓜共用）；最后一级不在表里 = 熟透了不再长 */

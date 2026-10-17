@@ -14,6 +14,7 @@ import { GOLDEN_PAINTERS, GOLDEN_TILE_NAMES } from './GoldenTextures';
 import { BAG_PAINTERS, BAMBOO_PAINTERS } from './BagTextures';
 import { ISLAND_PAINTERS, ISLAND_TILE_NAMES } from './IslandTextures';
 import { SHOP_PAINTERS } from './ShopTextures';
+import { FISH_PAINTERS, FISH_TILE_NAMES } from './FishTextures';
 import { Painter, TILE, fill, shade, speckle } from './TextureUtils';
 export type { Painter } from './TextureUtils';
 
@@ -86,6 +87,8 @@ const TILE_NAMES = [
   'juice_apple', 'juice_orange', 'juice_peach', 'wine',
   'juice_coconut', 'juice_melon', 'juice_carrot',
   'egg_warrior_normal', 'egg_warrior_advanced', 'egg_warrior_epic',
+  // —— 四种生鱼 ——
+  ...FISH_TILE_NAMES,
 ];
 
 const PAINTERS: Record<string, Painter> = { ...BASE_PAINTERS };
@@ -375,7 +378,7 @@ PAINTERS.buybox_front = (c, x, y) => {
 };
 
 // 庄稼/羽毛/煤贴图拆出去了（CropTextures / BirdTextures / CoalTextures），合并进大表
-Object.assign(PAINTERS, CROP_PAINTERS, FEATHER_PAINTERS, COAL_PAINTERS, LAMP_PAINTERS, FIRE_PAINTERS, GOLDEN_PAINTERS, BAG_PAINTERS, BAMBOO_PAINTERS, ISLAND_PAINTERS, SHOP_PAINTERS);
+Object.assign(PAINTERS, CROP_PAINTERS, FEATHER_PAINTERS, COAL_PAINTERS, LAMP_PAINTERS, FIRE_PAINTERS, GOLDEN_PAINTERS, BAG_PAINTERS, BAMBOO_PAINTERS, ISLAND_PAINTERS, SHOP_PAINTERS, FISH_PAINTERS);
 
 export interface Atlas {
   texture: THREE.CanvasTexture;

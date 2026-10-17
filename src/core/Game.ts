@@ -126,6 +126,12 @@ export class Game {
       (warrior, tag) => this.hud?.showMessage(
         tag ? `小战士${tag}！` : `${WARRIOR_TIER_NAMES[warrior.tier]}小战士干掉了一只怪`, 1.5,
       ),
+      // 河豚扎人：掉血 + 提示
+      (dmg) => {
+        const r = hurtPlayer(this.health!, dmg);
+        if (r.hurt) this.hud!.showMessage('河豚扎到你啦！', 0.8);
+        if (r.died) this.respawn();
+      },
     );
     this.vehicles = new Vehicles(this.renderer.scene, this.mobs);
     this.challenge = this.createChallenge();
@@ -429,6 +435,8 @@ export class Game {
     this.vehicles.tanks.length = 0; this.vehicles.riding = null;
     for (const w of this.mobs.warriors) this.renderer.scene.remove(w.group);
     this.mobs.warriors.length = 0;   // 小战士跟着存档走，回本岛时由 applySave 重新放出来
+    for (const f of this.mobs.fish) this.renderer.scene.remove(f.group);
+    this.mobs.fish.length = 0;       // 鱼不存档：回岛/串门之后海里重新刷
     this.fires.clear(); this.challenge = this.createChallenge();
     this.world.clear(); this.chunkMeshes.clear();
   }

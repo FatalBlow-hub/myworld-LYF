@@ -1,16 +1,17 @@
 /** 活物总管 — 动物和僵尸的生成/消失/每帧更新/被打死掉东西，Game 只管喊它干活 */
 
 import * as THREE from 'three';
-import { ANIMAL, BIRD, BLOODZOMBIE, CHUNK, CORRUPT, DAY, DEEPGREEN_DROP, MANUAL, RAT, STARZOMBIE, WARRIOR, ZOMBIE } from '../config';
+import { ANIMAL, BIRD, BLOODZOMBIE, CHUNK, CORRUPT, DAY, DEEPGREEN_DROP, FISH, MANUAL, RAT, STARZOMBIE, WARRIOR, ZOMBIE } from '../config';
 import { BLOOD_MEAT, COOKED_MEAT, DIY_MANUAL, DYE_DEEPGREEN, FEATHER_BLACK, IRON_NUGGET, RAW_MEAT, STAR_SHARD } from '../world/Block';
 import { DIY_GOLD_MANUAL as GOLD_MANUAL } from '../world/GoldenItems';
 import { World } from '../world/World';
 import { Animal, BIRD_KINDS, rayHitAnimal, spawnAnimals } from './Animal';
+import { FISH_ITEM, Fish, rayHitFish, spawnFish } from './Fish';
 import { Warrior, WarriorTier } from './Warrior';
 import { Zombie, ZombieKind, rayHitZombie, spawnZombies } from './Zombie';
 
 export interface MobHit {
-  mob: Animal | Zombie;
+  mob: Animal | Zombie | Fish;
   dist: number;
 }
 
@@ -19,6 +20,8 @@ export class Mobs {
   zombies: Zombie[] = [];
   /** 小战士（玩家买蛋召唤的保镖）：跟着玩家、优先打正在打玩家的怪 */
   warriors: Warrior[] = [];
+  /** 海里的鱼：下水按 P 打，打死掉生鱼 */
+  fish: Fish[] = [];
   /** 僵尸攻击开关：关掉后僵尸只会瞎逛，不追人也不挠人 */
   zombieAttack = true;
   zombieSpawn = true;
@@ -35,6 +38,8 @@ export class Mobs {
     private canDropManual: () => boolean = () => true,
     /** 小战士砍死了怪 / 放了特技（暴击、秒杀），提示归 Game 管 */
     private onWarriorKill: (warrior: Warrior, tag: string) => void = () => {},
+    /** 河豚扎到玩家了（扣血 + 提示归 Game 管） */
+    private onPufferSting: (damage: number) => void = () => {},
   ) {}
 
   /** 召唤一个小战士（玩家拿蛋对地按 M）；刚出来站在主人脚边 */
@@ -146,6 +151,15 @@ export class Mobs {
       }
     }
 
+    // 鱼在水里游；河豚扎到玩家就喊 Game 扣血
+    for (const f of this.fish) {
+      if (f.update(dt, this.world, px, py, pz)) this.onPufferSting(FISH.STING_DAMAGE);
+    }
+    // 死鱼（打死的/离水扑腾死的）走 kill：变成一条生鱼掉出来
+    if (this.fish.some((f) => f.dead)) {
+      for (const f of this.fish.filter((f) => f.dead)) this.kill(f);
+    }
+
     // 血尸/星空尸只在晚上出没：天亮了就全部化掉（化成烟，不掉东西）
     // 腐败人和老鼠是黑夜尾巴上才来的，出现了就不走，得玩家自己打死
     if (!night && this.zombies.some((z) => z.kind === 'blood' || z.kind === 'star')) {
@@ -169,6 +183,7 @@ export class Mobs {
       });
     this.animals = keepNear(this.animals, (a) => a.tamed); // 驯服的羊不会被刷掉
     this.zombies = keepNear(this.zombies);
+    this.fish = keepNear(this.fish);
 
     // 动物补在草/雪/泥土地上；僵尸什么地面都能刷
     const need = ANIMAL.COUNT - this.animals.length;
@@ -178,6 +193,11 @@ export class Mobs {
     // 周围一只鸟都没有就定向补 2 只（老动物不会老死，名额被它们占满时鸟永远刷不出来；鸟 90 秒老死不会挤爆）
     if (!this.animals.some((a) => a.isBird) && this.animals.length < ANIMAL.MAX_TOTAL) {
       this.animals.push(...spawnAnimals(this.world, this.scene, px, pz, 2, ANIMAL.SPAWN_NEAR, ANIMAL.SPAWN_FAR, BIRD_KINDS));
+    }
+    // 海里补鱼：只刷在水里，岸上一只都不会有
+    const needF = FISH.COUNT - this.fish.length;
+    if (needF > 0) {
+      this.fish.push(...spawnFish(this.world, this.scene, px, pz, needF, FISH.SPAWN_NEAR, FISH.SPAWN_FAR));
     }
     const needZ = this.zombieSpawn ? ZOMBIE.COUNT - this.zombies.filter((z) => z.kind === 'normal').length : 0;
     if (needZ > 0) {
@@ -202,7 +222,7 @@ export class Mobs {
     }
   }
 
-  /** 指着谁：动物和僵尸谁近算谁 */
+  /** 指着谁：动物、僵尸、鱼谁近算谁 */
   rayHit(
     ox: number, oy: number, oz: number,
     dx: number, dy: number, dz: number,
@@ -210,9 +230,12 @@ export class Mobs {
   ): MobHit | null {
     const a = rayHitAnimal(this.animals, ox, oy, oz, dx, dy, dz, maxDist);
     const z = rayHitZombie(this.zombies, ox, oy, oz, dx, dy, dz, maxDist);
-    if (a && (!z || a.dist <= z.dist)) return { mob: a.animal, dist: a.dist };
-    if (z) return { mob: z.zombie, dist: z.dist };
-    return null;
+    const f = rayHitFish(this.fish, ox, oy, oz, dx, dy, dz, maxDist);
+    let best: MobHit | null = null;
+    if (a) best = { mob: a.animal, dist: a.dist };
+    if (z && (!best || z.dist < best.dist)) best = { mob: z.zombie, dist: z.dist };
+    if (f && (!best || f.dist < best.dist)) best = { mob: f.fish, dist: f.dist };
+    return best;
   }
 
   private dropManuals(count: number, x: number, y: number, z: number): void {
@@ -223,8 +246,14 @@ export class Mobs {
   }
 
   /** 活物被打死：消失 + 掉东西（僵尸掉得多，还可能掉熟肉） */
-  kill(mob: Animal | Zombie): void {
+  kill(mob: Animal | Zombie | Fish): void {
     this.scene.remove(mob.group);
+    // 鱼：掉自己那一种生鱼
+    if (mob instanceof Fish) {
+      this.fish = this.fish.filter((x) => x !== mob);
+      this.onDrop(FISH_ITEM[mob.kind], 1, mob.x, mob.y, mob.z);
+      return;
+    }
     if (mob instanceof Zombie) {
       this.zombies = this.zombies.filter((x) => x !== mob);
       // 挑战房的怪不掉东西

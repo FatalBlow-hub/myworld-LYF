@@ -128,6 +128,24 @@ export const EAT_HP: Record<number, FoodEffect> = {
   249: { hunger: HUNGER.MAX, hp: 0 }, // 椰子汁：饥饿直接回满
   250: { hunger: 1, hp: 2 },    // 西瓜汁：+2 血 +1 饥饿
   251: { hunger: 1, hp: 1 },    // 胡萝卜汁：+1 血 +1 饥饿
+  // —— 四种生鱼：河豚有毒别乱吃 ——
+  255: { hunger: 1, hp: 0.5 },  // 生小丑鱼
+  256: { hunger: 1, hp: 1 },    // 生鳕鱼
+  257: { hunger: 2, hp: 1 },    // 生鲑鱼
+  258: { hunger: 1, hp: -2 },   // 生河豚：有毒！-2 血 +1 饥饿
+};
+
+/** 鱼：四种都住在海里（水里游来游去），下水按 P 打，打死掉对应的鱼物品 */
+export const FISH = {
+  HP: 4,              // 一拳头一条（空手一拳 4 血）
+  COUNT: 6,           // 玩家周围海里最多几条
+  SPEED: 1.2,         // 游动速度（慢悠悠）
+  SPAWN_NEAR: 6,      // 刷在玩家这几格外
+  SPAWN_FAR: 24,      // 这几格内
+  DRY_SECONDS: 3,     // 离开水能扑腾几秒才死
+  STING_RANGE: 0.9,   // 河豚扎人半径
+  STING_DAMAGE: 1,    // 扎一下掉多少血
+  STING_COOLDOWN: 2,  // 扎一次歇几秒
 };
 
 /** 鸟：三种都会飞不动只会蹦跶（先当地上走的小动物做）；命比别的动物短 */
@@ -388,6 +406,19 @@ export const SELL_PRICE: Record<number, { coins: number; per: number }> = {
   244: { coins: 1, per: 1 },     // 椰子
   7:   { coins: 0.01, per: 1 },  // 树叶
   111: { coins: 1, per: 1 },     // 铁粒
+  226: { coins: 1, per: 1 },     // 南瓜片（整个南瓜的 1/3）
+  227: { coins: 1, per: 1 },     // 西瓜片（整个西瓜的 1/3）
+  228: { coins: 1, per: 3 },     // 南瓜籽：3 个 = 1 岛币
+  229: { coins: 1, per: 3 },     // 西瓜籽：3 个 = 1 岛币
+  // 床什么颜色都收，一律 3 岛币（含星空床）
+  49: { coins: 3, per: 1 }, 50: { coins: 3, per: 1 }, 51: { coins: 3, per: 1 },
+  52: { coins: 3, per: 1 }, 53: { coins: 3, per: 1 }, 54: { coins: 3, per: 1 },
+  55: { coins: 3, per: 1 }, 82: { coins: 3, per: 1 },
+  // —— 海里的四种鱼：河豚带刺卖得贵，其他三种便宜 ——
+  255: { coins: 0.1, per: 1 },   // 小丑鱼
+  256: { coins: 0.1, per: 1 },   // 鳕鱼
+  257: { coins: 0.1, per: 1 },   // 鲑鱼
+  258: { coins: 0.5, per: 1 },   // 河豚
   // 羊毛什么颜色都收，一律 0.75
   34: { coins: 0.75, per: 1 }, 35: { coins: 0.75, per: 1 }, 36: { coins: 0.75, per: 1 },
   37: { coins: 0.75, per: 1 }, 38: { coins: 0.75, per: 1 }, 39: { coins: 0.75, per: 1 },
