@@ -51,8 +51,10 @@ export function consumeVisitTicket(ownerName, visitorAccount, ticketParam = null
  * @param {import('node:http').Server} server
  * @param {(req: import('node:http').IncomingMessage) => { name: string } | null} [resolveUser]
  * @param {(name: string) => Record<string, any> | null} [readUserSave]
+ * @param {(name: string) => boolean} [userExists]
+ * @param {{ isLockedByName: (name: string) => boolean, beatByName: (name: string) => number }} [addict] 防沉迷：到点锁定查询 + ping 计时
  */
-export function attachWs(server, resolveUser, readUserSave, userExists = null) {
+export function attachWs(server, resolveUser, readUserSave, userExists = null, addict = null) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MSG_BYTES });
 
   /**
@@ -274,6 +276,14 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null) {
       if (!msg || typeof msg.t !== 'string') return;
 
       if (msg.t === 'ping') {
+        // 防沉迷：ping 顺手计一次在线时长（与 HTTP 心跳共用"上次计时"，不会重复计）；
+        // 已锁定的账号当场踢下线，客户端收到 addict.locked 会锁屏
+        if (addict && info.name && addict.isLockedByName(info.name)) {
+          sendMsg(ws, { t: 'addict.locked' });
+          setTimeout(() => { try { ws.close(); } catch { /* 已经断了就忽略 */ } }, 100);
+          return;
+        }
+        if (addict && info.cookieName) addict.beatByName(info.cookieName);
         sendMsg(ws, { t: 'pong', ts: typeof msg.ts === 'number' ? msg.ts : Date.now() });
         return;
       }
@@ -292,6 +302,12 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null) {
         info.name = finalName;
         const list = onlineList();
         console.log(`[ws] 玩家上线: ${finalName} (ver=${typeof msg.ver === 'string' ? msg.ver : '旧版'})，当前在线: ${list.length}`);
+        // 防沉迷：当天额度已用完 → 握手即回 locked 并踢下线（不广播上线、不补发票据/队列）
+        if (addict && addict.isLockedByName(finalName)) {
+          sendMsg(ws, { t: 'welcome', name: finalName, online: list, locked: true });
+          setTimeout(() => { try { ws.close(); } catch { /* 已经断了就忽略 */ } }, 100);
+          return;
+        }
         sendMsg(ws, { t: 'welcome', name: finalName, online: list });
         // 补发没送达到的访岛批准：approved 可能进了死管/掉线前发出——门票没用过（还在表里）就重发
         for (const [ticket, t] of visitTickets) {

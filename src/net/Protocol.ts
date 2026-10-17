@@ -109,17 +109,23 @@ export type C2SMsgType = C2SMsg['t'];
 
 /* ---------------- 服务端 → 客户端（S2C） ---------------- */
 
-/** 握手回应：确认名字 + 当前在线名单 */
+/** 握手回应：确认名字 + 当前在线名单（locked = 防沉迷今天额度已用完，服务端随后踢下线） */
 export interface S2CWelcomeMsg {
   t: 'welcome';
   name: string;
   online: string[];
+  locked?: boolean;
 }
 
 /** 服务端心跳回应 */
 export interface S2CPongMsg {
   t: 'pong';
   ts?: number;
+}
+
+/** 幼儿防沉迷：服务端通知"今天额度已用完"，客户端锁屏（WS 层已随后踢下线） */
+export interface S2CAddictLockedMsg {
+  t: 'addict.locked';
 }
 
 /** 有人上线广播 */
@@ -230,6 +236,7 @@ export interface S2CReservedMsg {
 export type S2CMsg =
   | S2CWelcomeMsg
   | S2CPongMsg
+  | S2CAddictLockedMsg
   | S2COnlineMsg
   | S2COfflineMsg
   | S2CHallQueueMsg

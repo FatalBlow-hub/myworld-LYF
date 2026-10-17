@@ -60,6 +60,61 @@
     .auth-link { font-size: 13px; opacity: 0.55; margin-top: 16px; cursor: pointer; text-decoration: underline; }
     .auth-link:hover { opacity: 0.8; }
 
+    /* —— 登录/注册：双页签 + 密码行（小眼睛）+ 页签提示 —— */
+    .auth-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+    .auth-tabs button {
+      font-size: 17px; padding: 8px 28px; margin: 0; cursor: pointer;
+      color: var(--hud-text); background: transparent;
+      border: 2px solid rgba(255,255,255,0.35); border-radius: 6px; opacity: 0.6;
+    }
+    .auth-tabs button.on { background: var(--btn-bg); border-color: rgba(255,255,255,0.5); opacity: 1; }
+    .auth-fields { display: flex; flex-direction: column; gap: 2px; }
+    .auth-field { position: relative; display: flex; align-items: center; }
+    .auth-field .eye {
+      position: absolute; right: 12px; font-size: 16px; padding: 4px 6px; margin: 0; cursor: pointer;
+      background: transparent; border: none; opacity: 0.55;
+    }
+    .auth-field .eye:hover { opacity: 1; }
+    .auth-tip { font-size: 13px; opacity: 0.55; margin-top: 14px; }
+
+    /* —— 账号菜单：主操作区（大按钮）+ 退出 + 底部危险区 —— */
+    .menu-main { display: flex; flex-direction: column; gap: 10px; width: min(360px, 86vw); }
+    .overlay .menu-main button { font-size: 20px; padding: 14px 20px; margin: 0; width: 100%; }
+    .overlay.account > button[data-logout] { font-size: 15px; padding: 8px 24px; margin-top: 18px; opacity: 0.6; }
+    .danger-zone { margin-top: 26px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .danger-label { font-size: 12px; opacity: 0.4; letter-spacing: 2px; }
+    .danger-row { display: flex; gap: 10px; }
+
+    /* —— 页面内确认弹窗（重新开档 / 删存档，替代浏览器原生 confirm） —— */
+    .confirm-mask {
+      position: absolute; inset: 0; z-index: 5;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.55);
+    }
+    .confirm-box {
+      width: min(400px, 88vw); padding: 22px 24px; text-align: center;
+      background: var(--menu-bg); border: 2px solid rgba(255,255,255,0.35); border-radius: 8px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    }
+    .overlay .confirm-title { font-size: 20px; margin-bottom: 10px; opacity: 1; }
+    .overlay .confirm-text { font-size: 14px; opacity: 0.75; margin-bottom: 18px; line-height: 1.6; }
+    .confirm-row { display: flex; gap: 12px; justify-content: center; }
+    .overlay .confirm-row button { font-size: 16px; padding: 10px 24px; margin: 0; }
+
+    /* —— 模式选择页：两大卡片，点即进 —— */
+    .mode-cards { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+    .overlay .mode-card {
+      width: 200px; padding: 20px 16px; margin: 0; cursor: pointer; font-family: inherit;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      color: var(--hud-text); background: rgba(255,255,255,0.08);
+      border: 2px solid rgba(255,255,255,0.4); border-radius: 10px;
+    }
+    .mode-card:hover { background: var(--btn-bg); border-color: rgba(255,255,255,0.6); }
+    .mode-icon { font-size: 40px; line-height: 1; }
+    .mode-name { font-size: 22px; letter-spacing: 2px; }
+    .mode-lines { display: flex; flex-direction: column; gap: 3px; font-size: 13px; opacity: 0.85; line-height: 1.6; }
+    .overlay .mode-cancel { font-size: 14px; padding: 8px 28px; margin-top: 16px; opacity: 0.6; }
+
     #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; display: none; }
     #crosshair {
       position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -316,6 +371,19 @@
       width: min(260px, 78vw); font-size: 16px; padding: 12px 14px;
     }
     .is-mobile .overlay .hint { font-size: 12px; line-height: 1.6; margin-top: 14px; }
+    /* 新菜单组件（登录页签 / 模式卡片 / 确认弹窗）的手机版收尺寸 */
+    .is-mobile .overlay .auth-tabs { margin-bottom: 10px; }
+    .is-mobile .overlay .auth-tabs button { font-size: 15px; padding: 8px 22px; margin: 0; }
+    .is-mobile .overlay .menu-main { width: min(320px, 86vw); gap: 8px; }
+    .is-mobile .overlay .mode-cards { gap: 10px; }
+    .is-mobile .overlay .mode-card { width: min(150px, 42vw); padding: 14px 10px; gap: 6px; }
+    .is-mobile .overlay .mode-icon { font-size: 28px; }
+    .is-mobile .overlay .mode-name { font-size: 17px; letter-spacing: 1px; }
+    .is-mobile .overlay .mode-lines { font-size: 12px; }
+    .is-mobile .overlay .confirm-box { padding: 16px 14px; }
+    .is-mobile .overlay .confirm-title { font-size: 17px; }
+    .is-mobile .overlay .confirm-text { font-size: 13px; }
+    .is-mobile .overlay .confirm-row button { font-size: 15px; padding: 10px 18px; }
 
     /* 快捷栏：9 格在小屏上收一点，别顶出屏幕 */
     .is-mobile #hotbar { gap: 4px; }

@@ -17,15 +17,16 @@ export async function showLocalMenu(begin: BeginGame, hallOk: boolean): Promise<
   const nextSlot = [1, 2, 3].slice(0, MAX_SLOTS).find((s) => !used.has(s)) ?? null;
   new Menu(
     {
-      onContinue: (slot, z) => {
+      // 继续游戏：僵尸设置直接用存档里存的（不再每次问）；开新档才走模式选择页
+      onContinue: (slot) => {
         const s = saves.find((x) => x.slot === slot)!;
-        begin(s.data.mode, s.data, z, slot);
+        begin(s.data.mode, s.data, s.data.zombieAttack ?? true, slot);
       },
-      onHall: (slot, z) => {
+      onHall: (slot) => {
         const s = saves.find((x) => x.slot === slot)!;
-        begin(s.data.mode, s.data, z, slot, true);
+        begin(s.data.mode, s.data, s.data.zombieAttack ?? true, slot, true);
       },
-      onNew: (mode, z) => begin(mode, undefined, z, nextSlot!),
+      onPickMode: (mode, z) => begin(mode, undefined, z, nextSlot!),
       onRestore: () => void restoreBackups(true).then(() => location.reload()),
       onDelete: (slot) => {
         deleteSave(slot);
@@ -33,9 +34,8 @@ export async function showLocalMenu(begin: BeginGame, hallOk: boolean): Promise<
       },
     },
     {
-      saves: saves.map((s) => ({ slot: s.slot, mode: s.data.mode, zombieAttack: s.data.zombieAttack ?? true })),
+      saves: saves.map((s) => ({ slot: s.slot, mode: s.data.mode })),
       nextSlot,
-      zombieChecked: saves[0]?.data.zombieAttack ?? true, // 开关默认按 1 号账号上次存的显示
       hall: hallOk, // 后端在才显示「大厅」按钮（排队要走联机）
     },
   );
@@ -47,14 +47,14 @@ export async function showAccountMenu(name: string, begin: BeginGame): Promise<v
   const save = await syncServerSave(name);
   new AccountMenu(
     {
-      onContinue: (z) => begin(save!.mode, save!, z, 1),
-      onHall: (z) => begin(save!.mode, save!, z, 1, true),
-      onNew: (mode, z) => begin(mode, undefined, z, 1),
-      onLogout: () => void logout().then(() => location.reload()),
+      onContinue: () => begin(save!.mode, save!, save!.zombieAttack ?? true, 1),
+      onHall: () => begin(save!.mode, save!, save!.zombieAttack ?? true, 1, true),
+      onPickMode: (mode, z) => begin(mode, undefined, z, 1),
       onDelete: () => {
         deleteSave(1);
         location.reload();
       },
+      onLogout: () => void logout().then(() => location.reload()),
     },
     {
       name,

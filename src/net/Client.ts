@@ -294,8 +294,14 @@ export class NetClient {
         this.online = Array.isArray(msg.online) ? [...msg.online] : [];
         console.log(`[net] 握手完成: ${this.name}，当前在线:`, this.online);
         this.callbacks.onOnlineChange?.(this.getOnlineList(), { type: 'welcome', name: this.name });
+        // 防沉迷：服务端说今天额度用完 → 转全局事件给 AddictGuard 锁屏
+        if (msg.locked) window.dispatchEvent(new CustomEvent('addict-locked'));
         break;
       }
+      case 'addict.locked':
+        // 防沉迷到点推送：同样转全局事件（Game 不感知，保持其零改动）
+        window.dispatchEvent(new CustomEvent('addict-locked'));
+        break;
       case 'pong':
         break;
       case 'online': {

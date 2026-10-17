@@ -1,4 +1,5 @@
-/** 登录/注册界面 + 账号接口的小封装 — 连上后端时，进游戏前先过这道门 */
+/** 登录/注册界面 — 双页签（登录 / 注册），注册带确认密码与可见切换
+ *  连上后端时，进游戏前先过这道门；注册成功直接带着 Cookie 进账号流程 */
 
 /** 问服务器"我是谁"：
  *  返回 'off' = 后端没在跑（本地模式，用老的本地存档菜单）；
@@ -27,35 +28,87 @@ export interface AuthActions {
   onLocal: () => void;
 }
 
+type AuthTab = 'login' | 'register';
+
 export class Auth {
   private el: HTMLDivElement;
 
   constructor(actions: AuthActions) {
     this.el = document.createElement('div');
-    this.el.className = 'overlay';
+    this.el.className = 'overlay auth';
     this.el.innerHTML = `
       <h1>方块世界</h1>
-      <p>登录你的账号（第一次玩直接点注册）</p>
-      <input data-name type="text" placeholder="名字（2~16位）" maxlength="16" autocomplete="username" />
-      <input data-pass type="password" placeholder="密码（至少4位）" maxlength="64" autocomplete="current-password" />
-      <div class="auth-error"></div>
-      <div>
-        <button data-login>登录</button>
-        <button data-register>注册新账号</button>
+      <div class="auth-tabs">
+        <button type="button" data-tab="login" class="on">登录</button>
+        <button type="button" data-tab="register">注册</button>
       </div>
+      <div class="auth-fields">
+        <div class="auth-field">
+          <input data-name type="text" placeholder="名字（2~16位）" maxlength="16" autocomplete="username" />
+        </div>
+        <div class="auth-field">
+          <input data-pass type="password" placeholder="密码（至少4位）" maxlength="64" autocomplete="current-password" />
+          <button type="button" class="eye" data-eye="pass" title="显示 / 隐藏密码">👁</button>
+        </div>
+        <div class="auth-field" data-confirm style="display:none">
+          <input data-pass2 type="password" placeholder="再输一次密码" maxlength="64" autocomplete="new-password" />
+          <button type="button" class="eye" data-eye="pass2" title="显示 / 隐藏密码">👁</button>
+        </div>
+      </div>
+      <div class="auth-error"></div>
+      <button type="button" data-submit>登录</button>
+      <div class="auth-tip" data-tip>还没有账号？点上面的「注册」</div>
       <div class="auth-link" data-local>不登录，玩本地存档</div>
     `;
     const nameIn = this.el.querySelector('input[data-name]') as HTMLInputElement;
     const passIn = this.el.querySelector('input[data-pass]') as HTMLInputElement;
+    const pass2In = this.el.querySelector('input[data-pass2]') as HTMLInputElement;
+    const confirmRow = this.el.querySelector('[data-confirm]') as HTMLElement;
     const errEl = this.el.querySelector('.auth-error') as HTMLElement;
+    const submitBtn = this.el.querySelector('button[data-submit]') as HTMLButtonElement;
+    const tipEl = this.el.querySelector('[data-tip]') as HTMLElement;
 
-    const submit = async (action: 'login' | 'register') => {
+    /** 当前在哪个页签 */
+    const curTab = (): AuthTab =>
+      (this.el.querySelector('button[data-tab].on') as HTMLElement).dataset.tab as AuthTab;
+
+    /** 切页签：登录态 / 注册态是两套字段（注册多一行确认密码） */
+    const switchTab = (tab: AuthTab): void => {
+      this.el.querySelectorAll('button[data-tab]').forEach((b) => {
+        b.classList.toggle('on', (b as HTMLElement).dataset.tab === tab);
+      });
+      confirmRow.style.display = tab === 'register' ? 'flex' : 'none';
+      submitBtn.textContent = tab === 'register' ? '注册并登录' : '登录';
+      tipEl.textContent = tab === 'register' ? '已有账号？点上面的「登录」' : '还没有账号？点上面的「注册」';
+      pass2In.value = '';
+      errEl.textContent = '';
+      nameIn.focus();
+    };
+    this.el.querySelectorAll('button[data-tab]').forEach((b) => {
+      b.addEventListener('click', () => switchTab((b as HTMLElement).dataset.tab as AuthTab));
+    });
+
+    /** 小眼睛：密码可见切换（防打错，尤其手机上） */
+    this.el.querySelectorAll('button[data-eye]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const input = this.el.querySelector(`input[data-${(b as HTMLElement).dataset.eye}]`) as HTMLInputElement;
+        input.type = input.type === 'password' ? 'text' : 'password';
+        input.focus();
+      });
+    });
+
+    const submit = async (): Promise<void> => {
       errEl.textContent = '';
       const name = nameIn.value.trim();
       const password = passIn.value;
+      const tab = curTab();
       if (!name || !password) { errEl.textContent = '名字和密码都要填'; return; }
+      if (tab === 'register') {
+        if (password.length < 4) { errEl.textContent = '密码要至少 4 位'; return; }
+        if (password !== pass2In.value) { errEl.textContent = '两次输入的密码不一样'; pass2In.value = ''; pass2In.focus(); return; }
+      }
       try {
-        const r = await fetch(`/api/auth/${action}`, {
+        const r = await fetch(`/api/auth/${tab === 'register' ? 'register' : 'login'}`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ name, password }),
@@ -67,12 +120,14 @@ export class Auth {
         errEl.textContent = '连不上服务器，再试一次';
       }
     };
-
-    this.el.querySelector('button[data-login]')!.addEventListener('click', () => void submit('login'));
-    this.el.querySelector('button[data-register]')!.addEventListener('click', () => void submit('register'));
-    // 密码框里回车 = 登录
-    passIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') void submit('login'); });
+    submitBtn.addEventListener('click', () => void submit());
+    // 回车：账号框 → 密码框 →（注册态）确认框 /（登录态）直接提交
     nameIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') passIn.focus(); });
+    passIn.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      if (curTab() === 'register') pass2In.focus(); else void submit();
+    });
+    pass2In.addEventListener('keydown', (e) => { if (e.key === 'Enter') void submit(); });
     this.el.querySelector('[data-local]')!.addEventListener('click', () => {
       this.el.remove();
       actions.onLocal();

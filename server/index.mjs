@@ -11,6 +11,9 @@
  *    POST /api/auth/logout                      退出登录
  *    GET/POST/DELETE /api/save[/槽位]           当前账号的存档（一个账号一档）
  *
+ *  GET  /api/playtime/me · POST /api/playtime/heartbeat   幼儿防沉迷：今日额度 + 在中心跳
+ *  /api/admin/*（me/playtime/config/bonus）    防沉迷控制台，需管理员账号（server/addict.mjs）
+ *
  *  安全要点: 密码 scrypt 加盐哈希 + 常量时间比较; 存档接口必须带登录 Cookie;
  *           覆盖旧档前把旧档挪进 backup 列留后悔药（后悔药在数据库里，不落 JSON 文件）
  */
@@ -23,6 +26,8 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import Database from 'better-sqlite3';
 import { attachWs, consumeVisitTicket } from './ws.mjs';
+import { runMigrations } from './migrate.mjs';
+import { attachAddict, syncAdmins } from './addict.mjs';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..'); // 项目根目录
 const DIST = join(ROOT, 'dist');          // vite 打包出来的静态文件
@@ -31,6 +36,8 @@ const DB_FILE = join(ROOT, 'server', 'data.db');
 const PORT = Number(process.env.PORT ?? 8787);
 /** Cookie 域名：填 .7shu.asia 这类值，几个子域（主站/手机版）就能共用同一份登录态；留空只对当前域名生效 */
 const COOKIE_DOMAIN = (process.env.COOKIE_DOMAIN ?? '').trim();
+/** 防沉迷管理员名单（控制台 /admin.html 用）：逗号分隔的账号名，启动时同步 is_admin；留空 = 控制台停用 */
+const ADMIN_NAMES = (process.env.ADMIN_NAMES ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 const HOST = process.env.HOST ?? '127.0.0.1'; // 默认只听本机回环，外网走 Nginx 反代
 const COOKIE = 'bw_token';          // 登录凭证的 Cookie 名
 const SESSION_DAYS = 30;            // 登录一次管 30 天
@@ -61,6 +68,8 @@ db.exec(`
     updated_at INTEGER NOT NULL
   );
 `);
+runMigrations(db);           // 增量迁移（幂等；脚本在 server/migrations/，权威 schema 见 server/schema.sql）
+syncAdmins(db, ADMIN_NAMES); // 同步管理员名单（依赖迁移加上的 is_admin 列）
 const q = {
   userByName: db.prepare('SELECT * FROM users WHERE name = ?'),
   userById: db.prepare('SELECT * FROM users WHERE id = ?'),
@@ -200,6 +209,10 @@ function login(res, req, userId) {
   const token = randomBytes(32).toString('hex');
   const expires = Math.floor(Date.now() / 1000) + SESSION_DAYS * 86400;
   q.addSession.run(token, userId, expires);
+  // 登录态落地时按环境变量名单补授一次管理员（启动后新注册的账号不用重启也能进控制台；
+  // 名单本身仍是权威，不在名单内的账号登录也不会被提升）
+  const u = q.userById.get(userId);
+  if (u && ADMIN_NAMES.includes(u.name)) syncAdmins(db, ADMIN_NAMES);
   setSessionCookie(req, res, token, SESSION_DAYS * 86400);
 }
 
@@ -318,6 +331,8 @@ const server = createServer(async (req, res) => {
     if (url.startsWith('/api/auth/')) return await handleAuth(req, res, ip);
     if (url.startsWith('/api/save')) return await handleSave(req, res, ip);
     if (url.startsWith('/api/visit/world')) return handleVisitWorld(req, res, ip);
+    if (url.startsWith('/api/playtime')) return await addict.handlePlaytime(req, res, ip);
+    if (url.startsWith('/api/admin')) return await addict.handleAdmin(req, res, ip);
     if (url.startsWith('/api/')) return sendErr(res, 404, 'unknown api');
     serveStatic(req, res);
   } catch (e) {
@@ -335,7 +350,10 @@ function userExistsByName(name) {
   return !!q.userByName.get(baseName);
 }
 
-// 挂上 WebSocket 长连接服务（复用同一端口，处理 /ws 的 upgrade）
-attachWs(server, currentUser, readSaveByUserName, userExistsByName);
+// 挂上幼儿防沉迷（HTTP 接口 + WS 锁定查询/计时，独立模块 server/addict.mjs）
+const addict = attachAddict({ db, currentUser, send, sendErr, readBody, limited, API_LIMIT });
+
+// 挂上 WebSocket 长连接服务（复用同一端口，处理 /ws 的 upgrade）；末参传入防沉迷：到点踢人 + ping 计时
+attachWs(server, currentUser, readSaveByUserName, userExistsByName, addict);
 
 server.listen(PORT, HOST, () => console.log(`方块世界服务器跑起来啦 → http://${HOST}:${PORT}`));
