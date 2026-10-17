@@ -52,7 +52,7 @@ export function consumeVisitTicket(ownerName, visitorAccount, ticketParam = null
  * @param {(req: import('node:http').IncomingMessage) => { name: string } | null} [resolveUser]
  * @param {(name: string) => Record<string, any> | null} [readUserSave]
  */
-export function attachWs(server, resolveUser, readUserSave) {
+export function attachWs(server, resolveUser, readUserSave, userExists = null) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MSG_BYTES });
 
   /**
@@ -339,8 +339,9 @@ export function attachWs(server, resolveUser, readUserSave) {
         }
         const found = findClientByName(toRaw, ws);
         if (!found) {
-          // 区分两种情况报不同的错：名单里有这个名字但连接刚断（幽灵）→ offline；连名字都没有 → noname（多半打错字）
-          const exists = [...clients.entries()].some(([w, i]) => w !== ws && (i.name === toRaw || i.cookieName === toRaw));
+          // 区分两种情况报不同的错：名字在名单里但连接刚断（幽灵），或账号存在但人没上线 → offline；账号库里根本没有 → noname（多半打错字）
+          const ghost = [...clients.entries()].some(([w, i]) => w !== ws && (i.name === toRaw || i.cookieName === toRaw));
+          const exists = ghost || (userExists ? userExists(toRaw) : false);
           const reason = exists ? 'offline' : 'noname';
           console.log(`[ws] 访岛被拒(${reason}): ${info.name} -> "${toRaw}"，当前在线: ${onlineList().join('/') || '(空)'}`);
           sendMsg(ws, { t: 'visit.denied', reason, online: onlineList() });

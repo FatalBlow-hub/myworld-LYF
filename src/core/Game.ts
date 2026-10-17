@@ -156,7 +156,7 @@ export class Game {
       this.persistCharacter();
     }
     const denyMsgs: Record<string, string> = {
-      offline: '对方刚好掉线了，等他上线再试', rejected: '对方拒绝了你的访问申请',
+      offline: '对方现在不在线，等他上线再试', rejected: '对方拒绝了你的访问申请',
       creative: '验证失败：双方中有人开启过创造模式', timeout: '对方未响应，申请已超时作废',
       self: '不能申请访问自己', nosave: '对方还没有岛屿存档', noname: '没有人叫这个名字',
     };
