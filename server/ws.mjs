@@ -333,12 +333,17 @@ export function attachWs(server, resolveUser, readUserSave) {
         if (typeof msg.everCreative === 'boolean') info.everCreative = msg.everCreative;
         const toRaw = typeof msg.to === 'string' ? msg.to.trim() : '';
         if (!toRaw || toRaw === info.name) {
+          console.log(`[ws] 访岛被拒: ${info.name} -> "${toRaw || '(空)'}" (${toRaw === info.name ? 'self' : 'empty'})`);
           sendMsg(ws, { t: 'visit.denied', reason: toRaw === info.name ? 'self' : 'offline' });
           return;
         }
         const found = findClientByName(toRaw, ws);
         if (!found) {
-          sendMsg(ws, { t: 'visit.denied', reason: 'offline' });
+          // 区分两种情况报不同的错：名单里有这个名字但连接刚断（幽灵）→ offline；连名字都没有 → noname（多半打错字）
+          const exists = [...clients.entries()].some(([w, i]) => w !== ws && (i.name === toRaw || i.cookieName === toRaw));
+          const reason = exists ? 'offline' : 'noname';
+          console.log(`[ws] 访岛被拒(${reason}): ${info.name} -> "${toRaw}"，当前在线: ${onlineList().join('/') || '(空)'}`);
+          sendMsg(ws, { t: 'visit.denied', reason, online: onlineList() });
           return;
         }
         const [toWs, toInfo] = found;

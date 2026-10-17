@@ -9,6 +9,10 @@ export interface HallMenuCallbacks {
   onFriend(friendName: string): void;
   /** 用户主动关闭面板（未发起匹配时通知服务端让出队首） */
   onCancel?(): void;
+  /** 当前在线玩家名单（好友页做成点选按钮，不用手打防错字） */
+  onlineNames?(): string[];
+  /** 自己的名字（在线名单里要把自己滤掉） */
+  selfName?(): string;
 }
 
 export class HallMenu {
@@ -16,6 +20,7 @@ export class HallMenu {
   private mainBox: HTMLDivElement;
   private friendBox: HTMLDivElement;
   private friendInput: HTMLInputElement;
+  private onlineBox: HTMLDivElement;
   private subEl: HTMLParagraphElement;
   private queueEl: HTMLElement;
   private acted = false;
@@ -72,7 +77,7 @@ export class HallMenu {
     this.subEl.textContent = '请选择你要前往的目的地：';
     this.mainBox.appendChild(this.subEl);
 
-    this.mainBox.appendChild(makeBtn(`随机去陌生岛屿（消耗 ${HALL.RANDOM_IRON_COST} 铁锭）`, '#4a7c3a', () => {
+    this.mainBox.appendChild(makeBtn(`随机去陌生岛屿（消耗 ${HALL.RANDOM_COIN_COST} 岛币）`, '#4a7c3a', () => {
       this.acted = true; this.close(); this.cb.onRandom();
     }));
     this.mainBox.appendChild(makeBtn('去好友的岛', '#546e7a', () => this.showFriendInput()));
@@ -92,8 +97,15 @@ export class HallMenu {
     const fSub = document.createElement('p');
     fSub.className = 'inv-sub';
     Object.assign(fSub.style, { color: '#555', marginBottom: '4px' });
-    fSub.textContent = '请输入在线好友的名字：';
+    fSub.textContent = '点一个在线好友直接申请，或手动输入名字：';
     this.friendBox.appendChild(fSub);
+
+    // 在线玩家点选区：列出当前在线的其他人，点一下名字直接发申请（不用打字就不会打错）
+    this.onlineBox = document.createElement('div');
+    Object.assign(this.onlineBox.style, {
+      width: '100%', display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center', marginBottom: '4px',
+    });
+    this.friendBox.appendChild(this.onlineBox);
 
     this.friendInput = document.createElement('input');
     this.friendInput.type = 'text';
@@ -130,7 +142,36 @@ export class HallMenu {
     this.mainBox.style.display = 'none';
     this.friendBox.style.display = 'flex';
     this.friendInput.value = '';
+    this.renderOnlineChips();
     setTimeout(() => this.friendInput.focus(), 0);
+  }
+
+  /** 把在线的其他人画成一排按钮；点名字 = 直接发申请 */
+  private renderOnlineChips(): void {
+    this.onlineBox.innerHTML = '';
+    const self = this.cb.selfName?.() ?? '';
+    const others = (this.cb.onlineNames?.() ?? []).filter((n) => n !== self);
+    if (others.length === 0) {
+      const empty = document.createElement('span');
+      empty.className = 'inv-sub';
+      empty.textContent = '现在没有其他人在线';
+      this.onlineBox.appendChild(empty);
+      return;
+    }
+    for (const name of others) {
+      const chip = document.createElement('button');
+      chip.textContent = name;
+      Object.assign(chip.style, {
+        fontSize: '14px', padding: '6px 12px', cursor: 'pointer',
+        color: '#fff', background: '#4a7c3a', border: '2px solid rgba(0,0,0,0.35)', borderRadius: '14px', fontFamily: 'inherit',
+      });
+      chip.addEventListener('mousedown', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        this.friendInput.value = name;
+        this.submitFriend();
+      });
+      this.onlineBox.appendChild(chip);
+    }
   }
 
   private submitFriend(): void {

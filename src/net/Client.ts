@@ -96,10 +96,10 @@ export class NetClient {
     this.send({ t: 'hall.random' });
   }
 
-  /** 好友访岛：发起访问申请 */
-  requestVisit(to: string, everCreative?: boolean): void {
+  /** 好友访岛：发起访问申请；返回是否真的发出去了 */
+  requestVisit(to: string, everCreative?: boolean): boolean {
     if (everCreative !== undefined) this.everCreative = everCreative;
-    this.send({ t: 'visit.request', to: to.trim(), everCreative: this.everCreative });
+    return this.send({ t: 'visit.request', to: to.trim(), everCreative: this.everCreative });
   }
 
   /** 好友访岛：岛主回应同意/拒绝（同意时附带挖掘权限） */
@@ -142,11 +142,19 @@ export class NetClient {
     this.setStatus('disconnected');
   }
 
-  /** 发送 JSON 消息给服务端 */
-  send(msg: C2SMsg): void {
+  /** 当前 WebSocket 是否真的能发消息（status 是 connected 也可能瞬间断了没来得及切换） */
+  isOpen(): boolean {
+    return !!this.ws && this.ws.readyState === WebSocket.OPEN;
+  }
+
+  /** 发送 JSON 消息给服务端；返回是否真的发出去了（false = 连接是死的，消息被丢） */
+  send(msg: C2SMsg): boolean {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
+      return true;
     }
+    console.warn('[net] 连接不可用，消息未发出:', msg.t);
+    return false;
   }
 
   private openSocket(): void {
@@ -272,6 +280,11 @@ export class NetClient {
         break;
       }
       case 'visit.denied': {
+        // offline 拒答会带当前真实在线名单（对方可能是刚掉线还没广播的"幽灵"），顺手刷新名单
+        if (Array.isArray(msg.online)) {
+          this.online = [...msg.online];
+          this.callbacks.onOnlineChange?.(this.getOnlineList());
+        }
         this.callbacks.onVisitDenied?.(msg.reason);
         break;
       }

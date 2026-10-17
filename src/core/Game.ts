@@ -45,7 +45,7 @@ import { MobCombat } from './MobCombat';
 import { Vehicles } from './Vehicles';
 import { Challenge } from './Challenge';
 import { Potions } from '../entities/Potions';
-import { BAG_GLASS, BLOCKS, IRON_INGOT, Slots, WAISTBAG_SLOT } from '../world/Block';
+import { BAG_GLASS, BLOCKS, Slots, WAISTBAG_SLOT } from '../world/Block';
 import { DIY_GOLD_PICKAXE } from '../world/GoldenItems';
 import { spawnDrop } from '../entities/drops';
 import { ZOMBIE_NAMES } from '../entities/Zombie';
@@ -149,9 +149,9 @@ export class Game {
       this.persistCharacter();
     }
     const denyMsgs: Record<string, string> = {
-      offline: '对方不在线', rejected: '对方拒绝了你的访问申请',
+      offline: '对方刚好掉线了，等他上线再试', rejected: '对方拒绝了你的访问申请',
       creative: '验证失败：双方中有人开启过创造模式', timeout: '对方未响应，申请已超时作废',
-      self: '不能申请访问自己', nosave: '对方还没有岛屿存档',
+      self: '不能申请访问自己', nosave: '对方还没有岛屿存档', noname: '没有人叫这个名字',
     };
     this.net = new NetClient(who !== 'off' && who.name ? who.name : undefined, {
       onStatusChange: (status, prev) => {
@@ -209,6 +209,8 @@ export class Game {
       onRandom: () => this.pickRandomIsland(),
       onFriend: (name) => this.pickFriendIsland(name),
       onCancel: () => { if (this.scene === 'hall') this.net?.leaveHallQueue(); },
+      onlineNames: () => this.net?.getOnlineList() ?? [],
+      selfName: () => this.net?.getName() ?? '',
     });
     this.visitMenu = new VisitMenu({
       onReply: (visitor, accept, perm) => {
@@ -467,21 +469,24 @@ export class Game {
     this.panels.closeAll(); this.net?.leaveHallQueue(); this.hallMenu?.setQueueState(false, [], 0);
     this.clearScene(); setTerrainConfig(WORLD_SEED, false);
     this.scene = 'island'; this.visitIslandType = null; this.visitOwner = null; this.visitPerm = null;
+    // 岛币跟着人走：存档里的是进大厅那一刻的余额，大厅里挣的/花的不能被读档冲掉
+    const keepCoins = this.coins;
     this.withKeptInventory(() => this.restoreSaveState(save));
+    this.coins = keepCoins; this.hud!.setCoins(this.coins);
     this.restoreBodyFromSave(save); this.streamChunks(Infinity); this.chunkMeshes.rebuildDirty(this.world);
     this.hud!.selectSlot(this.slot); this.hud!.refreshHotbar(this.inventory!, this.slot);
     this.hud!.showHallSwitch(false, this.islandType); this.saveNow();
   }
 
-  /** 队首点击「随机去陌生岛屿」：查背包铁锭 ≥ 2，不够提示并重排队尾，够则扣 2 铁锭并发 hall.random */
+  /** 队首点击「随机去陌生岛屿」：查岛币 ≥ 5，不够提示并重排队尾，够则扣岛币并发 hall.random */
   private pickRandomIsland(): void {
     const inv = this.inventory!, hud = this.hud!;
-    if (!inv.infinite && inv.countOf(IRON_INGOT) < HALL.RANDOM_IRON_COST) {
-      hud.showMessage('铁锭不够，回到队尾', 2.5);
+    if (!inv.infinite && this.coins < HALL.RANDOM_COIN_COST) {
+      hud.showMessage(`岛币不够（要 ${HALL.RANDOM_COIN_COST} 个），回到队尾`, 2.5);
       this.net?.leaveHallQueue(); this.net?.joinHallQueue();
       return;
     }
-    if (!inv.infinite) { inv.take(IRON_INGOT, HALL.RANDOM_IRON_COST); hud.refreshHotbar(inv, this.slot); }
+    if (!inv.infinite) this.addCoins(-HALL.RANDOM_COIN_COST);
     this.net?.requestRandomIsland();
   }
 
@@ -501,13 +506,18 @@ export class Game {
 
   /** 队首点击「去好友的岛」并提交名字：向服务端发 visit.request 申请 */
   private pickFriendIsland(friendName: string): void {
-    if (this.net?.getStatus() !== 'connected') {
-      this.hud!.showMessage('未连接服务器，无法申请访岛', 2.5);
+    // 不看 status 看真实 socket：连接可能刚断还没切到 reconnecting，那时申请会被静默吞掉
+    if (!this.net?.isOpen()) {
+      this.hud!.showMessage('连接断开了，正在重连，等连上再试', 3);
+      this.net?.readyHallQueue(); // 顺手探一下队首状态，重连后菜单会再弹
       return;
     }
     if (this.inventory?.mode === 'creative') this.everCreative = true;
-    this.hud!.showMessage(`已向 ${friendName} 发送访岛申请，等待对方回应…`, 3);
-    this.net.requestVisit(friendName, this.everCreative);
+    if (this.net.requestVisit(friendName, this.everCreative)) {
+      this.hud!.showMessage(`已向 ${friendName} 发送访岛申请，等待对方回应…`, 3);
+    } else {
+      this.hud!.showMessage('申请没发出去，请重试', 2.5);
+    }
   }
 
   /** 收到 visit.approved：凭一次性票据拉取好友存档并作为临时副本加载（不写回岛主存档） */

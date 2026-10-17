@@ -5,8 +5,8 @@ import type { IslandType, VisitPerm } from '../config';
 /** 连接状态：connected=已连接、reconnecting=重连中、disconnected=已断开 */
 export type NetStatus = 'connected' | 'reconnecting' | 'disconnected';
 
-/** 好友访岛被拒/作废原因 */
-export type VisitDenyReason = 'offline' | 'rejected' | 'creative' | 'timeout' | 'self' | 'nosave';
+/** 好友访岛被拒/作废原因：noname=在线名单里没这个名字（多半打错），offline=名字在但连接刚断 */
+export type VisitDenyReason = 'offline' | 'rejected' | 'creative' | 'timeout' | 'self' | 'nosave' | 'noname';
 
 /* ---------------- 客户端 → 服务端（C2S） ---------------- */
 
@@ -146,10 +146,11 @@ export interface S2CVisitApprovedMsg {
   ticket?: string;
 }
 
-/** 好友访岛：拒绝 / 验证失败（creative）/ 超时 / 不在线 */
+/** 好友访岛：拒绝 / 验证失败（creative）/ 超时 / 不在线；offline 时附带当前真实在线名单帮客户端刷新 */
 export interface S2CVisitDeniedMsg {
   t: 'visit.denied';
   reason: VisitDenyReason;
+  online?: string[];
 }
 
 /** 预留命名空间：后续房间/世界同步广播（本期不实现逻辑） */

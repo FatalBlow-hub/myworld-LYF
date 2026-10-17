@@ -345,7 +345,7 @@ export const HALL = {
   TABLE_Z: 8,                       // 桌子所在 Z 行（平台中央）
   SPAWN: { x: 8.5, y: 23, z: 8.5 }, // 大厅出生点（平台中央，桌面高度 22 + 1）
   QUEUE_MAX: 32,                    // 大厅排队人数上限
-  RANDOM_IRON_COST: 2,              // 随机陌生岛消耗铁锭数量
+  RANDOM_COIN_COST: 5,              // 随机陌生岛消耗岛币数量
   VISIT_TIMEOUT_MS: 60_000,         // 访岛申请 60 秒无响应超时
   TICKET_TTL_MS: 5 * 60_000,        // 访问票据 5 分钟有效
   /** 大厅角落三台机器：沿北墙（z=1）从角上摆开，y = FLOOR_Y + 1 */
