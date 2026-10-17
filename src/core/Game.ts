@@ -356,7 +356,7 @@ export class Game {
       this.addCoins(coins);
       this.hud!.showMessage(`卖了 ${fmtCoins(coins)} 岛币（余额 ${fmtCoins(this.coins)}）`, 2.5);
       this.saveNow();
-    });
+    }, (text) => this.hud!.showMessage(text, 3));
   }
 
   /** 拿着小战士召唤蛋对地按 M：在指定方块上方召唤保镖，蛋消耗一个 */

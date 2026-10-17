@@ -1,9 +1,9 @@
 /** 容器面板 — 对着箱子/熔炉按 M 打开；上面是容器格子，下面是自己的背包，鼠标搬东西 */
 
-import { Slots } from '../world/Block';
+import { BLOCKS, Slots } from '../world/Block';
 import { SMELT_TIME, STACK_MAX } from '../config';
 import { FurnaceState } from '../world/World';
-import { sellPriceOf } from '../world/Shop';
+import { sellListText, sellPriceOf } from '../world/Shop';
 import { Atlas } from '../render/Textures';
 import { Inventory } from '../player/Inventory';
 import { createHeldEl, bindSlot, renderStack } from './slots';
@@ -16,8 +16,8 @@ export class ContainerPanel {
   private slotRefs: { el: HTMLDivElement; slots: Slots; i: number }[] = [];
   private flameEl: HTMLDivElement | null = null;
   private furnace: FurnaceState | null = null;
-  /** 收购箱模式：收购格 + 只收什么 + 卖了多少钱的回调；null = 普通箱子/熔炉模式 */
-  private sellBox: { slots: Slots; onSell: (coins: number) => void } | null = null;
+  /** 收购箱模式：收购格 + 卖了多少钱的回调 + 提示语回调（不收/没凑满时告诉玩家原因）；null = 普通箱子/熔炉模式 */
+  private sellBox: { slots: Slots; onSell: (coins: number) => void; onNotice?: (text: string) => void } | null = null;
   visible = false;
 
   constructor(private inv: Inventory, private atlas: Atlas) {
@@ -45,33 +45,43 @@ export class ContainerPanel {
   }
 
   /** 打开收购箱：上面一排收购格，只能放价目表里的东西，放进去立刻折算成岛币 */
-  openBuyBox(slots: Slots, onSell: (coins: number) => void): void {
+  openBuyBox(slots: Slots, onSell: (coins: number) => void, onNotice?: (text: string) => void): void {
     this.furnace = null;
-    this.sellBox = { slots, onSell };
+    this.sellBox = { slots, onSell, onNotice };
     this.rebuild('收购箱 · 把要卖的东西放上来，自动换成岛币');
+    // 价目表直接贴在收购格上面，不用猜收什么
+    const prices = document.createElement('p');
+    prices.className = 'inv-sub';
+    Object.assign(prices.style, { fontSize: '12px', lineHeight: '1.6', textAlign: 'left', color: '#666', margin: '0 0 4px' });
+    prices.textContent = `收：${sellListText()}`;
+    this.win.appendChild(prices);
     this.win.appendChild(this.buildGrid(slots, 9, 'storage'));
     this.win.appendChild(this.buildGrid(this.inv.storage, 9, 'storage'));
     this.win.appendChild(this.buildGrid(this.inv.hotbar, 9, 'hotbar'));
     this.finishOpen();
   }
 
-  /** 把收购格里的东西按价目表换成岛币；不满一份的零头退回背包 */
+  /** 把收购格里的东西按价目表换成岛币；不收的和没凑满一份的退回背包并说明原因 */
   private drainSellBox(): void {
     const box = this.sellBox;
     if (!box) return;
     let coins = 0;
+    const reasons: string[] = [];
     for (let i = 0; i < box.slots.length; i++) {
       const s = box.slots[i];
       if (!s) continue;
       const price = sellPriceOf(s.id);
-      if (!price) { this.inv.add(s.id, s.count, s.durability); box.slots[i] = null; continue; }
+      const name = BLOCKS[s.id]?.cn ?? '这个东西';
+      if (!price) { this.inv.add(s.id, s.count, s.durability); box.slots[i] = null; reasons.push(`${name}不收`); continue; }
       const batches = Math.floor(s.count / price.per);
       const rest = s.count - batches * price.per;
       if (rest > 0) this.inv.add(s.id, rest);
       box.slots[i] = null;
       coins += batches * price.coins;
+      if (batches === 0) reasons.push(`${name}要凑满 ${price.per} 个才换 ${price.coins} 岛币`);
     }
     if (coins > 0) box.onSell(Math.round(coins * 100) / 100);
+    if (reasons.length) box.onNotice?.(reasons.join('；'));
   }
 
   /** 打开熔炉：上面放料 → 烧 → 右边出成品 */
@@ -137,10 +147,19 @@ export class ContainerPanel {
     const isSell = this.sellBox?.slots === slots;
     const fits = isSell ? (id: number) => sellPriceOf(id) !== null : undefined;
     bindSlot(el, () => {
+      // 捏着不收的东西往收购格点：格子拒收是静默的，主动告诉玩家原因
+      if (isSell && this.inv.held && sellPriceOf(this.inv.held.id) === null) {
+        this.sellBox?.onNotice?.(`${BLOCKS[this.inv.held.id]?.cn ?? '这个东西'}收购箱不收`);
+        return;
+      }
       this.inv.click(slots, i, STACK_MAX, fits);
       if (isSell) this.drainSellBox();
       this.refresh();
     }, () => {
+      if (isSell && this.inv.held && sellPriceOf(this.inv.held.id) === null) {
+        this.sellBox?.onNotice?.(`${BLOCKS[this.inv.held.id]?.cn ?? '这个东西'}收购箱不收`);
+        return;
+      }
       this.inv.clickOne(slots, i, STACK_MAX, fits);
       if (isSell) this.drainSellBox();
       this.refresh();

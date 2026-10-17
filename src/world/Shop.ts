@@ -1,7 +1,7 @@
 /** 商店逻辑 — 售卖机商品表 + 收购箱折算价（单位：岛币） */
 
 import { SELL_PRICE, SHOP } from '../config';
-import { EGG_WARRIOR_ADVANCED, EGG_WARRIOR_EPIC, EGG_WARRIOR_NORMAL, JUICE_APPLE, JUICE_CARROT, JUICE_COCONUT, JUICE_MELON, JUICE_ORANGE, JUICE_PEACH, WARRIOR_EGG_IDS, WINE } from './Block';
+import { BLOCKS, EGG_WARRIOR_ADVANCED, EGG_WARRIOR_EPIC, EGG_WARRIOR_NORMAL, JUICE_APPLE, JUICE_CARROT, JUICE_COCONUT, JUICE_MELON, JUICE_ORANGE, JUICE_PEACH, WARRIOR_EGG_IDS, WINE } from './Block';
 
 /** 售卖机货架上的一格商品 */
 export interface ShopGood {
@@ -71,4 +71,12 @@ export const isSellable = (id: number): boolean => sellPriceOf(id) !== null;
 /** 显示岛币数量：整数不带小数点，有小数最多留两位（0.75 显示 0.75 而不是 0.75000001） */
 export function fmtCoins(n: number): string {
   return String(Math.round(n * 100) / 100);
+}
+
+/** 收购箱面板顶上的价目表文字：从 SELL_PRICE 自动生成，改价格不用动这里 */
+export function sellListText(): string {
+  const parts = Object.entries(SELL_PRICE).map(([id, p]) =>
+    `${BLOCKS[+id]?.cn ?? id}${p.per > 1 ? `${p.per}个` : ''}=${p.coins}`);
+  parts.push(`召唤蛋=${SHOP.EGG_SELL}`, '饮料=半价');
+  return parts.join('　');
 }
