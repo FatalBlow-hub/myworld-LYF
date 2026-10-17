@@ -41,17 +41,19 @@
 - 手机版入口：另一个域名（如 `m.7shu.asia`）加一条 A 记录指向本机，Nginx 加一个 `server_name` 反代到同一个 `127.0.0.1:8787` 即可，前端按域名自动切手机 UI，**不需要第二份代码或第二个 html**
 - ⚠️ 域名要用**一级子域**：证书是 `*.7shu.asia` 通配（Let's Encrypt，2026-12-14 到期），只覆盖一层；`m.ms.7shu.asia` 这种三层域名会被浏览器判证书不匹配，除非再签一张。到期前记得验证 `certbot renew --dry-run`
 - 子域共用登录态已配好（2026-10-16）：`/etc/systemd/system/minecraft-web.service.d/env.conf` 里写 `Environment=COOKIE_DOMAIN=.7shu.asia`（drop-in，不破坏原 unit）；`systemctl show minecraft-web -p Environment` 应同时看到 `HOST PORT COOKIE_DOMAIN` 三项，说明与原 unit 的变量合并生效
+- 防沉迷管理员名单也在同一 drop-in（2026-10-18 加）：`Environment=ADMIN_NAMES=longjli001`（逗号分隔可配多个）；控制台入口 `https://ms.7shu.asia/admin.html`，只有名单内账号能进，留空=控制台停用
 - 域名 `https://ms.7shu.asia` 由管理员配 Nginx 反代 → `127.0.0.1:8787`；证书/防火墙别碰
-- 部署（本机 Windows 没有 rsync，改用 scp；本地构建，只传产物和改动的后端文件，不碰 `data.db`/`saves`）：
+- 部署（本机 Windows 没有 rsync，改用 scp；本地构建，只传产物和改动的后端文件）：
   ```powershell
   npm run build
-  scp -r dist mc:/www/wwwroot/minecraft-web/                  # 前端产物（含 dist/index.html）
-  scp server/index.mjs mc:/www/wwwroot/minecraft-web/server/  # 改了后端才传
+  scp -r dist mc:/www/wwwroot/minecraft-web/                  # 前端产物（含 dist/index.html 与 dist/admin.html）
+  scp server/index.mjs server/ws.mjs server/addict.mjs server/migrate.mjs mc:/www/wwwroot/minecraft-web/server/
+  scp -r server/migrations mc:/www/wwwroot/minecraft-web/server/  # ⚠️ 远端目录已存在时源要写 server/migrations/. ，否则会嵌成 migrations/migrations
   ssh mc 'systemctl restart minecraft-web; curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8787/'
   ```
-- 只有在服务器上改了 `server/` 其他文件或动了 npm 依赖时，才需要 `ssh mc 'cd /www/wwwroot/minecraft-web && npm ci && npm run build'`
-- 回滚：每次部署前先把旧 dist 与 `server/index.mjs` 备份到服务器 `/root/mc-backup/` 下，出问题原样拷回再 restart
-- 验证：`ssh mc 'curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8787/'` 回 200 即正常
+- 数据库迁移**重启时自动跑**：`server/migrate.mjs` 幂等执行 `server/migrations/*.up.sql`（记录进 `schema_migrations` 表）；权威 schema 在仓库 `server/schema.sql`（不用传服务器）；回滚 `ssh mc 'cd /www/wwwroot/minecraft-web && node server/migrate.mjs --down 0001'`（回滚要搭配回滚代码）
+- 部署前备份：迁移会改 `data.db`（只加表加列），先 `ssh mc 'cp /www/wwwroot/minecraft-web/server/data.db /root/mc-backup/data.db.pre-xxx'`；旧 dist 与 `server/*.mjs` 也备份到 `/root/mc-backup/`，出问题原样拷回再 restart
+- 验证：`ssh mc 'curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8787/'` 回 200 即正常；再看 `journalctl -u minecraft-web -n 5` 有 `[migrate]`/`[防沉迷]` 行、`sqlite3 .../server/data.db ".tables"` 有新表、`SELECT name, is_admin FROM users` 管理员就位
 - ⚠️ **踩坑**：`ssh mc '远端命令'` 的命令串里**不要出现 `$`**（哪怕外层是单引号，`$(date ...)`、变量都会被本机 PowerShell 层改坏，远端会报 `No such file or directory`）。远端需要动态值就用固定字符串，或先把脚本 scp 上去再执行
 - 手机版验证：浏览器开手机版域名（或任意域名加 `?touch=1`）→ 登录开局 → 左下有摇杆、右侧有「挖/放」按钮即切换成功
 - 只改 `server/` 里的文件不用 build，scp + restart 即可；改了 `src/` 或 `index.html` 必须先在本机 `npm run build` 再传 dist
