@@ -406,10 +406,10 @@ export const SELL_PRICE: Record<number, { coins: number; per: number }> = {
   244: { coins: 1, per: 1 },     // 椰子
   7:   { coins: 0.01, per: 1 },  // 树叶
   111: { coins: 1, per: 1 },     // 铁粒
-  226: { coins: 1, per: 1 },     // 南瓜片（整个南瓜的 1/3）
-  227: { coins: 1, per: 1 },     // 西瓜片（整个西瓜的 1/3）
-  228: { coins: 1, per: 3 },     // 南瓜籽：3 个 = 1 岛币
-  229: { coins: 1, per: 3 },     // 西瓜籽：3 个 = 1 岛币
+  226: { coins: 0.33, per: 1 },  // 南瓜片
+  227: { coins: 0.33, per: 1 },  // 西瓜片
+  228: { coins: 0.11, per: 1 },  // 南瓜籽
+  229: { coins: 0.11, per: 1 },  // 西瓜籽
   // 床什么颜色都收，一律 3 岛币（含星空床）
   49: { coins: 3, per: 1 }, 50: { coins: 3, per: 1 }, 51: { coins: 3, per: 1 },
   52: { coins: 3, per: 1 }, 53: { coins: 3, per: 1 }, 54: { coins: 3, per: 1 },
