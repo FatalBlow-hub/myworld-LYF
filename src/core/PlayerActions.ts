@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { GOLDEN, ISLAND, RUBBER_DROP, STACK_MAX, VisitPerm } from '../config';
 import { FireSystem } from '../entities/Fire';
 import { ItemDrop } from '../entities/ItemDrop';
+import { TIER_OF_EGG } from '../entities/Warrior';
 import { DropSink, spawnDrop } from '../entities/drops';
 import { BlockHit, mine, place, placeSeaweed, plantCarrot, plantSeed, pourWater, useDoor } from '../interact/BlockPicker';
 import { scoopBucket } from '../interact/LiquidBuckets';
@@ -17,11 +18,11 @@ import { Hud } from '../ui/Hud';
 import { Panel } from '../ui/Panel';
 import { RecipeBook } from '../ui/RecipeBook';
 import {
-  AIR, BLOCKS, BUCKET, CARROT, CHALLENGE_DOOR, CHALLENGE_HOUSE, CHEM_DECOMP, CRAFTING_TABLE,
+  AIR, BLOCKS, BUCKET, BUY_BOX, CARROT, CHALLENGE_DOOR, CHALLENGE_HOUSE, CHEM_DECOMP, CRAFTING_TABLE,
   DIRT, DYE_TABLE, DYEABLE_CARPETS, FIRESTARTER_IDS, GLASS_BUCKET, GRASS, HYDROGEN, ICE, IRON_NUGGET,
   LEAVES, MELON_SEED, MELON_STAGE1, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT,
   RICE_GRAIN, RUBBER, SEAWEED, SOUL_CHEST, SOUL_FIRESTARTER, STAR_DYE_TABLE, STAR_TABLE, SWAMP_FILL,
-  TANK, VISIT_LIST_BLOCKS, WATER_BUCKET, WOOD,
+  TANK, VENDING_DRINK, VENDING_SPECIAL, VISIT_LIST_BLOCKS, WATER_BUCKET, WOOD,
   dropCountOf, isBed, isChest, isDoor, isFurnace,
 } from '../world/Block';
 import { GOLD_CHEM_DECOMP, GOLD_DYE_TABLE, GOLD_PICKAXE, ICE_MOLECULE } from '../world/GoldenItems';
@@ -60,6 +61,12 @@ export interface PlayerActionDeps {
   islandFruit: () => number | null;
   /** 当前好友岛的访客挖掘权限（在好友岛时返回 VisitPerm，自己岛或随机陌生岛返回 null） */
   visitPerm?: () => VisitPerm | null;
+  /** 对着售卖机按 M：打开对应货架（special = 特殊物品售卖机，drink = 饮料售卖机） */
+  openShop: (kind: 'special' | 'drink') => void;
+  /** 对着收购箱按 M：打开收购界面 */
+  openBuyBox: () => void;
+  /** 拿着小战士召唤蛋对地按 M：召唤保镖（扣蛋由外面负责） */
+  summonWarrior: (eggId: number, x: number, y: number, z: number) => void;
 }
 
 export class PlayerActions {
@@ -246,7 +253,25 @@ export class PlayerActions {
   /** M 键 = 使用：门→开关，箱子→开背包界面，熔炉→开烧制界面，工作台→3×3 大合成台，染色台→染地毯 */
   useBlock(hitX: number, hitY: number, hitZ: number): void {
     const { world, container, panel, inventory, dyePanel, hud, day, book } = this.d;
+    // 手里拿着小战士召唤蛋：对地按 M 直接召唤（蛋的消耗归外面管），不看成的是什么方块
+    const heldEgg = inventory.hotbar[this.d.slot()];
+    if (heldEgg && heldEgg.id in TIER_OF_EGG) {
+      this.d.summonWarrior(heldEgg.id, hitX, hitY, hitZ);
+      return;
+    }
     const id = world.getBlock(hitX, hitY, hitZ);
+    if (id === VENDING_SPECIAL) {
+      this.d.openShop('special');       // 特殊物品售卖机：买小战士召唤蛋
+      return;
+    }
+    if (id === VENDING_DRINK) {
+      this.d.openShop('drink');         // 饮料售卖机：买 7 种饮料
+      return;
+    }
+    if (id === BUY_BOX) {
+      this.d.openBuyBox();              // 收购箱：东西放进去自动换岛币
+      return;
+    }
     if (id === CHALLENGE_DOOR) {
       this.d.useChallengeDoor(hitX, hitY, hitZ); // 挑战门：交门票/出门/打架不开
     } else if (isDoor(id)) {

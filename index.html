@@ -122,7 +122,14 @@
     .inv-top { display: flex; gap: 24px; align-items: flex-start; }
     .inv-left { display: flex; gap: 8px; align-items: flex-start; }
     .armor-col { display: flex; flex-direction: column; gap: 3px; }
-    .player-preview { background: #2e2e2e; border: 2px solid #555; image-rendering: pixelated; }
+    /* 装备栏旁边的 3D 小人：一块小画布（尺寸由 WebGL 渲染器自己设）+ 下面换人按钮 */
+    .avatar-col { display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
+    .player-preview { background: #262626; border: 2px solid #555; border-radius: 4px; display: block; }
+    .avatar-swap {
+      font: inherit; font-size: 12px; padding: 4px 6px; cursor: pointer;
+      background: #8b8b8b; color: #fff; border: 2px solid #555; border-radius: 4px;
+    }
+    .avatar-swap:hover { background: #a0a0a0; }
     .craft-area { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
     .craft-grid { display: grid; grid-template-columns: repeat(2, 44px); gap: 3px; }
     .craft-arrow { font-size: 26px; color: #444; }
@@ -155,6 +162,12 @@
     .held-item img { width: 36px; height: 36px; image-rendering: pixelated; }
     .held-item .count { font-size: 13px; color: #fff; text-shadow: 1px 1px 1px #000; }
     .inv-hint { color: #555; font-size: 12px; text-align: center; }
+    .split-one {
+      display: block; margin: 6px auto 0; font: inherit; font-size: 14px;
+      padding: 6px 18px; cursor: pointer;
+      background: #8b8b8b; color: #fff; border: 2px solid #555; border-radius: 4px;
+    }
+    .split-one:active { background: #a0a0a0; }
     .uncraft-badge {
       position: absolute; left: 1px; top: 0; font-size: 14px; color: #ffe08a;
       text-shadow: 1px 1px 1px #000; pointer-events: none; z-index: 2;

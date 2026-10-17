@@ -1,4 +1,4 @@
-/** 背包面板 — 按 9 打开：装备栏+小人 / 2×2 合成（含拆解）/ 3×9 储物 / 快捷栏；对着工作台按 M 变成 3×3 大合成台。鼠标左键拿放，键盘 4/6 选格子、K 分一个 */
+/** 背包面板 — 按 9 打开：装备栏+3D 小人 / 2×2 合成（含拆解）/ 3×9 储物 / 快捷栏；对着工作台按 M 变成 3×3 大合成台。鼠标左键拿放，键盘 4/6 选格子、K 分一个 */
 
 import { ALL_ITEMS, BLOCKS, ROLLER_SKATES, SWAMP_FILL, WAISTBAG_SLOT, WATER_BUCKET, isWaistbag } from '../world/Block';
 import { CraftMatch, matchCraft } from '../world/Recipes';
@@ -6,10 +6,18 @@ import { Atlas } from '../render/Textures';
 import { Inventory, Slots, stackMaxFor } from '../player/Inventory';
 import { Controller } from '../player/Controller';
 import { SKATES, STACK_MAX, WAISTBAG } from '../config';
+import { CHARACTER_NAMES, CharacterKind } from '../entities/Character';
+import { CharacterPreview } from './CharacterPreview';
 import { createHeldEl, bindSlot, renderStack } from './slots';
 import { isMobile } from './Platform';
 
 const ARMOR_NAMES = ['头盔', '腰包', '护腿', '靴子'];
+
+/** 面板要用的人物信息：现在是谁、点一下换成谁（存档由外面负责写） */
+export interface AvatarHost {
+  kind(): CharacterKind;
+  swap(): void;
+}
 
 export class Panel {
   private el: HTMLDivElement;
@@ -23,9 +31,11 @@ export class Panel {
   private sel = 0;
   /** 工作台模式：合成格是 3×3 的 craftBig 而不是背包里的 2×2 */
   private bigMode = false;
+  /** 装备栏旁边那个 3D 小人（懒建 WebGL 上下文，面板关了停渲染） */
+  private preview = new CharacterPreview();
   visible = false;
 
-  constructor(private inv: Inventory, private atlas: Atlas) {
+  constructor(private inv: Inventory, private atlas: Atlas, private avatar?: AvatarHost) {
     this.el = document.createElement('div');
     this.el.className = 'inv-overlay';
     this.el.style.display = 'none';
@@ -86,6 +96,15 @@ export class Panel {
         ? '轻点拿/放整摞 · 长按放1个/拿半摞 · 数量要按配方放正好 · 点空白关闭'
         : '左键拿/放 · 右键放1个/拿半摞 · 数量要按配方放正好 · K分1个 · 9/ESC或点空白关闭';
     win.appendChild(hint);
+    // 手机没有 K 键：补一个「分 1 个」按钮，作用同 splitBtn（创造模式东西无限，用不着分）
+    if (touch && !this.inv.infinite) {
+      const btn = document.createElement('button');
+      btn.className = 'split-one';
+      btn.textContent = '分 1 个';
+      btn.title = '手上捏着东西：放 1 个回格子；空手：白框那摞分 1 个出来';
+      btn.onclick = () => this.splitBtn();
+      win.appendChild(btn);
+    }
   }
 
   /** 生存模式：装备栏 + 小人 + 2×2 合成 */
@@ -104,7 +123,7 @@ export class Panel {
       armorCol.appendChild(s);
     });
     left.appendChild(armorCol);
-    left.appendChild(drawPlayerPreview());
+    left.appendChild(this.buildAvatar());
     top.appendChild(left);
 
     const craft = document.createElement('div');
@@ -158,7 +177,35 @@ export class Panel {
       bindSlot(cell, () => take(stackMaxFor(id)), () => take(1)); // 右键/长按只拿 1 个
       grid.appendChild(cell);
     });
-    win.appendChild(grid);
+    // 创造模式的物品栏里也放一个 3D 小人，跟生存模式的背包一样能看到自己
+    const row = document.createElement('div');
+    row.className = 'inv-top';
+    row.appendChild(this.buildAvatar());
+    row.appendChild(grid);
+    win.appendChild(row);
+  }
+
+  /** 装备栏旁边的小人：3D 预览 + 下面一行「人物：谁」，点一下换另一个人 */
+  private buildAvatar(): HTMLDivElement {
+    const col = document.createElement('div');
+    col.className = 'avatar-col';
+    col.appendChild(this.preview.element);
+    if (this.avatar) {
+      this.preview.setKind(this.avatar.kind());
+      const btn = document.createElement('button');
+      btn.className = 'avatar-swap';
+      const label = () => `人物：${CHARACTER_NAMES[this.avatar!.kind()]}`;
+      btn.textContent = label();
+      btn.title = '点一下换成另一个人物';
+      btn.onclick = () => {
+        this.avatar!.swap();
+        this.preview.setKind(this.avatar!.kind());
+        btn.textContent = label();
+      };
+      col.appendChild(btn);
+      this.preview.start();
+    }
+    return col;
   }
 
   private buildGrid(slots: Slots, cols: number, cls: string, limit = slots.length): HTMLDivElement {
@@ -172,14 +219,22 @@ export class Panel {
   private makeSlot(slots: Slots, i: number, fits?: (id: number) => boolean): HTMLDivElement {
     const el = document.createElement('div');
     el.className = 'slotbox';
+    const ref = { el, slots, i };
+    // 点过哪格白框就停哪格：手机没有键盘选格，「分 1 个」按钮靠白框知道目标
+    const markSel = () => {
+      const idx = this.selRefs().indexOf(ref);
+      if (idx >= 0) this.sel = idx;
+    };
     bindSlot(el, () => {
+      markSel();
       this.inv.click(slots, i, STACK_MAX, fits);
       this.refresh();
     }, () => {
+      markSel();
       this.inv.clickOne(slots, i, STACK_MAX, fits);
       this.refresh();
     });
-    this.slotRefs.push({ el, slots, i });
+    this.slotRefs.push(ref);
     return el;
   }
 
@@ -237,6 +292,7 @@ export class Panel {
 
   close(): void {
     this.visible = false;
+    this.preview.stop();
     this.inv.returnHeld();
     this.el.style.display = 'none';
     this.heldEl.style.display = 'none';
@@ -267,6 +323,25 @@ export class Panel {
   selStack(): { id: number; count: number } | null {
     const r = this.selRefs()[this.sel];
     return r ? r.slots[r.i] : null;
+  }
+
+  /** 手机「分 1 个」按钮：手上捏着 → 优先放回白框那格，不行就找第一个能放的格子；空手 → 白框那摞分 1 个（同键盘 K） */
+  splitBtn(): void {
+    const h = this.inv.held;
+    if (!h) return this.splitSel();
+    if (h.id === WATER_BUCKET || h.id in SWAMP_FILL) return; // 桶装液体整桶走，不拆
+    const refs = this.selRefs();
+    const order = [refs[this.sel], ...refs.filter((r) => r !== refs[this.sel])];
+    for (const r of order) {
+      const t = r.slots[r.i];
+      if (t && (t.id !== h.id || t.count >= stackMaxFor(h.id))) continue;
+      if (t) t.count++;
+      else r.slots[r.i] = { ...h, count: 1 };
+      h.count--;
+      if (h.count <= 0) this.inv.held = null;
+      this.refresh();
+      return;
+    }
   }
 
   /** K：从选中这摞分 1 个出去 —— 先试右边，再左边，都不行就找背包里第一个能放的格子 */
@@ -317,28 +392,4 @@ export class Panel {
       this.heldEl.style.display = 'none';
     }
   }
-}
-
-/** 画一个方块小人站在装备栏旁边（像 MC 背包里的自己） */
-function drawPlayerPreview(): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = 56;
-  c.height = 116;
-  c.className = 'player-preview';
-  const x = c.getContext('2d')!;
-  const px = (dx: number, dy: number, w: number, h: number, color: string) => {
-    x.fillStyle = color;
-    x.fillRect(dx, dy, w, h);
-  };
-  px(16, 4, 24, 24, '#d9a066');   // 头
-  px(16, 4, 24, 8, '#5a3a1a');    // 头发
-  px(20, 14, 5, 5, '#222');       // 左眼
-  px(31, 14, 5, 5, '#222');       // 右眼
-  px(12, 32, 32, 36, '#3a7bd5');  // 身体（蓝衣服）
-  px(2, 32, 8, 32, '#d9a066');    // 左臂
-  px(46, 32, 8, 32, '#d9a066');   // 右臂
-  px(12, 68, 32, 8, '#2b5fa3');   // 腰带
-  px(14, 76, 12, 36, '#4a4a8a');  // 左腿
-  px(30, 76, 12, 36, '#4a4a8a');  // 右腿
-  return c;
 }

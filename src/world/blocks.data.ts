@@ -294,6 +294,27 @@ export const MELON_STAGE3 = 235;       // 西瓜大苗（带叶）
 export const APPLE = 236;              // 苹果（+1 饥饿 +1.5 血）
 export const PEACH = 237;              // 桃子（+2 饥饿 +0.5 血）
 export const ORANGE = 238;             // 橙子（+1 饥饿 +1 血 + 3 秒移动速度 ×1.25）
+// —— 大厅三台机器（239~241）：摆在大厅角落，对着按 M 使用，挖不动也不进创造面板 ——
+export const VENDING_SPECIAL = 239;    // 特殊物品售卖机：卖小战士召唤蛋
+export const VENDING_DRINK = 240;      // 饮料售卖机：卖各种果汁饮料
+export const BUY_BOX = 241;            // 收购箱：东西放进去自动换成岛币
+// —— 椰子树（242~244）：沙滩上长的浅色木，四瓣叶子，叶下挂着椰子方块 ——
+export const PALM_WOOD = 242;
+export const PALM_LEAVES = 243;
+export const COCONUT = 244;
+// —— 饮料（245~251）：水果/材料 + 玻璃瓶榨的，能喝也能卖给收购箱 ——
+export const JUICE_APPLE = 245;
+export const JUICE_ORANGE = 246;
+export const JUICE_PEACH = 247;
+export const WINE = 248;
+export const JUICE_COCONUT = 249;
+export const JUICE_MELON = 250;
+export const JUICE_CARROT = 251;
+// —— 小战士召唤蛋（252~254）：拿着对地按 M 召唤保镖，品质越高越能打 ——
+export const EGG_WARRIOR_NORMAL = 252;   // 普通：跟僵尸一样能打
+export const EGG_WARRIOR_ADVANCED = 253; // 高级：血量翻倍
+export const EGG_WARRIOR_EPIC = 254;     // 绝世：血×3 攻×2
+export const WARRIOR_EGG_IDS = [EGG_WARRIOR_NORMAL, EGG_WARRIOR_ADVANCED, EGG_WARRIOR_EPIC];
 
 export const WAISTBAG_SLOT = 1; // 装备栏从上往下第二格，也就是从下往上第三格
 export const WOOL_BAG_DYES = [
@@ -624,6 +645,26 @@ export const BLOCKS: Record<number, BlockDef> = {
   [APPLE]:          { cn: '苹果',     tex: { top: 'apple', side: 'apple' }, solid: false, seeThrough: true, hardness: 0, item: true },
   [PEACH]:          { cn: '桃子',     tex: { top: 'peach', side: 'peach' }, solid: false, seeThrough: true, hardness: 0, item: true },
   [ORANGE]:         { cn: '橙子',     tex: { top: 'orange', side: 'orange' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  // —— 大厅三台机器：挖不动，对着按 M 打开各自的面板 ——
+  [VENDING_SPECIAL]: { cn: '特殊物品售卖机', tex: { top: 'vend_special_top', side: 'vend_special_side', front: 'vend_special_front' }, solid: true, seeThrough: false, hardness: Infinity },
+  [VENDING_DRINK]:   { cn: '饮料售卖机',   tex: { top: 'vend_drink_top', side: 'vend_drink_side', front: 'vend_drink_front' }, solid: true, seeThrough: false, hardness: Infinity },
+  [BUY_BOX]:         { cn: '收购箱',       tex: { top: 'buybox_top', side: 'buybox_side', front: 'buybox_front' }, solid: true, seeThrough: false, hardness: Infinity },
+  // —— 椰子树：浅色木头 + 四瓣叶子 + 挂在叶下的椰子（挖椰子掉椰子，能榨汁也能卖） ——
+  [PALM_WOOD]:   { cn: '椰子树干', tex: { top: 'palm_wood_top', side: 'palm_wood' }, solid: true, seeThrough: false, hardness: 1.2 },
+  [PALM_LEAVES]: { cn: '椰子叶',   tex: { top: 'palm_leaves', side: 'palm_leaves' }, solid: true, seeThrough: false, hardness: 0.25 },
+  [COCONUT]:     { cn: '椰子',     tex: { top: 'coconut', side: 'coconut' }, solid: false, seeThrough: true, hardness: 0.2, drop: COCONUT },
+  // —— 饮料：水果/材料 + 玻璃瓶榨的，E 喝了有各自的效果，也能卖给收购箱 ——
+  [JUICE_APPLE]:   { cn: '苹果汁',   tex: { top: 'juice_apple', side: 'juice_apple' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [JUICE_ORANGE]:  { cn: '橘子汁',   tex: { top: 'juice_orange', side: 'juice_orange' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [JUICE_PEACH]:   { cn: '桃子汁',   tex: { top: 'juice_peach', side: 'juice_peach' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [WINE]:          { cn: '酒',       tex: { top: 'wine', side: 'wine' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [JUICE_COCONUT]: { cn: '椰子汁',   tex: { top: 'juice_coconut', side: 'juice_coconut' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [JUICE_MELON]:   { cn: '西瓜汁',   tex: { top: 'juice_melon', side: 'juice_melon' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [JUICE_CARROT]:  { cn: '胡萝卜汁', tex: { top: 'juice_carrot', side: 'juice_carrot' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  // —— 小战士召唤蛋：拿着对地按 M 召唤保镖，品质写在蛋上 ——
+  [EGG_WARRIOR_NORMAL]:   { cn: '小战士蛋（普通）', tex: { top: 'egg_warrior_normal', side: 'egg_warrior_normal' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [EGG_WARRIOR_ADVANCED]: { cn: '小战士蛋（高级）', tex: { top: 'egg_warrior_advanced', side: 'egg_warrior_advanced' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [EGG_WARRIOR_EPIC]:     { cn: '小战士蛋（绝世）', tex: { top: 'egg_warrior_epic', side: 'egg_warrior_epic' }, solid: false, seeThrough: true, hardness: 0, item: true },
 };
 
 /** 创造模式面板里能直接拿的东西（全部方块 + 物品） */
@@ -668,6 +709,10 @@ export const ALL_ITEMS = [
   // 南瓜与西瓜系列 + 三种专属岛屿水果
   PUMPKIN, MELON, PUMPKIN_SLICE, MELON_SLICE, PUMPKIN_SEED, MELON_SEED,
   APPLE, PEACH, ORANGE,
+  // 椰子树 + 7 种饮料 + 3 档小战士召唤蛋（三台机器本体不进创造面板，跟挑战石一个待遇）
+  PALM_WOOD, PALM_LEAVES, COCONUT,
+  JUICE_APPLE, JUICE_ORANGE, JUICE_PEACH, WINE, JUICE_COCONUT, JUICE_MELON, JUICE_CARROT,
+  ...WARRIOR_EGG_IDS,
 ];
 
 /** 庄稼生长链：每 60 秒走一级（水稻/胡萝卜/南瓜/西瓜共用）；最后一级不在表里 = 熟透了不再长 */

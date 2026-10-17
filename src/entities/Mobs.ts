@@ -1,11 +1,12 @@
 /** 活物总管 — 动物和僵尸的生成/消失/每帧更新/被打死掉东西，Game 只管喊它干活 */
 
 import * as THREE from 'three';
-import { ANIMAL, BIRD, BLOODZOMBIE, CHUNK, CORRUPT, DAY, DEEPGREEN_DROP, MANUAL, RAT, STARZOMBIE, ZOMBIE } from '../config';
+import { ANIMAL, BIRD, BLOODZOMBIE, CHUNK, CORRUPT, DAY, DEEPGREEN_DROP, MANUAL, RAT, STARZOMBIE, WARRIOR, ZOMBIE } from '../config';
 import { BLOOD_MEAT, COOKED_MEAT, DIY_MANUAL, DYE_DEEPGREEN, FEATHER_BLACK, IRON_NUGGET, RAW_MEAT, STAR_SHARD } from '../world/Block';
 import { DIY_GOLD_MANUAL as GOLD_MANUAL } from '../world/GoldenItems';
 import { World } from '../world/World';
 import { Animal, BIRD_KINDS, rayHitAnimal, spawnAnimals } from './Animal';
+import { Warrior, WarriorTier } from './Warrior';
 import { Zombie, ZombieKind, rayHitZombie, spawnZombies } from './Zombie';
 
 export interface MobHit {
@@ -16,6 +17,8 @@ export interface MobHit {
 export class Mobs {
   animals: Animal[] = [];
   zombies: Zombie[] = [];
+  /** 小战士（玩家买蛋召唤的保镖）：跟着玩家、优先打正在打玩家的怪 */
+  warriors: Warrior[] = [];
   /** 僵尸攻击开关：关掉后僵尸只会瞎逛，不追人也不挠人 */
   zombieAttack = true;
   zombieSpawn = true;
@@ -30,7 +33,29 @@ export class Mobs {
     private onPlayerHit: (damage: number, kind: ZombieKind) => void,
     /** 还有没有手册能教的方法（学全了就不再掉 DIY 手册） */
     private canDropManual: () => boolean = () => true,
+    /** 小战士砍死了怪 / 放了特技（暴击、秒杀），提示归 Game 管 */
+    private onWarriorKill: (warrior: Warrior, tag: string) => void = () => {},
   ) {}
+
+  /** 召唤一个小战士（玩家拿蛋对地按 M）；刚出来站在主人脚边 */
+  summonWarrior(tier: WarriorTier, x: number, y: number, z: number): Warrior {
+    const w = new Warrior(tier, x, y, z);
+    this.warriors.push(w);
+    this.scene.add(w.group);
+    return w;
+  }
+
+  /** 身边几格内有没有小战士：僵尸优先打它（没有就还是打玩家） */
+  private nearestWarrior(x: number, z: number): Warrior | null {
+    let best: Warrior | null = null;
+    let bestD = ZOMBIE.AGGRO;
+    for (const w of this.warriors) {
+      if (w.dead) continue;
+      const d = Math.hypot(w.x - x, w.z - z);
+      if (d < bestD) { best = w; bestD = d; }
+    }
+    return best;
+  }
 
   /** 新生成的区块可能本来就住着动物：一半概率撒 1~2 只 */
   onChunkGen(cx: number, cz: number): void {
@@ -74,8 +99,26 @@ export class Mobs {
       this.animals = this.animals.filter((a) => !a.dead);
     }
     const summoned: Zombie[] = [];
+    // 小战士先动：选目标 → 上去砍（砍完才知道有没有打死）
+    for (const w of this.warriors) {
+      w.lastHitTier = '';
+      const killed = w.update(dt, this.world, { x: px, y: py, z: pz }, this.zombies);
+      if (killed) this.onWarriorKill(w, w.lastHitTier);
+    }
+    if (this.warriors.some((w) => w.dead)) {
+      for (const w of this.warriors.filter((w) => w.dead)) this.scene.remove(w.group);
+      this.warriors = this.warriors.filter((w) => !w.dead);
+    }
     for (const z of this.zombies) {
-      if (z.update(dt, this.world, px, pz, this.zombieAttack)) this.onPlayerHit(z.damage, z.kind);
+      // 怪优先打小战士：身边有小战士就把目标换成它，没有才是玩家
+      const guard = this.zombieAttack ? this.nearestWarrior(z.x, z.z) : null;
+      if (z.update(dt, this.world, guard ? guard.x : px, guard ? guard.z : pz, this.zombieAttack)) {
+        if (guard) guard.hurt(z.damage);
+        else {
+          z.hurtOwnerT = WARRIOR.MEMORY; // 记一笔：这只怪正在打主人，小战士优先揍它
+          this.onPlayerHit(z.damage, z.kind);
+        }
+      }
       // 腐败人：玩家走进 3 格内立刻吐第一只老鼠，之后每 3 秒一只（开关关了不吐）
       if (!z.dead && z.kind === 'corrupt' && this.zombieAttack && this.zombieSpawn) {
         const inRange = Math.hypot(px - z.x, pz - z.z) < CORRUPT.RANGE;

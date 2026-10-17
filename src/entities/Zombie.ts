@@ -74,6 +74,10 @@ export class Zombie {
   /** 幻药瓶减速倒计时：>0 时速度减半 */
   slowT = 0;
   frozenT = 0;
+  /** 小战士排攻击优先级用：最近挠过主人，还剩几秒算「正在打主人」 */
+  hurtOwnerT = 0;
+  /** 小战士排攻击优先级用：主人最近打过它，还剩几秒算「主人正在打的怪」 */
+  hurtByPlayerT = 0;
   /** 中的毒：每 every 秒扣 dmg 血，还剩 left 秒 */
   private poisons = new TimedEffects();
 
@@ -105,12 +109,15 @@ export class Zombie {
     this.poisons.add(dmg, every, dur);
   }
 
-  /** 每帧：看到玩家就追，贴近了挠一下。返回 true = 这帧抓到玩家了；hostile=false 就只会瞎逛 */
+  /** 每帧：看到玩家就追，贴近了挠一下。返回 true = 这帧抓到玩家了；hostile=false 就只会瞎逛
+   *  注意 px/pz 是「当前要追的目标」的位置——小战士在旁边时传的是小战士的位置 */
   update(dt: number, world: World, px: number, pz: number, hostile = true): boolean {
     this.wanderT -= dt;
     this.attackT -= dt;
     this.slowT = Math.max(0, this.slowT - dt);
     this.frozenT = Math.max(0, this.frozenT - dt);
+    this.hurtOwnerT = Math.max(0, this.hurtOwnerT - dt);
+    this.hurtByPlayerT = Math.max(0, this.hurtByPlayerT - dt);
     // 毒发：每种的毒自己数秒，毒死了正常掉东西
     this.poisons.update(dt, (amount) => {
       this.hp = Math.max(0, this.hp - amount);

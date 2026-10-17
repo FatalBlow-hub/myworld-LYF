@@ -13,6 +13,7 @@ import { SEASONAL_PAINTERS } from './SeasonalTextures';
 import { GOLDEN_PAINTERS, GOLDEN_TILE_NAMES } from './GoldenTextures';
 import { BAG_PAINTERS, BAMBOO_PAINTERS } from './BagTextures';
 import { ISLAND_PAINTERS, ISLAND_TILE_NAMES } from './IslandTextures';
+import { SHOP_PAINTERS } from './ShopTextures';
 import { Painter, TILE, fill, shade, speckle } from './TextureUtils';
 export type { Painter } from './TextureUtils';
 
@@ -76,6 +77,15 @@ const TILE_NAMES = [
   // —— 竹子（方块要进图集，不然世界里的竹子没贴图）——
   'bamboo', 'bamboo_shoot',
   ...ISLAND_TILE_NAMES,
+  // —— 大厅三台机器（正面画在 front，背包图标也认 front）——
+  'vend_special_top', 'vend_special_side', 'vend_special_front',
+  'vend_drink_top', 'vend_drink_side', 'vend_drink_front',
+  'buybox_top', 'buybox_side', 'buybox_front',
+  // —— 椰子树 + 饮料 + 召唤蛋 ——
+  'palm_wood', 'palm_wood_top', 'palm_leaves', 'coconut',
+  'juice_apple', 'juice_orange', 'juice_peach', 'wine',
+  'juice_coconut', 'juice_melon', 'juice_carrot',
+  'egg_warrior_normal', 'egg_warrior_advanced', 'egg_warrior_epic',
 ];
 
 const PAINTERS: Record<string, Painter> = { ...BASE_PAINTERS };
@@ -331,8 +341,41 @@ for (const [name, col] of Object.entries(SW_BUCKET_LIQ)) {
   };
 }
 
+// —— 大厅三台机器：统一铁壳售货机造型，正面开一扇取货窗 ——
+const vendBody = (shell: string, dark: string) => (c: CanvasRenderingContext2D, x: number, y: number) => {
+  fill(c, x, y, shell); speckle(c, x, y, [shade(shell, 12), shade(shell, -16)], 35);
+  c.fillStyle = dark; c.fillRect(x, y + 14, TILE, 2); // 底座
+};
+PAINTERS.vend_special_top = vendBody('#7a4fc0', '#4a2e78');
+PAINTERS.vend_special_side = vendBody('#6a45ad', '#4a2e78');
+PAINTERS.vend_special_front = (c, x, y) => {
+  PAINTERS.vend_special_side(c, x, y);
+  c.fillStyle = '#2e1e50'; c.fillRect(x + 3, y + 3, 10, 8);          // 取货窗
+  c.fillStyle = '#f8e8a0'; c.fillRect(x + 5, y + 5, 6, 4);           // 窗里的蛋
+  c.fillStyle = '#d8b830'; c.fillRect(x + 6, y + 6, 4, 2);
+  c.fillStyle = '#e8e8f0'; c.fillRect(x + 3, y + 12, 10, 1);         // 取货口
+};
+PAINTERS.vend_drink_top = vendBody('#3a7ec0', '#26548a');
+PAINTERS.vend_drink_side = vendBody('#3570ad', '#26548a');
+PAINTERS.vend_drink_front = (c, x, y) => {
+  PAINTERS.vend_drink_side(c, x, y);
+  c.fillStyle = '#1e3a5c'; c.fillRect(x + 3, y + 3, 10, 8);          // 取货窗
+  c.fillStyle = '#f09838'; c.fillRect(x + 5, y + 5, 6, 5);           // 窗里的饮料瓶
+  c.fillStyle = '#bfe8f2'; c.fillRect(x + 6, y + 3, 4, 2);
+  c.fillStyle = '#e8e8f0'; c.fillRect(x + 3, y + 12, 10, 1);         // 取货口
+};
+PAINTERS.buybox_top = vendBody('#3e8a46', '#265a2a');
+PAINTERS.buybox_side = vendBody('#357a3c', '#265a2a');
+PAINTERS.buybox_front = (c, x, y) => {
+  PAINTERS.buybox_side(c, x, y);
+  c.fillStyle = '#1e4a22'; c.fillRect(x + 3, y + 3, 10, 8);          // 投放口
+  c.fillStyle = '#f8d848'; c.fillRect(x + 6, y + 5, 4, 4);           // 里面的金币
+  c.fillStyle = '#d8a820'; c.fillRect(x + 6, y + 6, 4, 1);
+  c.fillStyle = '#e8e8f0'; c.fillRect(x + 3, y + 12, 10, 1);
+};
+
 // 庄稼/羽毛/煤贴图拆出去了（CropTextures / BirdTextures / CoalTextures），合并进大表
-Object.assign(PAINTERS, CROP_PAINTERS, FEATHER_PAINTERS, COAL_PAINTERS, LAMP_PAINTERS, FIRE_PAINTERS, GOLDEN_PAINTERS, BAG_PAINTERS, BAMBOO_PAINTERS, ISLAND_PAINTERS);
+Object.assign(PAINTERS, CROP_PAINTERS, FEATHER_PAINTERS, COAL_PAINTERS, LAMP_PAINTERS, FIRE_PAINTERS, GOLDEN_PAINTERS, BAG_PAINTERS, BAMBOO_PAINTERS, ISLAND_PAINTERS, SHOP_PAINTERS);
 
 export interface Atlas {
   texture: THREE.CanvasTexture;

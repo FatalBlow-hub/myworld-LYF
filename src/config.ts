@@ -120,6 +120,14 @@ export const EAT_HP: Record<number, FoodEffect> = {
   236: { hunger: 1, hp: 1.5 }, // 苹果 +1 饥饿 +1.5 血
   237: { hunger: 2, hp: 0.5 }, // 桃子 +2 饥饿 +0.5 血
   238: { hunger: 1, hp: 1, boostSeconds: HUNGER.ORANGE_BOOST_SECONDS, boostMult: HUNGER.ORANGE_BOOST_MULT }, // 橙子 +1 饥饿 +1 血 + 3 秒 ×1.25 加速
+  // —— 7 种饮料：水果榨的 = 原水果效果再 +1 饥饿；酒是"更饱但掉血"；椰子汁直接回满饥饿 ——
+  245: { hunger: 2, hp: 1.5 },  // 苹果汁：苹果(1,1.5) +1 饥饿
+  246: { hunger: 2, hp: 1, boostSeconds: HUNGER.ORANGE_BOOST_SECONDS, boostMult: HUNGER.ORANGE_BOOST_MULT }, // 橘子汁：橙子 +1 饥饿
+  247: { hunger: 3, hp: 0.5 },  // 桃子汁：桃子(2,0.5) +1 饥饿
+  248: { hunger: 2, hp: -1 },   // 酒：-1 血 +2 饥饿（更饱但上头）
+  249: { hunger: HUNGER.MAX, hp: 0 }, // 椰子汁：饥饿直接回满
+  250: { hunger: 1, hp: 2 },    // 西瓜汁：+2 血 +1 饥饿
+  251: { hunger: 1, hp: 1 },    // 胡萝卜汁：+1 血 +1 饥饿
 };
 
 /** 鸟：三种都会飞不动只会蹦跶（先当地上走的小动物做）；命比别的动物短 */
@@ -340,10 +348,79 @@ export const HALL = {
   RANDOM_IRON_COST: 2,              // 随机陌生岛消耗铁锭数量
   VISIT_TIMEOUT_MS: 60_000,         // 访岛申请 60 秒无响应超时
   TICKET_TTL_MS: 5 * 60_000,        // 访问票据 5 分钟有效
+  /** 大厅角落三台机器：沿北墙（z=1）从角上摆开，y = FLOOR_Y + 1 */
+  MACHINES: [
+    { id: 239, x: 1, z: 1 },        // 特殊物品售卖机
+    { id: 240, x: 2, z: 1 },        // 饮料售卖机
+    { id: 241, x: 3, z: 1 },        // 收购箱
+  ],
 };
 
 export const SAVE = {
   EVERY: 15, // 每隔几秒自动存一次档
+};
+
+/** 商店：售卖机买价与收购箱规则（单位：岛币，可以带小数） */
+export const SHOP = {
+  EGG_PRICE: 20,        // 特殊物品售卖机：小战士召唤蛋买价
+  EGG_SELL: 10,         // 收购箱：还没孵化的蛋（三档同价）
+  EGG_ROLL: [0.8, 0.19, 0.01] as const, // 买蛋抽品质概率：普通 / 高级 / 绝世
+  DRINK_SELL_MULT: 0.5, // 收购箱收饮料 = 买价 × 0.5
+};
+
+/** 收购箱价目表：物品ID → { coins: 一份换多少岛币, per: 几个算一份 }
+ *  稻粒（麦子）特殊：64 个才算一份换 1 岛币，零头退回背包 */
+export const SELL_PRICE: Record<number, { coins: number; per: number }> = {
+  100: { coins: 0.25, per: 1 },  // 生肉
+  112: { coins: 3, per: 1 },     // 金粒
+  113: { coins: 5, per: 1 },     // 蓝钻石碎
+  28:  { coins: 0.01, per: 1 },  // 杂草
+  29:  { coins: 0.15, per: 1 },  // 蒲公英
+  30:  { coins: 0.15, per: 1 },  // 小红花
+  173: { coins: 2, per: 1 },     // 芒星碎片
+  122: { coins: 0.75, per: 1 },  // 星星碎片
+  144: { coins: 2, per: 1 },     // 白羽毛
+  120: { coins: 1, per: 64 },    // 稻粒：64 个 = 1 岛币
+  139: { coins: 0.25, per: 1 },  // 胡萝卜
+  224: { coins: 3, per: 1 },     // 整个南瓜
+  225: { coins: 3, per: 1 },     // 整个西瓜
+  // 羊毛什么颜色都收，一律 0.75
+  34: { coins: 0.75, per: 1 }, 35: { coins: 0.75, per: 1 }, 36: { coins: 0.75, per: 1 },
+  37: { coins: 0.75, per: 1 }, 38: { coins: 0.75, per: 1 }, 39: { coins: 0.75, per: 1 },
+  40: { coins: 0.75, per: 1 }, 64: { coins: 0.75, per: 1 }, 65: { coins: 0.75, per: 1 },
+};
+
+/** 椰子树：只长在沙滩（沙子地面、离海平面 2 格以内），树顶挂 3~4 个椰子 */
+export const PALM = {
+  CHANCE: 0.006,     // 每格沙滩长出椰子树的概率
+  HEIGHT_MIN: 5,     // 树干高度（格）
+  HEIGHT_MAX: 7,
+  COCONUT_MIN: 3,    // 树顶挂几个椰子
+  COCONUT_MAX: 4,
+};
+
+/** 小战士（保镖）：数值基准就是普通僵尸，三档各自翻倍 + 各自的特技 */
+export const WARRIOR = {
+  SPEED: 3.4,        // 跟着主人走的正常速度（比僵尸快一点才追得上）
+  CHASE_MULT: 1.5,   // 离主人太远时加速追
+  FOLLOW_DIST: 2.5,  // 比这还近就原地待命
+  FAR_DIST: 8,       // 离主人超过这么多格开始加速追
+  AGGRO: 12,         // 看到几格内的怪就上去打
+  ATTACK_DIST: 1.5,  // 几格内能砍到怪
+  ATTACK_EVERY: 0.9, // 攻击间隔（秒）
+  TELEPORT_DIST: 32, // 离主人超过这么多格直接闪现回身边，别走丢
+  MEMORY: 6,         // 「怪在打主人 / 主人在打怪」记几秒，用来排攻击优先级
+  /** 三档：血量与攻击是僵尸的倍数；其余是各自的特技（普通暴击 / 高级回血 / 绝世秒杀+回血） */
+  TIERS: {
+    normal: { hpMult: 1, dmgMult: 1, critEvery: 8, critChance: 0.02 },
+    advanced: { hpMult: 2, dmgMult: 1, healEvery: 10, healChance: 0.04 },
+    epic: {
+      hpMult: 3, dmgMult: 2,
+      killEvery: 3, killChance: 0.10,          // 每 3 秒 10% 秒杀正在打的怪
+      regenEvery: 5, regenChance: 0.05,        // 每 5 秒 5% 回一口血（约等于挨僵尸打两次）
+      regenAmount: ZOMBIE.DAMAGE * 2,
+    },
+  },
 };
 
 export const WATER_FLOW = {

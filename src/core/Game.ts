@@ -26,12 +26,16 @@ import { logout } from '../ui/Auth';
 import { Panel } from '../ui/Panel';
 import { Mobs } from '../entities/Mobs';
 import { ItemDrop } from '../entities/ItemDrop';
+import { CHARACTER_NAMES, CharacterKind, VisitAvatar, pickCharacter } from '../entities/Character';
+import { TIER_OF_EGG, WARRIOR_TIER_NAMES } from '../entities/Warrior';
 import { ContainerPanel } from '../ui/Container';
 import { DyePanel } from '../ui/DyePanel';
 import { RecipeBook } from '../ui/RecipeBook';
 import { PanelStack } from '../ui/PanelStack';
 import { HallMenu } from '../ui/HallMenu';
 import { VisitMenu } from '../ui/VisitMenu';
+import { ShopPanel } from '../ui/ShopPanel';
+import { DRINK_GOODS, SPECIAL_GOODS, ShopGood, fmtCoins, rollGood } from '../world/Shop';
 import { SaveData, applySave, buildSave, isSupportedSave, migrateSave, randomIslandType, readSave, writeSave } from './Save';
 import { DayCycle } from './DayCycle';
 import { PlayerActions } from './PlayerActions';
@@ -41,7 +45,7 @@ import { MobCombat } from './MobCombat';
 import { Vehicles } from './Vehicles';
 import { Challenge } from './Challenge';
 import { Potions } from '../entities/Potions';
-import { BAG_GLASS, IRON_INGOT, WAISTBAG_SLOT } from '../world/Block';
+import { BAG_GLASS, BLOCKS, IRON_INGOT, Slots, WAISTBAG_SLOT } from '../world/Block';
 import { DIY_GOLD_PICKAXE } from '../world/GoldenItems';
 import { spawnDrop } from '../entities/drops';
 import { ZOMBIE_NAMES } from '../entities/Zombie';
@@ -51,6 +55,9 @@ import { NetClient } from '../net/Client';
 import { probeAuth } from '../ui/Auth';
 
 export type SceneMode = 'island' | 'hall' | 'visit';
+
+/** 访岛时岛主的小人站在重生点前面多少格（太近会怼脸，太远看不清是谁） */
+const VISIT_AVATAR_DIST = 3.2;
 
 export class Game {
   private renderer: Renderer;
@@ -68,6 +75,15 @@ export class Game {
   private spawn = { x: 8.5, y: 40, z: 8.5 };
   private slot = 0; private paused = false; private started = false; private lastTime = 0; private saveSlot = 0;
   private everCreative = false; private islandType: IslandType = 'apple';
+  /** 自己的 3D 形象（史蒂夫/艾力克斯）：背包里的小人和好友见到的都是它 */
+  private character: CharacterKind = 'steve'; private characterFromSave = false;
+  /** 访岛时站在岛主重生点旁的岛主小人 */
+  private visitAvatar = new VisitAvatar();
+  /** 岛币余额（大厅三台机器用；收购箱进账、售卖机扣钱） */
+  private coins = 0;
+  private shopPanel: ShopPanel | null = null;
+  /** 收购箱的 9 个格子：东西放进去立刻折算成岛币，不跨场景保存 */
+  private buyBoxSlots: Slots = Array(9).fill(null);
   private visitIslandType: IslandType | null = null; private visitOwner: string | null = null; private visitPerm: VisitPerm | null = null;
   private scene: SceneMode = 'island'; // 场景三态：island(自己岛) / hall(大厅) / visit(陌生副本岛或好友岛)
   private islandSave: SaveData | null = null;
@@ -105,6 +121,10 @@ export class Game {
         if (r.died) this.respawn();
       },
       () => this.book.hasMore(),
+      // 小战士砍死了怪：暴击/秒杀的时候喊一嗓子
+      (warrior, tag) => this.hud?.showMessage(
+        tag ? `小战士${tag}！` : `${WARRIOR_TIER_NAMES[warrior.tier]}小战士干掉了一只怪`, 1.5,
+      ),
     );
     this.vehicles = new Vehicles(this.renderer.scene, this.mobs);
     this.challenge = this.createChallenge();
@@ -122,6 +142,12 @@ export class Game {
   async start(): Promise<void> {
     await runMenuFlow((mode, save, zombieAttack, slot, toHall) => this.begin(mode, save, zombieAttack, slot, toHall));
     const who = await probeAuth();
+    // 老档没记过形象就按账号名固定挑一个（同一个名字每次进来都是同一个样子），随即写进档
+    if (who !== 'off' && who.name && !this.characterFromSave) {
+      this.character = pickCharacter(who.name);
+      this.characterFromSave = true;
+      this.persistCharacter();
+    }
     const denyMsgs: Record<string, string> = {
       offline: '对方不在线', rejected: '对方拒绝了你的访问申请',
       creative: '验证失败：双方中有人开启过创造模式', timeout: '对方未响应，申请已超时作废',
@@ -162,6 +188,8 @@ export class Game {
   private begin(mode: GameMode, save: SaveData | undefined, zombieAttack: boolean, slot: number, toHall = false): void {
     this.fires.clear(); this.saveSlot = slot;
     this.everCreative = Boolean(mode === 'creative' || save?.everCreative || save?.mode === 'creative');
+    this.character = save?.character ?? 'steve';
+    this.characterFromSave = Boolean(save?.character);
     this.mobs.zombieAttack = zombieAttack; this.mobs.zombieSpawn = true;
     this.hunger = new Hunger(mode); this.health = new Health(mode, () => this.hunger!.respawn());
     this.inventory = new Inventory(mode);
@@ -170,7 +198,11 @@ export class Game {
     const hudRef = this.hud;
     hudRef.onSlotPick = (i) => { this.slot = i; hudRef.selectSlot(i); };
     if (this.net) this.hud.setNetState(this.net.getStatus(), this.net.getOnlineList());
-    this.panel = new Panel(this.inventory, this.atlas);
+    this.panel = new Panel(this.inventory, this.atlas, {
+      kind: () => this.character,
+      swap: () => this.swapCharacter(),
+    });
+    this.shopPanel = new ShopPanel(this.atlas, () => this.coins, (good) => this.buyGood(good));
     this.container = new ContainerPanel(this.inventory, this.atlas);
     this.dyePanel = new DyePanel(this.inventory, (t) => this.hud!.showMessage(t));
     this.hallMenu = new HallMenu({
@@ -190,6 +222,7 @@ export class Game {
     this.panels.register({ name: 'inventory', isOpen: () => this.panel!.visible, close: () => this.panel!.close(), keys: (c) => this.panel!.handleKeys(c, (s) => this.playerActions!.meatMagic(s)) });
     this.panels.register({ name: 'container', isOpen: () => this.container!.visible, close: () => this.container!.close(), closeKeys: ['door'], update: (dt) => { this.world.updateFurnaces(dt); this.container!.refresh(); } });
     this.panels.register({ name: 'dye', isOpen: () => this.dyePanel!.visible, close: () => this.dyePanel!.close() });
+    this.panels.register({ name: 'shop', isOpen: () => this.shopPanel!.visible, close: () => this.shopPanel!.close() });
     this.panels.register({ name: 'book', isOpen: () => this.book.visible, close: () => this.book.close(), closeKeys: ['book'] });
     this.panels.register({ name: 'sleep', isOpen: () => this.day.sleeping, close: () => {}, update: (dt) => this.day.update(dt, this.renderer) });
     this.survival = new Survival({
@@ -208,6 +241,9 @@ export class Game {
       bookFull: () => this.book.hasAllNormal(),
       islandFruit: () => ISLAND_TYPES[this.scene === 'visit' && this.visitIslandType ? this.visitIslandType : this.islandType].fruitId,
       visitPerm: () => (this.scene === 'visit' && this.visitOwner ? this.visitPerm : null),
+      openShop: (kind) => this.openShop(kind),
+      openBuyBox: () => this.openBuyBox(),
+      summonWarrior: (eggId, x, y, z) => this.summonWarrior(eggId, x, y, z),
     });
     this.combat = new MobCombat(this.controller, this.inventory, () => this.slot, this.hud, this.mobs);
     if (save) {
@@ -220,6 +256,7 @@ export class Game {
       this.spawn = { x: gs.x, y: heightAt(Math.floor(gs.x), Math.floor(gs.z)) + 1, z: gs.z };
     }
     this.hud.refreshHotbar(this.inventory, this.slot);
+    this.hud.setCoins(this.coins);
     this.hud.setPaused(this.paused);
     this.hud.showIslandGreeting(this.islandType);
     document.getElementById('quitbtn')!.onclick = () => this.quitToMenu();
@@ -257,9 +294,10 @@ export class Game {
     const r = applySave(save, {
       inv: this.inventory!, health: this.health!, hunger: this.hunger!, world: this.world,
       scene: this.renderer.scene, animals: this.mobs.animals, zombies: this.mobs.zombies, drops: this.drops,
-      tanks: this.vehicles.tanks, challenge: this.challenge,
+      tanks: this.vehicles.tanks, challenge: this.challenge, warriors: this.mobs.warriors,
     });
     this.spawn = r.spawn; this.slot = r.slot; this.islandType = r.islandType;
+    this.coins = r.coins;
     this.everCreative = this.everCreative || r.everCreative || this.inventory!.mode === 'creative';
     this.mobs.zombieSpawn = r.zombieSpawn;
     this.book.importLearned(r.learned);
@@ -275,16 +313,97 @@ export class Game {
     body.flying = this.inventory!.infinite;
   }
 
+  /** 岛币增减（收购箱进账 / 售卖机扣钱）：顺手刷新 HUD 上的余额 */
+  private addCoins(n: number): void {
+    this.coins = Math.max(0, Math.round((this.coins + n) * 100) / 100);
+    this.hud?.setCoins(this.coins);
+  }
+
+  /** 对着售卖机按 M：打开对应货架 */
+  private openShop(kind: 'special' | 'drink'): void {
+    this.shopPanel?.open(
+      kind === 'special' ? '特殊物品售卖机' : '饮料售卖机',
+      kind === 'special' ? SPECIAL_GOODS : DRINK_GOODS,
+    );
+  }
+
+  /** 点「购买」：先看钱和背包够不够，够了扣钱发货（小战士蛋还要抽品质） */
+  private buyGood(good: ShopGood): void {
+    const inv = this.inventory!;
+    if (this.coins < good.price) {
+      this.hud!.showMessage(`岛币不够，还差 ${fmtCoins(good.price - this.coins)} 岛币`, 2.5);
+      return;
+    }
+    const id = rollGood(good);
+    if (!inv.hasRoom(id, 1)) {
+      this.hud!.showMessage('背包满了，先腾个格子再来买', 2.5);
+      return;
+    }
+    this.addCoins(-good.price);
+    inv.add(id, 1);
+    this.hud!.refreshHotbar(inv, this.slot);
+    this.shopPanel?.refreshCoins();
+    const name = BLOCKS[id]?.cn ?? '东西';
+    this.hud!.showMessage(id === good.id ? `买到 ${name}！` : `叮——抽到了${name}！`, 2.5);
+    this.saveNow();
+  }
+
+  /** 对着收购箱按 M：东西放进去立刻按价目表换成岛币 */
+  private openBuyBox(): void {
+    this.container!.openBuyBox(this.buyBoxSlots, (coins) => {
+      this.addCoins(coins);
+      this.hud!.showMessage(`卖了 ${fmtCoins(coins)} 岛币（余额 ${fmtCoins(this.coins)}）`, 2.5);
+      this.saveNow();
+    });
+  }
+
+  /** 拿着小战士召唤蛋对地按 M：在指定方块上方召唤保镖，蛋消耗一个 */
+  private summonWarrior(eggId: number, x: number, y: number, z: number): void {
+    const tier = TIER_OF_EGG[eggId];
+    if (!tier) return;
+    const inv = this.inventory!;
+    const spot = this.survival!.freeSpot(x + 0.5, y + 1, z + 0.5);
+    this.mobs.summonWarrior(tier, spot.x, spot.y, spot.z);
+    const held = inv.hotbar[this.slot];
+    if (!inv.infinite && held?.id === eggId) {
+      held.count--;
+      if (held.count <= 0) inv.hotbar[this.slot] = null;
+      this.hud!.refreshHotbar(inv, this.slot);
+    }
+    this.hud!.showMessage(`${WARRIOR_TIER_NAMES[tier]}小战士参战！他会跟着你，优先打正在打你的怪`, 3);
+    this.saveNow();
+  }
+
+  /** 背包里点「人物」换一个形象：史蒂夫 ↔ 艾力克斯，换完马上写进档（在大厅/副本岛时也照写） */
+  private swapCharacter(): void {
+    this.character = this.character === 'steve' ? 'alex' : 'steve';
+    this.characterFromSave = true;
+    this.persistCharacter();
+    this.hud?.showMessage(`换成了${CHARACTER_NAMES[this.character]}`, 1.5);
+  }
+
+  /** 只改人物形象也要落盘：在自己岛上就整档存，在大厅/副本岛就只把人物字段写回本岛存档 */
+  private persistCharacter(): void {
+    if (this.scene === 'island') { this.saveNow(); return; }
+    const save = this.islandSave ?? readSave(this.saveSlot);
+    if (!save) return;
+    save.character = this.character;
+    this.islandSave = save;
+    writeSave(this.saveSlot, save);
+  }
+
   /** 把当前本岛状态打包存进浏览器（在大厅/副本岛时不覆盖本岛存档） */
   private saveNow(): void {
     if (!this.started || this.scene !== 'island' || !this.body || !this.inventory || !this.health || !this.hunger) return;
     if (this.inventory.mode === 'creative') this.everCreative = true;
     this.net?.setEverCreative(this.everCreative);
     const data = buildSave({
-      mode: this.inventory.mode, everCreative: this.everCreative, islandType: this.islandType, spawn: this.spawn, body: this.body,
+      mode: this.inventory.mode, everCreative: this.everCreative, islandType: this.islandType, character: this.character, spawn: this.spawn, body: this.body,
+      coins: this.coins,
       health: this.health, hunger: this.hunger, slot: this.slot, inv: this.inventory,
       world: this.world, animals: this.mobs.animals, zombies: this.mobs.zombies, drops: this.drops,
       tanks: this.vehicles!.tanks, challenge: this.challenge, learned: this.book.learnedIds(),
+      warriors: this.mobs.warriors,
       golden: { learned: this.book.goldenLearnedIds(), tasks: this.book.goldenTaskIds(), waterUses: this.book.goldenWaterUseCount() },
       paused: this.paused, dayTime: this.day.time, zombieAttack: this.mobs.zombieAttack, zombieSpawn: this.mobs.zombieSpawn,
     });
@@ -295,6 +414,7 @@ export class Game {
   /** 清空当前世界网格与场内所有活物、掉落物、飞行药水、载具、火焰 */
   private clearScene(): void {
     this.playerActions?.cancelMining(); this.hud?.setProgress(0); this.highlight.visible = false;
+    this.visitAvatar.clear(this.renderer.scene);
     for (const a of this.mobs.animals) this.renderer.scene.remove(a.group);
     this.mobs.animals.length = 0;
     for (const z of this.mobs.zombies) this.renderer.scene.remove(z.group);
@@ -303,6 +423,8 @@ export class Game {
     this.drops.length = 0; this.potions.update(100, this.world);
     for (const t of this.vehicles.tanks) this.renderer.scene.remove(t.group);
     this.vehicles.tanks.length = 0; this.vehicles.riding = null;
+    for (const w of this.mobs.warriors) this.renderer.scene.remove(w.group);
+    this.mobs.warriors.length = 0;   // 小战士跟着存档走，回本岛时由 applySave 重新放出来
     this.fires.clear(); this.challenge = this.createChallenge();
     this.world.clear(); this.chunkMeshes.clear();
   }
@@ -410,7 +532,21 @@ export class Game {
       body.x = this.spawn.x; body.y = this.spawn.y; body.z = this.spawn.z;
       body.vx = body.vy = body.vz = 0; body.fellFrom = body.y;
       this.streamChunks(Infinity); this.chunkMeshes.rebuildDirty(this.world);
-      this.hud!.showMessage(`来到了 ${owner} 的${ISLAND_TYPES[ownerIslandType].cn}！按 H 回大厅`, 3.5);
+      // 岛主的 3D 小人站在重生点前面几格（按他上次的朝向反推，脚踩在那格地面上），
+      // 访客落在重生点上、转身正对着他，一进岛就是「见面」这一幕
+      const kind = friendSave.character ?? pickCharacter(owner);
+      const ownerYaw = friendSave.body?.yaw ?? 0;
+      const ax = this.spawn.x + Math.sin(ownerYaw) * VISIT_AVATAR_DIST;
+      const az = this.spawn.z + Math.cos(ownerYaw) * VISIT_AVATAR_DIST;
+      const stand = this.visitAvatar.place({
+        scene: this.renderer.scene, kind, name: owner,
+        at: { x: ax, y: heightAt(Math.floor(ax), Math.floor(az)) + 0.05, z: az },  // heightAt 就是地面高度，+0.05 防共面闪烁
+        freeSpot: (x, y, z) => this.survival!.freeSpot(x, y, z),
+        lookAt: body,
+      });
+      body.yaw = Math.atan2(-(stand.x - body.x), -(stand.z - body.z));
+      body.pitch = 0;
+      this.hud!.showMessage(`见到了 ${owner}（${CHARACTER_NAMES[kind]}）！按 H 回大厅`, 4);
     } catch {
       this.hud!.showMessage('加载好友岛屿出错', 2.5);
     }
@@ -523,6 +659,7 @@ export class Game {
       this.survival!.eatKey(body); this.slot = this.survival!.hotbarKeys(this.slot);
       if (this.scene === 'island') this.mobs.update(dt, body.x, body.y, body.z, this.day.time >= DAY.NIGHT_FROM, this.day.time);
       this.potions.update(dt, this.world); this.fires.update(dt);
+      this.visitAvatar.update(dt, body.x, body.z);
       this.drops = this.pickup!.update(dt, body);
       if (this.scene === 'island') this.challenge.update(dt, body, this.inventory!, hud);
       if (this.scene !== 'hall') this.streamChunks(2);

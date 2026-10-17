@@ -1,7 +1,7 @@
 /** 地形生成 — 用噪声画出有山有水有树的世界（固定种子，每次进游戏都一样） */
 
-import { CHUNK, CROP, ORE, SEA_LEVEL, SPAWN, WORLD_SEED } from '../config';
-import { BLUE_ORE, CACTUS, CARROT_MATURE, COAL_ORE, DANDELION, DIRT, GOLD_ORE, GRASS, ICE, IRON_ORE, LEAVES, MELON, POPPY, PUMPKIN, RICE_MATURE, SAND, SANDSTONE, SEAWEED, SNOW, SOUL_GRASS, STONE, TALL_GRASS, WATER, WOOD } from './Block';
+import { CHUNK, CROP, ORE, PALM, SEA_LEVEL, SPAWN, WORLD_SEED } from '../config';
+import { BLUE_ORE, CACTUS, CARROT_MATURE, COAL_ORE, COCONUT, DANDELION, DIRT, GOLD_ORE, GRASS, ICE, IRON_ORE, LEAVES, MELON, PALM_LEAVES, PALM_WOOD, POPPY, PUMPKIN, RICE_MATURE, SAND, SANDSTONE, SEAWEED, SNOW, SOUL_GRASS, STONE, TALL_GRASS, WATER, WOOD } from './Block';
 import { Chunk } from './Chunk';
 import { swampAt } from './Swamp';
 
@@ -129,7 +129,10 @@ export function generateChunk(chunk: Chunk, opts?: { grassOnly?: boolean }): voi
         }
         else if (y <= SEA_LEVEL) id = biome === 'snow' && y === SEA_LEVEL ? ICE : WATER;
         // 雪地里湖面最上面一层冻成冰
-        chunk.data[Chunk.index(lx, y, lz)] = id;
+        // 注意：只在自己是空气时才覆盖——前面的列种下的树叶/椰子会伸到这一列来，
+        // 不判一下就会被这里重新写成空气，树冠只剩朝 -x/-z 的半边
+        const idx = Chunk.index(lx, y, lz);
+        if (id !== 0 || chunk.data[idx] === 0) chunk.data[idx] = id;
       }
 
       // 沼泽水塘：地表往下两格换成泽液，踩进去才会中招
@@ -151,6 +154,14 @@ export function generateChunk(chunk: Chunk, opts?: { grassOnly?: boolean }): voi
         for (let i = 0; i < tall; i++) {
           chunk.data[Chunk.index(lx, h + i, lz)] = CACTUS;
         }
+      }
+
+      // 椰子树：只长在沙滩上（沙子地面、海平面往上 2 格以内的窄带），稀稀拉拉
+      const beachSand = chunk.data[Chunk.index(lx, h - 1, lz)] === SAND && h > SEA_LEVEL && h <= SEA_LEVEL + 2;
+      if (!swamp && beachSand && hash(wx * 43 + 13, wz * 43 + 29) < PALM.CHANCE &&
+          lx >= 2 && lx <= CHUNK.SIZE - 3 && lz >= 2 && lz <= CHUNK.SIZE - 3 &&
+          chunk.data[Chunk.index(lx, h, lz)] === 0) {
+        plantPalm(chunk, lx, h, lz);
       }
 
       // 花草与作物点缀：草方块/泥土顶上是空格才长；稀稀拉拉，不铺满
@@ -187,6 +198,34 @@ export function generateChunk(chunk: Chunk, opts?: { grassOnly?: boolean }): voi
     }
   }
   grassOnlyMode = prevGrassOnly;
+}
+
+/** 一棵椰子树 = 浅色木干 + 顶上四瓣叶子（一横一竖两片大叶 + 斜向小叶）+ 叶下挂 3~4 个椰子 */
+function plantPalm(chunk: Chunk, x: number, groundY: number, z: number): void {
+  const h = PALM.HEIGHT_MIN + Math.floor(hash(x * 53 + 7, z * 53 + 19) * (PALM.HEIGHT_MAX - PALM.HEIGHT_MIN + 1));
+  const top = groundY + h;
+  if (top + 1 >= CHUNK.HEIGHT) return;
+  const put = (dx: number, y: number, dz: number, id: number) => {
+    const i = Chunk.index(x + dx, y, z + dz);
+    if (y >= 0 && y < CHUNK.HEIGHT && chunk.data[i] === 0) chunk.data[i] = id;
+  };
+  // 树干
+  for (let y = groundY; y < top; y++) chunk.data[Chunk.index(x, y, z)] = PALM_WOOD;
+  // 树冠：中间一格 + 四个方向各伸出去 2 格，尖端下垂一格
+  put(0, top, 0, PALM_LEAVES);
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+    put(dx, top, dz, PALM_LEAVES);
+    put(dx * 2, top, dz * 2, PALM_LEAVES);
+    put(dx * 2, top - 1, dz * 2, PALM_LEAVES);
+  }
+  // 椰子：挂在树冠底下的四个斜角上，随机 3~4 个
+  const span = PALM.COCONUT_MAX - PALM.COCONUT_MIN + 1;
+  const n = PALM.COCONUT_MIN + Math.floor(hash(x * 61 + 3, z * 61 + 23) * span);
+  const spots = [[1, 1], [-1, 1], [1, -1], [-1, -1]] as const;
+  for (let i = 0; i < Math.min(n, spots.length); i++) {
+    const [dx, dz] = spots[i];
+    put(dx, top - 1, dz, COCONUT);
+  }
 }
 
 /** 一棵树 = 4 格木干 + 一坨树叶 */

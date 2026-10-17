@@ -2,6 +2,7 @@
 
 import { HEALTH, HUNGER, ISLAND_TYPES, IslandType } from '../config';
 import { BLOCKS } from '../world/Block';
+import { fmtCoins } from '../world/Shop';
 import { Atlas } from '../render/Textures';
 import { Inventory } from '../player/Inventory';
 import { NetStatus } from '../net/Protocol';
@@ -11,6 +12,7 @@ export class Hud {
   private heartsEl = document.getElementById('hearts')!;
   private oxygenEl = document.getElementById('oxygen')!;
   private hungerEl: HTMLElement;
+  private coinsEl: HTMLElement;
   private netEl: HTMLElement;
   private netStatus: NetStatus = 'disconnected';
   private onlineList: string[] = [];
@@ -39,6 +41,16 @@ export class Hud {
       this.heartsEl.insertAdjacentElement('afterend', hungerEl);
     }
     this.hungerEl = hungerEl;
+    // 岛币余额：跟在饥饿条下面一行（🪙 图标 + 数字，最多两位小数）
+    let coinsEl = document.getElementById('coins');
+    if (!coinsEl) {
+      coinsEl = document.createElement('div');
+      coinsEl.id = 'coins';
+      coinsEl.style.fontSize = '15px';
+      coinsEl.style.textShadow = '1px 1px 2px var(--hud-shadow)';
+      this.hungerEl.insertAdjacentElement('afterend', coinsEl);
+    }
+    this.coinsEl = coinsEl;
     let netEl = document.getElementById('net-status');
     if (!netEl) {
       netEl = document.createElement('div');
@@ -135,6 +147,11 @@ export class Hud {
       this.msgTimer -= dt;
       if (this.msgTimer <= 0) this.messageEl.textContent = '';
     }
+  }
+
+  /** 刷新岛币余额显示（🪙 图标 + 数字） */
+  setCoins(n: number): void {
+    this.coinsEl.textContent = `🪙 ${fmtCoins(n)} 岛币`;
   }
 
   showMessage(text: string, seconds = 2.5): void {

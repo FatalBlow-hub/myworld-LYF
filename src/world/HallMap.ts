@@ -34,6 +34,11 @@ export function buildHall(world: World): void {
   chunk.data[Chunk.index(tx1, floorY + 2, tz)] = PLANKS;
   chunk.data[Chunk.index(tx2, floorY + 2, tz)] = PLANKS;
 
+  // 角落三台机器：特殊物品售卖机 / 饮料售卖机 / 收购箱，对着按 M 使用
+  for (const m of HALL.MACHINES) {
+    chunk.data[Chunk.index(m.x, floorY + 1, m.z)] = m.id;
+  }
+
   chunk.dirty = true;
   world.dirtyChunks.add(World.key(0, 0));
 }

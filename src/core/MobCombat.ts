@@ -1,6 +1,6 @@
 /** 生物战斗 — 玩家挥拳/用玻璃锥攻击，并处理羊的 M 键互动 */
 
-import { ANIMAL, CONE } from '../config';
+import { ANIMAL, CONE, WARRIOR } from '../config';
 import { GLASS_CONE } from '../world/Block';
 import { PlayerBody } from '../player/Physics';
 import { Controller } from '../player/Controller';
@@ -8,6 +8,7 @@ import { Inventory } from '../player/Inventory';
 import { Hud } from '../ui/Hud';
 import { Animal } from '../entities/Animal';
 import { MobHit, Mobs } from '../entities/Mobs';
+import { Zombie } from '../entities/Zombie';
 
 export class MobCombat {
   private hitCooldown = 0;
@@ -38,6 +39,8 @@ export class MobCombat {
       } else {
         mob.mob.hurt(ANIMAL.PUNCH_DAMAGE, body.yaw);
       }
+      // 记一笔：主人正在打这只怪，小战士会优先来帮忙（打羊也顺手记一下，不影响）
+      if (mob.mob instanceof Zombie) mob.mob.hurtByPlayerT = WARRIOR.MEMORY;
       if (mob.mob.dead) this.mobs.kill(mob.mob);
     }
     if (mob.mob instanceof Animal && mob.mob.kind === 'sheep' && this.controller.take('door')) {

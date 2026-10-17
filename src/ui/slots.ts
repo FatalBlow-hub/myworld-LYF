@@ -34,12 +34,20 @@ export function bindSlot(el: HTMLElement, onClick: () => void, onAlt?: () => voi
   });
   if (onAlt) {
     let timer = 0;
+    let sx = 0;
+    let sy = 0;
     const cancel = () => { if (timer) { clearTimeout(timer); timer = 0; } };
-    el.addEventListener('touchstart', () => {
+    el.addEventListener('touchstart', (e) => {
+      const t = e.touches[0];
+      if (t) { sx = t.clientX; sy = t.clientY; }
       cancel();
       timer = window.setTimeout(() => { timer = 0; altAt = Date.now(); onAlt(); }, 400);
     }, { passive: true });
-    el.addEventListener('touchmove', cancel, { passive: true });
+    // 手指长按总会小幅抖动，挪出 12px 才算"想拖动"，不然手机上的长按永远触发不了
+    el.addEventListener('touchmove', (e) => {
+      const t = e.touches[0];
+      if (t && Math.hypot(t.clientX - sx, t.clientY - sy) > 12) cancel();
+    }, { passive: true });
     el.addEventListener('touchend', cancel);
     el.addEventListener('touchcancel', cancel);
   }

@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { HUNGER, ISLAND_TYPES, IslandType, SKATES } from '../config';
 import { Animal, AnimalKind } from '../entities/Animal';
+import { CharacterKind } from '../entities/Character';
 import { ItemDrop } from '../entities/ItemDrop';
 import { spawnDrop } from '../entities/drops';
 import { GameMode, Health } from '../player/Health';
@@ -12,6 +13,7 @@ import { PlayerBody } from '../player/Physics';
 import { ROLLER_SKATES, Slots, Stack } from '../world/Block';
 import { FurnaceState, World } from '../world/World';
 import { Zombie, ZombieKind } from '../entities/Zombie';
+import { Warrior, WarriorTier } from '../entities/Warrior';
 import { Tank } from '../entities/Tank';
 import { Challenge, ChallengeSave } from './Challenge';
 
@@ -49,6 +51,7 @@ export function migrateSave(d: SaveData): SaveData {
     hungerOn: d.hungerOn ?? false,
     everCreative: d.everCreative ?? (d.mode === 'creative'),
     islandType,
+    coins: d.coins ?? 0,
     body: {
       ...d.body,
       boostMult: d.body.boostMult ?? 1,
@@ -63,6 +66,10 @@ export interface SaveData {
   everCreative?: boolean;
   /** 专属岛屿类型（新建档随机分配，老档在 migrateSave 补随机默认） */
   islandType?: IslandType;
+  /** 岛币余额（大厅机器买卖用；老档没有就 0 元起） */
+  coins?: number;
+  /** 玩家形象（史蒂夫/艾力克斯）：旧档没有就按账号名固定挑一个，朋友访岛时看到的就是这个 */
+  character?: CharacterKind;
   /** 重生点 */
   spawn: { x: number; y: number; z: number };
   /** 玩家站的位置和朝向；boostT = 食物加速剩下的秒数；boostMult = 加速倍率 */
@@ -108,6 +115,8 @@ export interface SaveData {
   tanks?: { x: number; y: number; z: number; yaw: number; ammo?: number }[];
   /** 挑战房：盖过的房子 + 打到第几关（旧存档没有就没盖过） */
   challenge?: ChallengeSave;
+  /** 小战士（保镖）：只存品质和位置，血量每次进游戏满血；打死的就不存了 */
+  warriors?: { tier: WarriorTier; x: number; y: number; z: number }[];
 }
 
 /** 列出所有存在的账号存档（顺手把旧版单存档搬成 1 号账号） */
@@ -233,6 +242,8 @@ export function buildSave(g: {
   mode: GameMode;
   everCreative?: boolean;
   islandType: IslandType;
+  coins: number;
+  character?: CharacterKind;
   spawn: { x: number; y: number; z: number };
   body: PlayerBody;
   health: Health;
@@ -245,6 +256,7 @@ export function buildSave(g: {
   drops: ItemDrop[];
   tanks: Tank[];
   challenge: Challenge;
+  warriors: Warrior[];
   learned: number[];
   golden: { learned: number[]; tasks: number[]; waterUses: number };
   paused: boolean;
@@ -257,6 +269,8 @@ export function buildSave(g: {
     mode: g.mode,
     everCreative: g.everCreative || g.mode === 'creative',
     islandType: g.islandType,
+    coins: Math.round(g.coins * 100) / 100,
+    character: g.character,
     spawn: { ...g.spawn },
     body: {
       x: g.body.x, y: g.body.y, z: g.body.z,
@@ -282,6 +296,7 @@ export function buildSave(g: {
     zombies: g.zombies.filter((z) => !z.noLoot).map((z) => ({ x: z.x, y: z.y, z: z.z, hp: z.hp, kind: z.kind === 'normal' ? undefined : z.kind })),
     drops: g.drops.map((d) => ({ id: d.itemId, count: d.count, x: d.x, y: d.y, z: d.z, age: d.age })),
     tanks: g.tanks.map((t) => ({ x: t.x, y: t.y, z: t.z, yaw: t.yaw, ammo: t.ammo })),
+    warriors: g.warriors.filter((w) => !w.dead).map((w) => ({ tier: w.tier, x: w.x, y: w.y, z: w.z })),
     challenge: g.challenge.serialize(),
     learned: g.learned,
     golden: g.golden,
@@ -295,9 +310,9 @@ export function buildSave(g: {
 /** 还原：把存档里的东西一件件摆回去；返回出生点和选中的格子由调用方接 */
 export function applySave(
   d: SaveData,
-  into: { inv: Inventory; health: Health; hunger: Hunger; world: World; scene: THREE.Scene; animals: Animal[]; zombies: Zombie[]; drops: ItemDrop[]; tanks: Tank[]; challenge: Challenge },
-): { spawn: { x: number; y: number; z: number }; slot: number; learned: number[]; golden?: SaveData['golden']; paused: boolean; dayTime: number; zombieAttack: boolean; zombieSpawn: boolean; islandType: IslandType; everCreative: boolean } {
-  const { inv, health, hunger, world, scene, animals, zombies, drops, tanks, challenge } = into;
+  into: { inv: Inventory; health: Health; hunger: Hunger; world: World; scene: THREE.Scene; animals: Animal[]; zombies: Zombie[]; drops: ItemDrop[]; tanks: Tank[]; challenge: Challenge; warriors: Warrior[] },
+): { spawn: { x: number; y: number; z: number }; slot: number; learned: number[]; golden?: SaveData['golden']; paused: boolean; dayTime: number; zombieAttack: boolean; zombieSpawn: boolean; islandType: IslandType; everCreative: boolean; coins: number } {
+  const { inv, health, hunger, world, scene, animals, zombies, drops, tanks, challenge, warriors } = into;
   const copy = (dst: Slots, src: Slots) => src.forEach((s, i) => { dst[i] = s; });
   copy(inv.hotbar, d.inv.hotbar);
   copy(inv.storage, d.inv.storage);
@@ -355,10 +370,17 @@ export function applySave(
     scene.add(tk.group);
   }
   challenge.restore(d.challenge); // 挑战房：房子认回来，打到一半接着打
+  // 小战士：只认品质和位置，血是满的（死掉的没存进来）
+  for (const w of d.warriors ?? []) {
+    const warrior = new Warrior(w.tier, w.x, w.y, w.z);
+    warriors.push(warrior);
+    scene.add(warrior.group);
+  }
   return {
     spawn: { ...d.spawn }, slot: d.slot, learned: d.learned ?? [], golden: d.golden,
     paused: d.paused ?? false, dayTime: d.dayTime ?? 0, zombieAttack: d.zombieAttack ?? true, zombieSpawn: d.zombieSpawn ?? true,
     islandType: d.islandType && d.islandType in ISLAND_TYPES ? d.islandType : randomIslandType(),
     everCreative: Boolean(d.everCreative || d.mode === 'creative'),
+    coins: d.coins ?? 0,
   };
 }
