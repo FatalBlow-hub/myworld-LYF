@@ -28,6 +28,7 @@ import Database from 'better-sqlite3';
 import { attachWs, consumeVisitTicket } from './ws.mjs';
 import { runMigrations } from './migrate.mjs';
 import { attachAddict, syncAdmins } from './addict.mjs';
+import { attachGameState } from './gamestate.mjs';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..'); // 项目根目录
 const DIST = join(ROOT, 'dist');          // vite 打包出来的静态文件
@@ -227,8 +228,15 @@ async function handleSave(req, res, ip) {
   if (req.method === 'GET') {
     const row = q.save.get(u.id);
     if (!row) return sendErr(res, 404, 'no save');
+    // 读档这刻把权威岛币和家长的强制设置钉进存档（改本地存档也绕不开）
+    let data = row.data;
+    try {
+      const obj = JSON.parse(row.data);
+      gs.applyToSave(u.id, obj);
+      data = JSON.stringify(obj);
+    } catch { /* 坏档原样返回，交给前端兜底 */ }
     res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
-    return res.end(row.data);
+    return res.end(data);
   }
   if (req.method === 'DELETE') {
     q.dropSave.run(u.id);
@@ -238,6 +246,7 @@ async function handleSave(req, res, ip) {
     const body = await readBody(req);
     // 存档格式：比服务端新的档拒收（防止把看不懂的新字段写爆），老档照收（前端 migrateSave 会补齐字段）
     if (!body || typeof body.v !== 'number' || body.v < 1 || body.v > 1) return sendErr(res, 400, 'bad save');
+    gs.syncFromSave(u.id, body); // 权威岛币 / 曾开创造：采信或拦截，并回写进存档
     q.putSave.run(u.id, JSON.stringify(body), Math.floor(Date.now() / 1000));
     return send(res, 200, { ok: true });
   }
@@ -332,6 +341,9 @@ const server = createServer(async (req, res) => {
     if (url.startsWith('/api/auth/')) return await handleAuth(req, res, ip);
     if (url.startsWith('/api/save')) return await handleSave(req, res, ip);
     if (url.startsWith('/api/visit/world')) return handleVisitWorld(req, res, ip);
+    // 游戏状态权威化：家长配置（游戏启动时拉）+ 控制台的岛币/强制项接口（要排在 /api/admin 前面）
+    if (url.startsWith('/api/game/config')) return await gs.handleConfig(req, res, ip);
+    if (url.startsWith('/api/admin/gamestate') || url.startsWith('/api/admin/coins')) return await gs.handleAdmin(req, res, ip);
     if (url.startsWith('/api/playtime')) return await addict.handlePlaytime(req, res, ip);
     if (url.startsWith('/api/admin')) return await addict.handleAdmin(req, res, ip);
     if (url.startsWith('/api/')) return sendErr(res, 404, 'unknown api');
@@ -353,6 +365,9 @@ function userExistsByName(name) {
 
 // 挂上幼儿防沉迷（HTTP 接口 + WS 锁定查询/计时，独立模块 server/addict.mjs）
 const addict = attachAddict({ db, currentUser, send, sendErr, readBody, limited, API_LIMIT });
+
+// 挂上游戏状态权威化（权威岛币 + 家长强制项，独立模块 server/gamestate.mjs）
+const gs = attachGameState({ db, currentUser, send, sendErr, readBody, limited, API_LIMIT });
 
 // 挂上 WebSocket 长连接服务（复用同一端口，处理 /ws 的 upgrade）；末参传入防沉迷：到点踢人 + ping 计时
 attachWs(server, currentUser, readSaveByUserName, userExistsByName, addict);

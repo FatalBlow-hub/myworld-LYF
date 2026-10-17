@@ -60,6 +60,19 @@
     .gcell .k { font-size: 12px; color: var(--muted); }
     .gcell .v { font-size: 17px; margin-top: 2px; }
     .gcell.warn .v { color: #ff8a80; }
+    /* —— 折叠区（次要信息，默认收起，页面不拖长） —— */
+    .more { margin-top: 10px; }
+    .more > summary { cursor: pointer; font-size: 13px; color: var(--muted); padding: 4px 0; }
+    .more > summary:hover { color: var(--hud-text); }
+    .more[open] > summary { margin-bottom: 8px; }
+    /* —— 岛币变化记录 —— */
+    .coinlog { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+    .coinlog .r { display: flex; gap: 10px; font-size: 12px; color: var(--muted); padding: 3px 6px; }
+    .coinlog .r.up .d { color: #9ccc65; }
+    .coinlog .r.spike { background: rgba(138,75,75,0.35); border-radius: 4px; }
+    .coinlog .r .d { width: 72px; font-variant-numeric: tabular-nums; }
+    .coinlog .r .w { width: 130px; }
+    .coinlog .r .t { width: 130px; }
   </style>
 </head>
 <body>
@@ -129,12 +142,14 @@
         <div class="row" id="detail-ops"></div>
       </div>
       <div class="card">
-        <p class="muted">最近 14 天游玩时长（点某一天跳到那天）</p>
-        <div class="daylist" id="daylist"></div>
-      </div>
-      <div class="card">
-        <p class="muted">游戏内情况（只读 —— 存档还是客户端权威，等权威化再做修改）</p>
+        <p class="muted">游戏内情况（岛币是服务端权威，发放/扣除后孩子读档即生效）</p>
         <div class="gamebox" id="game-box"></div>
+        <div class="row" id="game-ops"></div>
+        <details class="more">
+          <summary>更多：角色、进度、岛币变化记录</summary>
+          <div class="gamebox" id="game-box-more"></div>
+          <div class="coinlog" id="coin-log"></div>
+        </details>
       </div>
       <div class="confirm-mask" id="detail-confirm" style="display:none">
         <div class="confirm-box" role="alertdialog">

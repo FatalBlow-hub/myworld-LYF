@@ -129,13 +129,14 @@ export class AccountMenu {
 
   constructor(
     private actions: AccountMenuActions,
-    private opts: { name: string; save: { mode: GameMode; zombieAttack: boolean } | null },
+    private opts: { name: string; save: { mode: GameMode; zombieAttack: boolean } | null; note?: string },
   ) {
     this.el = document.createElement('div');
     this.el.className = 'overlay account';
     this.el.innerHTML = `
       <h1>方块世界</h1>
       <p class="account-name">你好，${esc(opts.name)}</p>
+      ${opts.note ? `<p class="account-note">${esc(opts.note)}</p>` : ''}
       <div class="menu-main">
         ${opts.save ? `<button data-continue>▶ 继续游戏（${opts.save.mode === 'survival' ? '生存' : '创造'}）</button>` : ''}
         ${opts.save ? `<button data-hall>🏠 去大厅玩</button>` : ''}

@@ -41,15 +41,45 @@ export async function showLocalMenu(begin: BeginGame, hallOk: boolean): Promise<
   );
 }
 
+/** 家长在游戏里设的强制项（禁创造 / 僵尸）：游戏启动时拉一次，应用到开局
+ *  服务端读档时也会覆盖，这里再应用一遍 = 「下次进游戏就生效」 */
+export interface GameConfig {
+  coins: number;
+  everCreative: boolean;
+  creativeBlocked: boolean;
+  zombieForced: number | null; // null=家长不干预 / 0=关 / 1=开
+}
+
+/** 拉家长配置：没登录或后端不在就当没设置，不挡正常玩 */
+async function fetchGameConfig(): Promise<GameConfig | null> {
+  try {
+    const r = await fetch('/api/game/config');
+    if (!r.ok) return null;
+    return (await r.json()) as GameConfig;
+  } catch {
+    return null;
+  }
+}
+
 /** 服务器模式：已登录账号的菜单 — 服务器档先搬到本地 1 号槽再开玩，写档自动传回服务器 */
 export async function showAccountMenu(name: string, begin: BeginGame): Promise<void> {
   setServerMode(true); // 从这开始，写档/删档都会同步到服务器
-  const save = await syncServerSave(name);
+  const [save, cfg] = await Promise.all([syncServerSave(name), fetchGameConfig()]);
+  // 家长设置优先：禁创造 → 强制生存；强制僵尸 → 覆盖存档里的开关
+  const modeOf = (m: GameMode): GameMode => (cfg?.creativeBlocked ? 'survival' : m);
+  const zombieOf = (z: boolean): boolean =>
+    cfg?.zombieForced === 0 || cfg?.zombieForced === 1 ? cfg.zombieForced === 1 : z;
+  const started = save
+    ? { ...save, mode: modeOf(save.mode), zombieAttack: zombieOf(save.zombieAttack ?? true) }
+    : null;
+  const note = cfg?.creativeBlocked
+    ? '家长已关闭创造模式（只能玩生存）'
+    : (cfg?.zombieForced === 0 ? '家长已关闭僵尸攻击' : '');
   new AccountMenu(
     {
-      onContinue: () => begin(save!.mode, save!, save!.zombieAttack ?? true, 1),
-      onHall: () => begin(save!.mode, save!, save!.zombieAttack ?? true, 1, true),
-      onPickMode: (mode, z) => begin(mode, undefined, z, 1),
+      onContinue: () => begin(started!.mode, started!, started!.zombieAttack, 1),
+      onHall: () => begin(started!.mode, started!, started!.zombieAttack, 1, true),
+      onPickMode: (mode, z) => begin(modeOf(mode), undefined, zombieOf(z), 1),
       onDelete: () => {
         deleteSave(1);
         location.reload();
@@ -58,7 +88,8 @@ export async function showAccountMenu(name: string, begin: BeginGame): Promise<v
     },
     {
       name,
-      save: save ? { mode: save.mode, zombieAttack: save.zombieAttack ?? true } : null,
+      save: started ? { mode: started.mode, zombieAttack: started.zombieAttack } : null,
+      note,
     },
   );
 }

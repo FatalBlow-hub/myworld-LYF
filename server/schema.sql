@@ -41,6 +41,28 @@ CREATE TABLE IF NOT EXISTS addict_config (
   updated_at INTEGER NOT NULL
 );
 
+-- 0003 游戏状态权威化：权威岛币 + 家长强制项（禁创造 / 僵尸）；账号级一行
+CREATE TABLE IF NOT EXISTS game_state (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id),
+  coins INTEGER NOT NULL DEFAULT 0,            -- 权威岛币（控制台发放/扣除直接改，读档覆盖客户端）
+  ever_creative INTEGER NOT NULL DEFAULT 0,    -- 权威"曾开创造"，只增不减，家长可清除
+  creative_blocked INTEGER NOT NULL DEFAULT 0, -- 家长禁用创造：读档强制 survival
+  zombie_forced INTEGER,                        -- 家长强制僵尸：NULL=不干预 / 0=关 / 1=开
+  updated_at INTEGER NOT NULL
+);
+
+-- 0003 岛币变化审计（只记有变化的存档同步；异常暴涨留痕）
+CREATE TABLE IF NOT EXISTS coin_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  day TEXT NOT NULL,
+  reported INTEGER NOT NULL,
+  accepted INTEGER NOT NULL,
+  delta INTEGER NOT NULL,
+  reason TEXT NOT NULL,              -- init / save-sync / rejected-spike / admin-grant / admin-deduct
+  created_at INTEGER NOT NULL
+);
+
 -- 迁移记录表（migrate.mjs 维护，保证迁移幂等）
 CREATE TABLE IF NOT EXISTS schema_migrations (
   name TEXT PRIMARY KEY,

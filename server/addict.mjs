@@ -65,6 +65,7 @@ export function attachAddict(deps) {
     allUsers: db.prepare('SELECT id, name, is_admin, banned FROM users ORDER BY id'),
     daysRange: db.prepare('SELECT * FROM playtime_daily WHERE user_id = ? AND day >= ? AND day <= ? ORDER BY day'),
     saveByUser: db.prepare('SELECT data, updated_at FROM saves WHERE user_id = ?'),
+    gameStateByUser: db.prepare('SELECT coins, ever_creative, creative_blocked, zombie_forced FROM game_state WHERE user_id = ?'),
     userByName: db.prepare('SELECT * FROM users WHERE name = ?'),
   };
 
@@ -273,17 +274,20 @@ export function attachAddict(deps) {
       const data = row ? safeParse(row.data) : null;
       const inv = data?.inv ?? {};
       const filled = (arr) => (Array.isArray(arr) ? arr.filter((s) => s && typeof s === 'object').length : 0);
+      const gs = q.gameStateByUser.get(u.id); // 权威游戏状态（0003）
       return send(res, 200, {
         name: u.name,
         banned: u.banned === 1,
         hasSave: !!data,
         updatedAt: row ? row.updated_at : null,
         mode: data?.mode ?? null,
-        everCreative: !!data?.everCreative,
+        everCreative: gs ? gs.ever_creative === 1 : !!data?.everCreative,
         zombieAttack: data?.zombieAttack ?? null,
         character: data?.character ?? null,
         islandType: data?.islandType ?? null,
-        coins: data?.coins ?? 0,
+        coins: gs ? gs.coins : (data?.coins ?? 0),      // 权威岛币优先
+        creativeBlocked: gs ? gs.creative_blocked === 1 : false,
+        zombieForced: gs && (gs.zombie_forced === 0 || gs.zombie_forced === 1) ? gs.zombie_forced : null,
         hp: data?.hp ?? null,
         itemCount: filled(inv.hotbar) + filled(inv.storage) + filled(inv.armor) + filled(inv.waistbag),
         warriors: Array.isArray(data?.warriors) ? data.warriors.length : 0,

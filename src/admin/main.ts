@@ -28,7 +28,17 @@ interface DayStat {
   enabled: boolean;
 }
 
-/** 游戏内情况（只读，来自账号存档 JSON） */
+/** 岛币变化记录里的一行（服务端审计：init/save-sync/rejected-spike/admin-grant/admin-deduct） */
+interface CoinRow {
+  day: string;
+  reported: number;
+  accepted: number;
+  delta: number;
+  reason: string;
+  at: number;
+}
+
+/** 游戏内情况，来自账号存档 JSON + 服务端权威状态（0003） */
 interface GameStat {
   name: string;
   banned: boolean;
@@ -40,6 +50,8 @@ interface GameStat {
   character: string | null;
   islandType: string | null;
   coins: number;
+  creativeBlocked: boolean;
+  zombieForced: number | null;
   hp: number | null;
   itemCount: number;
   warriors: number;
@@ -241,19 +253,23 @@ function syncDayInput(): void {
 
 /** 拉最近 14 天历史 + 游戏内情况，渲染选中日详情 */
 async function loadDetail(): Promise<void> {
-  const [h, g] = await Promise.all([
+  const [h, g, c] = await Promise.all([
     api(`/api/admin/history?name=${encodeURIComponent(detail.name)}&days=14`, 'GET'),
     api(`/api/admin/game?name=${encodeURIComponent(detail.name)}`, 'GET'),
+    api(`/api/admin/coins?name=${encodeURIComponent(detail.name)}&limit=10`, 'GET'),
   ]);
   let game: GameStat | null = null;
   if (h.ok) {
     const d = (await h.json()) as { name: string; days: DayStat[] };
     renderDetailDay(d.days.find((x) => x.day === detail.day) ?? null);
-    renderDayList(d.days);
   }
   if (g.ok) {
     game = (await g.json()) as GameStat;
     renderGame(game);
+  }
+  if (c.ok) {
+    const d = (await c.json()) as { log: CoinRow[] };
+    renderCoinLog(d.log);
   }
   renderAccountOps(game); // 账号操作不依赖游戏数据，游戏接口挂了也要能封停
 }
@@ -361,24 +377,33 @@ function confirmBox(title: string, text: string, yesLabel: string, onYes: () => 
   });
 }
 
-/** 游戏内情况（只读网格）：岛币 / 模式 / 创造 / 僵尸 / 背包 / 小战士… */
+/** 游戏内情况：核心 6 项常显，次要信息收进「更多」折叠区，页面不拖长 */
 function renderGame(g: GameStat): void {
-  const box = $('game-box');
-  box.innerHTML = '';
-  const cells: { k: string; v: string; warn?: boolean }[] = [
+  const core: { k: string; v: string; warn?: boolean }[] = [
     { k: '岛币', v: String(g.coins) },
     { k: '游戏模式', v: CN[g.mode ?? ''] ?? '还没开过档' },
+    { k: '创造限制', v: g.creativeBlocked ? '家长已禁用' : '允许', warn: g.creativeBlocked },
+    { k: '僵尸强制', v: g.zombieForced === null ? '家长不干预' : (g.zombieForced ? '强制开' : '强制关') },
     { k: '曾开创造', v: g.everCreative ? '是（联机会被排除）' : '否', warn: g.everCreative },
-    { k: '僵尸攻击', v: g.zombieAttack === null ? '—' : (g.zombieAttack ? '开' : '关') },
     { k: '背包格数', v: String(g.itemCount) },
-    { k: '小战士', v: `${g.warriors} 个` },
-    { k: '坦克', v: `${g.tanks} 辆` },
-    { k: '已学配方', v: `${g.learned} 条` },
+  ];
+  const more: { k: string; v: string }[] = [
     { k: '角色', v: CN[g.character ?? ''] ?? '—' },
     { k: '专属岛', v: CN[g.islandType ?? ''] ?? '—' },
     { k: '血量', v: g.hp === null ? '—' : `${g.hp} 心` },
+    { k: '小战士', v: `${g.warriors} 个` },
+    { k: '坦克', v: `${g.tanks} 辆` },
+    { k: '已学配方', v: `${g.learned} 条` },
     { k: '存档更新', v: g.updatedAt ? new Date(g.updatedAt * 1000).toLocaleString('zh-CN') : '—' },
   ];
+  fillCells($('game-box'), core);
+  fillCells($('game-box-more'), more);
+  renderGameOps(g);
+}
+
+/** 把一组 key/value 画成格子 */
+function fillCells(box: HTMLElement, cells: { k: string; v: string; warn?: boolean }[]): void {
+  box.innerHTML = '';
   for (const c of cells) {
     const div = document.createElement('div');
     div.className = `gcell${c.warn ? ' warn' : ''}`;
@@ -387,29 +412,54 @@ function renderGame(g: GameStat): void {
   }
 }
 
-/** 最近 14 天趋势条：条长按"期间最长那天"归一；锁过的天显红；点某天跳那天 */
-function renderDayList(days: DayStat[]): void {
-  const box = $('daylist');
+/** 游戏层家长控制：发放/扣除岛币、禁用创造、僵尸强制、清除「曾开创造」标记 */
+function renderGameOps(g: GameStat): void {
+  const ops = $('game-ops');
+  ops.innerHTML = '';
+  const coinIn = numInput('50', '岛币数量（发放/扣除共用）');
+  const zombieNext = g.zombieForced === null ? 0 : (g.zombieForced ? null : 1); // 不干预 → 关 → 开 → 不干预
+  ops.append(
+    coinIn,
+    miniBtn('发放', async () => {
+      await api('/api/admin/coins', 'POST', { name: detail.name, delta: Math.abs(Number(coinIn.value)) });
+      await loadDetail();
+    }),
+    miniBtn('扣除', async () => {
+      await api('/api/admin/coins', 'POST', { name: detail.name, delta: -Math.abs(Number(coinIn.value)) });
+      await loadDetail();
+    }),
+    miniBtn(g.creativeBlocked ? '允许创造' : '禁用创造', async () => {
+      await api('/api/admin/gamestate', 'PUT', { name: detail.name, creativeBlocked: !g.creativeBlocked });
+      await loadDetail();
+    }),
+    miniBtn(`僵尸：${g.zombieForced === null ? '不干预' : (g.zombieForced ? '开' : '关')} ▸`, async () => {
+      await api('/api/admin/gamestate', 'PUT', { name: detail.name, zombieForced: zombieNext });
+      await loadDetail();
+    }),
+  );
+  if (g.everCreative) {
+    ops.append(dangerBtn('清除「曾开创造」标记', async () => {
+      await api('/api/admin/gamestate', 'PUT', { name: detail.name, everCreative: false });
+      await loadDetail();
+    }));
+  }
+}
+
+/** 岛币变化记录（发放/扣除/异常暴涨都留痕） */
+function renderCoinLog(log: CoinRow[]): void {
+  const box = $('coin-log');
   box.innerHTML = '';
-  const max = Math.max(...days.map((d) => d.usedSec), 1);
-  for (const st of days) {
+  if (log.length === 0) {
+    box.innerHTML = '<div class="r"><span class="w">还没有记录</span></div>';
+    return;
+  }
+  for (const r of log) {
     const row = document.createElement('div');
-    row.className = `dayrow${st.locked ? ' lock' : ''}${st.day === detail.day ? ' sel' : ''}`;
-    const label = document.createElement('span');
-    label.className = 'd';
-    label.textContent = `${st.day.slice(5)} ${weekdayCN(st.day)}`;
-    const bar = document.createElement('div');
-    bar.className = 'bar';
-    const fill = document.createElement('div');
-    fill.className = 'fill';
-    fill.style.width = `${Math.round((st.usedSec / max) * 100)}%`;
-    bar.appendChild(fill);
-    const t = document.createElement('span');
-    t.className = 't';
-    t.textContent = st.usedSec > 0 ? fmtMMSS(st.usedSec) : '没玩';
-    row.append(label, bar, t);
-    row.title = `${st.day}：已玩 ${fmtMMSS(st.usedSec)}`;
-    row.addEventListener('click', () => { detail.day = st.day; syncDayInput(); void loadDetail(); });
+    row.className = `r${r.delta > 0 ? ' up' : ''}${r.reason === 'rejected-spike' ? ' spike' : ''}`;
+    const when = new Date(r.at * 1000).toLocaleString('zh-CN');
+    row.innerHTML = `<span class="d">${r.delta > 0 ? '+' : ''}${r.delta}</span>`
+      + `<span class="w">${escapeHtml(r.reason)}</span>`
+      + `<span class="t">${r.day} ${when}</span>`;
     box.appendChild(row);
   }
 }
