@@ -14,8 +14,12 @@
  *   POST /api/playtime/heartbeat               心跳，返回最新额度（锁定时 403）
  *   GET  /api/admin/me                         当前账号是不是管理员
  *   GET  /api/admin/playtime?day=YYYY-MM-DD    全部账号当天用量
+ *   GET  /api/admin/history?name=&days=14      单账号最近 N 天每日用量（详情页趋势）
  *   PUT  /api/admin/config { name, dailyLimitSec?, enabled? }
  *   POST /api/admin/bonus { name, minutes }
+ *   POST /api/admin/ban { name, banned }            封停 / 解封账号（封停=不许登录+通行证作废）
+ *   DELETE /api/admin/user?name=                    删除账号（含存档，不可逆）
+ *   GET  /api/admin/game?name=                      游戏内情况（只读：岛币/模式/背包/僵尸开关…）
  *
  * 依赖方向：本模块不 import index.mjs（避免循环），登录态与工具函数由
  * index.mjs 以 deps 注入，与 ws.mjs 的 attachWs 同一模式。
@@ -34,6 +38,17 @@ function today() {
 }
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** 存档 JSON 解析兜底：坏档不该让控制台报错 */
+const safeParse = (s) => { try { return JSON.parse(s); } catch { return null; } };
+
+/** 本地日期减 n 天（'YYYY-MM-DD' → 'YYYY-MM-DD'），历史统计按服务器本地日期算 */
+function dayMinus(day, n) {
+  const d = new Date(`${day}T00:00:00`);
+  d.setDate(d.getDate() - n);
+  const p = (x) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 /** 组装防沉迷能力：HTTP 处理器 + WS 锁定查询/计时。deps 见文件头 */
 export function attachAddict(deps) {
   const { db, currentUser, send, sendErr, readBody, limited, API_LIMIT } = deps;
@@ -47,7 +62,9 @@ export function attachAddict(deps) {
       ON CONFLICT(user_id, day) DO UPDATE SET seconds = seconds + excluded.seconds, updated_at = excluded.updated_at`),
     addBonus: db.prepare(`INSERT INTO playtime_daily (user_id, day, seconds, bonus_seconds, updated_at) VALUES (?, ?, 0, ?, ?)
       ON CONFLICT(user_id, day) DO UPDATE SET bonus_seconds = bonus_seconds + excluded.bonus_seconds, updated_at = excluded.updated_at`),
-    allUsers: db.prepare('SELECT id, name, is_admin FROM users ORDER BY id'),
+    allUsers: db.prepare('SELECT id, name, is_admin, banned FROM users ORDER BY id'),
+    daysRange: db.prepare('SELECT * FROM playtime_daily WHERE user_id = ? AND day >= ? AND day <= ? ORDER BY day'),
+    saveByUser: db.prepare('SELECT data, updated_at FROM saves WHERE user_id = ?'),
     userByName: db.prepare('SELECT * FROM users WHERE name = ?'),
   };
 
@@ -94,6 +111,13 @@ export function attachAddict(deps) {
     return stateOf(u.id).locked;
   }
 
+  /** 账号是否被家长停用（WS 握手/心跳时踢人用；封停不随天数重置，只有家长解封） */
+  function bannedByName(name) {
+    const base = String(name ?? '').split('#')[0];
+    const u = q.userByName.get(base);
+    return !!u && u.banned === 1;
+  }
+
   /** 管理员鉴权：当前登录账号必须带 is_admin（失败已直接回响应，返回 null） */
   function requireAdmin(req, res) {
     const u = currentUser(req);
@@ -126,7 +150,7 @@ export function attachAddict(deps) {
 
   async function handleAdmin(req, res, ip) {
     if (limited(ip, 'api', API_LIMIT)) return sendErr(res, 429, '请求太频繁啦');
-    const action = (req.url ?? '').split('?')[0].split('/').pop(); // me / playtime / config / bonus
+    const action = (req.url ?? '').split('?')[0].split('/').pop(); // me / playtime / history / config / bonus
 
     if (req.method === 'GET' && action === 'me') {
       const u = requireAdmin(req, res);
@@ -138,8 +162,39 @@ export function attachAddict(deps) {
       if (!requireAdmin(req, res)) return;
       const day = new URL(req.url ?? '/', 'http://localhost').searchParams.get('day') || today();
       if (!DAY_RE.test(day)) return sendErr(res, 400, '日期格式不对，要 YYYY-MM-DD');
-      const users = q.allUsers.all().map((u) => ({ name: u.name, isAdmin: u.is_admin === 1, ...stateOf(u.id, day) }));
+      const users = q.allUsers.all().map((u) => ({ name: u.name, isAdmin: u.is_admin === 1, banned: u.banned === 1, ...stateOf(u.id, day) }));
       return send(res, 200, { day, users });
+    }
+
+    // 单账号最近 N 天每日用量（详情页趋势图；没玩的日子补 0）。
+    // 注意：历史日期的上限/加时/锁定按【当前配置】回算，配置变更本身不按天留痕
+    if (req.method === 'GET' && action === 'history') {
+      if (!requireAdmin(req, res)) return;
+      const url = new URL(req.url ?? '/', 'http://localhost');
+      const u = q.userByName.get((url.searchParams.get('name') ?? '').trim());
+      if (!u) return sendErr(res, 404, '没有这个账号');
+      const days = Math.min(Math.max(Number(url.searchParams.get('days')) || 14, 1), 90);
+      const end = today();
+      const start = dayMinus(end, days - 1);
+      const rows = new Map(q.daysRange.all(u.id, start, end).map((r) => [r.day, r]));
+      const cfg = q.configByUser.get(u.id);
+      const limitSec = cfg ? cfg.daily_limit_sec : DEFAULT_LIMIT_SEC;
+      const enabled = cfg ? cfg.enabled === 1 : true;
+      const list = [];
+      for (let i = 0; i < days; i++) {
+        const day = dayMinus(end, days - 1 - i);
+        const row = rows.get(day);
+        const usedSec = row ? row.seconds : 0;
+        const bonusSec = row ? row.bonus_seconds : 0;
+        const quotaSec = limitSec + bonusSec;
+        list.push({
+          day, usedSec, limitSec, bonusSec,
+          remainingSec: Math.max(0, quotaSec - usedSec),
+          locked: enabled && usedSec >= quotaSec,
+          enabled,
+        });
+      }
+      return send(res, 200, { name: u.name, isAdmin: u.is_admin === 1, days: list });
     }
 
     if (req.method === 'PUT' && action === 'config') {
@@ -172,15 +227,75 @@ export function attachAddict(deps) {
       if (!Number.isInteger(minutes) || minutes < 1 || minutes > MAX_BONUS_MIN) {
         return sendErr(res, 400, '加时要在 1~240 分钟之间');
       }
-      q.addBonus.run(u.id, today(), minutes * 60, Math.floor(Date.now() / 1000));
-      console.log(`[防沉迷] ${u.name} 当天加时 ${minutes} 分钟`);
+      // 加时记到哪天（默认今天；不能给未来加分——ISO 日期串可直接比大小）
+      const day = body.day === undefined ? today() : String(body.day);
+      if (!DAY_RE.test(day) || day > today()) return sendErr(res, 400, '加时日期只能是今天或更早');
+      q.addBonus.run(u.id, day, minutes * 60, Math.floor(Date.now() / 1000));
+      console.log(`[防沉迷] ${u.name} ${day} 加时 ${minutes} 分钟`);
       return send(res, 200, stateOf(u.id));
+    }
+
+    // 封停 / 解封：封停时把该账号所有通行证作废（等于强制登出），在线的那一个由 WS 层踢下线
+    if (req.method === 'POST' && action === 'ban') {
+      if (!requireAdmin(req, res)) return;
+      const body = await readBody(req);
+      const u = q.userByName.get(String(body.name ?? '').trim());
+      if (!u) return sendErr(res, 404, '没有这个账号');
+      const banned = body.banned ? 1 : 0;
+      db.prepare('UPDATE users SET banned = ? WHERE id = ?').run(banned, u.id);
+      if (banned) db.prepare('DELETE FROM sessions WHERE user_id = ?').run(u.id);
+      console.log(`[控制台] ${u.name} ${banned ? '已封停' : '已解封'}`);
+      return send(res, 200, { name: u.name, banned: banned === 1 });
+    }
+
+    // 删除账号：账号 + 存档 + 通行证 + 防沉迷数据一起删（不可逆，前端有二次确认）
+    if (req.method === 'DELETE' && action === 'user') {
+      if (!requireAdmin(req, res)) return;
+      const name = new URL(req.url ?? '/', 'http://localhost').searchParams.get('name') ?? '';
+      const u = q.userByName.get(name.trim());
+      if (!u) return sendErr(res, 404, '没有这个账号');
+      for (const t of ['saves', 'sessions', 'playtime_daily', 'addict_config']) {
+        db.prepare(`DELETE FROM ${t} WHERE user_id = ?`).run(u.id);
+      }
+      db.prepare('DELETE FROM users WHERE id = ?').run(u.id);
+      console.log(`[控制台] ${u.name} 账号已删除`);
+      return send(res, 200, { name: u.name, deleted: true });
+    }
+
+    // 游戏内情况（只读）：从存档 JSON 里挑家长关心的字段。改不了——存档是客户端权威的，
+    // 写入会和孩子的自动存档打架，等"服务端权威迁移"做好再开写接口
+    if (req.method === 'GET' && action === 'game') {
+      if (!requireAdmin(req, res)) return;
+      const name = new URL(req.url ?? '/', 'http://localhost').searchParams.get('name') ?? '';
+      const u = q.userByName.get(name.trim());
+      if (!u) return sendErr(res, 404, '没有这个账号');
+      const row = q.saveByUser.get(u.id);
+      const data = row ? safeParse(row.data) : null;
+      const inv = data?.inv ?? {};
+      const filled = (arr) => (Array.isArray(arr) ? arr.filter((s) => s && typeof s === 'object').length : 0);
+      return send(res, 200, {
+        name: u.name,
+        banned: u.banned === 1,
+        hasSave: !!data,
+        updatedAt: row ? row.updated_at : null,
+        mode: data?.mode ?? null,
+        everCreative: !!data?.everCreative,
+        zombieAttack: data?.zombieAttack ?? null,
+        character: data?.character ?? null,
+        islandType: data?.islandType ?? null,
+        coins: data?.coins ?? 0,
+        hp: data?.hp ?? null,
+        itemCount: filled(inv.hotbar) + filled(inv.storage) + filled(inv.armor) + filled(inv.waistbag),
+        warriors: Array.isArray(data?.warriors) ? data.warriors.length : 0,
+        tanks: Array.isArray(data?.tanks) ? data.tanks.length : 0,
+        learned: Array.isArray(data?.learned) ? data.learned.length : 0,
+      });
     }
 
     return sendErr(res, 404, 'unknown');
   }
 
-  return { handlePlaytime, handleAdmin, isLockedByName, beatByName };
+  return { handlePlaytime, handleAdmin, isLockedByName, bannedByName, beatByName };
 }
 
 /** 启动时同步管理员名单：环境变量 ADMIN_NAMES（逗号分隔）为权威——

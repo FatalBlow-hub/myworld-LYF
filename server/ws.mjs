@@ -276,10 +276,13 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null, a
       if (!msg || typeof msg.t !== 'string') return;
 
       if (msg.t === 'ping') {
-        // 防沉迷：ping 顺手计一次在线时长（与 HTTP 心跳共用"上次计时"，不会重复计）；
-        // 已锁定的账号当场踢下线，客户端收到 addict.locked 会锁屏
-        if (addict && info.name && addict.isLockedByName(info.name)) {
-          sendMsg(ws, { t: 'addict.locked' });
+        // 防沉迷/封停：ping 顺手计一次在线时长（与 HTTP 心跳共用"上次计时"，不会重复计）；
+        // 已锁定或被停用的账号当场踢下线，客户端收到 addict.locked 会锁屏
+        const blocked = addict && info.name
+          ? (addict.bannedByName(info.name) ? 'banned' : (addict.isLockedByName(info.name) ? 'locked' : null))
+          : null;
+        if (blocked) {
+          sendMsg(ws, { t: 'addict.locked', reason: blocked });
           setTimeout(() => { try { ws.close(); } catch { /* 已经断了就忽略 */ } }, 100);
           return;
         }
@@ -302,6 +305,13 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null, a
         info.name = finalName;
         const list = onlineList();
         console.log(`[ws] 玩家上线: ${finalName} (ver=${typeof msg.ver === 'string' ? msg.ver : '旧版'})，当前在线: ${list.length}`);
+        // 账号被家长停用 → 握手即告知并踢下线（与"额度用完"区分：reason=banned）
+        if (addict && addict.bannedByName(finalName)) {
+          sendMsg(ws, { t: 'welcome', name: finalName, online: list });
+          sendMsg(ws, { t: 'addict.locked', reason: 'banned' });
+          setTimeout(() => { try { ws.close(); } catch { /* 已经断了就忽略 */ } }, 100);
+          return;
+        }
         // 防沉迷：当天额度已用完 → 握手即回 locked 并踢下线（不广播上线、不补发票据/队列）
         if (addict && addict.isLockedByName(finalName)) {
           sendMsg(ws, { t: 'welcome', name: finalName, online: list, locked: true });

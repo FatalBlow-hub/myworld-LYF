@@ -198,6 +198,7 @@ async function handleAuth(req, res, ip) {
   if (action === 'login') {
     const u = q.userByName.get(name);
     if (!u || !checkPass(password, u.pass)) return sendErr(res, 401, '名字或密码不对');
+    if (u.banned === 1) return sendErr(res, 403, '这个账号被家长停用了，找家长解封'); // 0002 封停
     login(res, req, u.id);
     return send(res, 200, { name: u.name });
   }

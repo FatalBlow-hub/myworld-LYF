@@ -52,8 +52,12 @@ export class AddictGuard {
     window.setInterval(() => this.renderBar(), 1000); // 倒计时条每秒刷新
   }
 
-  /** 服务端踢下线信号（WS welcome.locked 或 addict.locked） */
-  private onServerLock = (): void => { this.showLock('时间到啦，强制休息'); };
+  /** 服务端踢下线信号（WS welcome.locked 或 addict.locked；reason 区分额度用完 / 账号停用） */
+  private onServerLock = (e: Event): void => {
+    const reason = (e as CustomEvent<{ reason?: string }>).detail?.reason;
+    const banned = reason === 'banned';
+    this.showLock(banned ? '这个账号被家长停用了' : '时间到啦，强制休息', banned);
+  };
 
   /** 盯着进游戏没有：#hud 出现就开始心跳，消失就停 */
   private watchInGame(): void {
@@ -129,8 +133,9 @@ export class AddictGuard {
     document.body.appendChild(el);
   }
 
-  /** 到点锁屏：停心跳、回登录页入口；家长加时后自动收起继续玩 */
-  private showLock(reason: string): void {
+  /** 锁屏：到点用完 / 账号被停用。停心跳、回登录页入口；
+   *  banned=true 时不轮询解锁（只能等家长在控制台解封后重新登录） */
+  private showLock(reason: string, banned = false): void {
     if (this.locked) return;
     this.locked = true;
     this.stopHeartbeat();
@@ -143,15 +148,16 @@ export class AddictGuard {
     el.id = LOCK_ID;
     el.className = 'overlay';
     el.innerHTML = `
-      <h1>今天的游玩时间用完啦</h1>
+      <h1>${banned ? '这个账号被停用了' : '今天的游玩时间用完啦'}</h1>
       <p>${reason}</p>
-      <p>${q ? `今天已经玩了 <b>${Math.floor(q.usedSec / 60)} 分钟</b>（上限 ${Math.floor((q.limitSec + q.bonusSec) / 60)} 分钟）。` : ''}</p>
-      <p>明天 0 点恢复。家长加时后这里会自动放开。</p>
+      <p>${q && !banned ? `今天已经玩了 <b>${Math.floor(q.usedSec / 60)} 分钟</b>（上限 ${Math.floor((q.limitSec + q.bonusSec) / 60)} 分钟）。` : ''}</p>
+      <p>${banned ? '请家长在控制台解封之后，重新登录再玩。' : '明天 0 点恢复。家长加时后这里会自动放开。'}</p>
       <div><button data-exit>退出登录</button></div>`;
     el.querySelector('button[data-exit]')!.addEventListener('click', () => {
       void logout().then(() => location.reload());
     });
     document.body.appendChild(el);
+    if (banned) return; // 封停不轮询：只有家长解封后重新登录才恢复
     // 家长可能在控制台加时：定期问服务端，放开了就收起锁屏接着玩
     this.unlockTimer = window.setInterval(async () => {
       try {

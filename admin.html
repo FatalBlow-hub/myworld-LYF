@@ -35,8 +35,31 @@
     .tag { font-size: 12px; padding: 2px 6px; border-radius: 4px; background: #2a3342; white-space: nowrap; }
     .tag.lock { background: #6e2f2f; }
     .tag.off { background: #4a4a2a; }
+    .tag.ban { background: #7a2233; color: #ffd9d9; }
     td.ops { white-space: nowrap; }
     td.ops input { width: 64px; padding: 4px 6px; font-size: 13px; }
+    /* —— 账号详情：单日大数字 + 每日趋势条 —— */
+    .detail-summary { display: flex; gap: 28px; flex-wrap: wrap; margin: 14px 0 6px; }
+    .detail-num { display: flex; flex-direction: column; gap: 2px; }
+    .detail-num .v { font-size: 28px; font-weight: bold; }
+    .detail-num .k { font-size: 12px; color: var(--muted); }
+    .daylist { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+    .dayrow { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 6px; cursor: pointer; }
+    .dayrow:hover { background: rgba(255,255,255,0.06); }
+    .dayrow.sel { background: rgba(74,124,89,0.4); }
+    .dayrow .d { width: 96px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+    .dayrow .bar { flex: 1; height: 14px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
+    .dayrow .fill { height: 100%; background: var(--btn-bg); border-radius: 4px; }
+    .dayrow.lock .fill { background: #8a4b4b; }
+    .dayrow .t { width: 64px; font-size: 13px; text-align: right; white-space: nowrap; }
+    td.name-cell { cursor: pointer; }
+    td.name-cell:hover { color: #9fe0a0; text-decoration: underline; }
+    /* —— 游戏内情况（只读网格） —— */
+    .gamebox { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 10px; }
+    .gcell { background: rgba(255,255,255,0.06); border-radius: 6px; padding: 8px 10px; }
+    .gcell .k { font-size: 12px; color: var(--muted); }
+    .gcell .v { font-size: 17px; margin-top: 2px; }
+    .gcell.warn .v { color: #ff8a80; }
   </style>
 </head>
 <body>
@@ -80,6 +103,48 @@
           </thead>
           <tbody id="rows"></tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- 账号详情：按日期看单日用量 + 最近 14 天趋势 -->
+    <div id="detail-view" hidden>
+      <div class="card">
+        <div class="row">
+          <button class="mini" id="back-btn">← 返回列表</button>
+          <span>账号详情：<b id="detail-name"></b></span>
+          <span style="flex:1"></span>
+          <button class="mini warn" id="detail-logout">退出登录</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="row">
+          <button class="mini" id="prev-day">◀ 前一天</button>
+          <input id="detail-day" type="date" />
+          <button class="mini" id="next-day">后一天 ▶</button>
+          <button class="mini" id="day-today">今天</button>
+          <button class="mini" id="day-yesterday">昨天</button>
+          <button class="mini" id="day-before">前天</button>
+        </div>
+        <div class="detail-summary" id="detail-summary"></div>
+        <div class="row" id="detail-ops"></div>
+      </div>
+      <div class="card">
+        <p class="muted">最近 14 天游玩时长（点某一天跳到那天）</p>
+        <div class="daylist" id="daylist"></div>
+      </div>
+      <div class="card">
+        <p class="muted">游戏内情况（只读 —— 存档还是客户端权威，等权威化再做修改）</p>
+        <div class="gamebox" id="game-box"></div>
+      </div>
+      <div class="confirm-mask" id="detail-confirm" style="display:none">
+        <div class="confirm-box" role="alertdialog">
+          <p class="confirm-title"></p>
+          <p class="confirm-text"></p>
+          <div class="confirm-row">
+            <button id="detail-confirm-no">取消</button>
+            <button class="danger-btn" id="detail-confirm-yes"></button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

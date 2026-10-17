@@ -6,7 +6,8 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL UNIQUE,
   pass TEXT NOT NULL,             -- 存 "盐:哈希" 的十六进制串，绝不存明文
   created_at INTEGER NOT NULL,
-  is_admin INTEGER NOT NULL DEFAULT 0  -- 0001：管理员标记（控制台用），名单由 ADMIN_NAMES 同步
+  is_admin INTEGER NOT NULL DEFAULT 0, -- 0001：管理员标记（控制台用），名单由 ADMIN_NAMES 同步
+  banned INTEGER NOT NULL DEFAULT 0    -- 0002：封停标记（家长停用账号；1 = 不许登录、在线的踢下线）
 );
 
 CREATE TABLE IF NOT EXISTS sessions (

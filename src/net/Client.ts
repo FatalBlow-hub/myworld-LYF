@@ -299,8 +299,8 @@ export class NetClient {
         break;
       }
       case 'addict.locked':
-        // 防沉迷到点推送：同样转全局事件（Game 不感知，保持其零改动）
-        window.dispatchEvent(new CustomEvent('addict-locked'));
+        // 防沉迷/封停推送：转全局事件（Game 不感知），reason 区分"额度用完"与"账号被停用"
+        window.dispatchEvent(new CustomEvent('addict-locked', { detail: { reason: msg.reason ?? 'locked' } }));
         break;
       case 'pong':
         break;

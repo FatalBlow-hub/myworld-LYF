@@ -123,9 +123,11 @@ export interface S2CPongMsg {
   ts?: number;
 }
 
-/** 幼儿防沉迷：服务端通知"今天额度已用完"，客户端锁屏（WS 层已随后踢下线） */
+/** 幼儿防沉迷 / 账号封停：服务端通知"今天额度已用完"或"账号被停用"，客户端锁屏（WS 层已随后踢下线） */
 export interface S2CAddictLockedMsg {
   t: 'addict.locked';
+  /** locked=当天额度用完（家长加时后自动放开）；banned=账号被停用（只能等家长解封后重新登录） */
+  reason?: 'locked' | 'banned';
 }
 
 /** 有人上线广播 */
