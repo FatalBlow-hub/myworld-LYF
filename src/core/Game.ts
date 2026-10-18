@@ -1,7 +1,7 @@
 /** 游戏主循环 — 把所有模块装配起来，每帧按固定顺序驱动它们 */
 
 import * as THREE from 'three';
-import { CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, SAVE, VIEW_DISTANCE, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
+import { CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PVP, SAVE, VIEW_DISTANCE, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
 import { World } from '../world/World';
 import { buildHall } from '../world/HallMap';
 import { findGrassSpawn, heightAt, randomGrassSpawn, setTerrainConfig } from '../world/TerrainGen';
@@ -34,8 +34,11 @@ import { RecipeBook } from '../ui/RecipeBook';
 import { PanelStack } from '../ui/PanelStack';
 import { HallMenu } from '../ui/HallMenu';
 import { VisitMenu } from '../ui/VisitMenu';
+import { GivePanel, GiveGift } from '../ui/GivePanel';
+import { ChatPanel } from '../ui/ChatPanel';
 import { ShopPanel } from '../ui/ShopPanel';
 import { DRINK_GOODS, SPECIAL_GOODS, ShopGood, fmtCoins, rollGood } from '../world/Shop';
+import { Appearance } from './Appearance';
 import { SaveData, applySave, buildSave, isSupportedSave, migrateSave, randomIslandType, readSave, writeSave } from './Save';
 import { DayCycle } from './DayCycle';
 import { VisitSync } from './VisitSync';
@@ -77,7 +80,7 @@ export class Game {
   private slot = 0; private paused = false; private started = false; private lastTime = 0; private saveSlot = 0;
   private everCreative = false; private islandType: IslandType = 'apple';
   /** 自己的 3D 形象（史蒂夫/艾力克斯）：背包里的小人和好友见到的都是它 */
-  private character: CharacterKind = 'steve'; private characterFromSave = false;
+  private appearance = new Appearance();
   /** 访岛时站在岛主重生点旁的岛主小人 */
   private visitAvatar = new VisitAvatar();
   /** 真·双人同屏：位置/方块互播、对面小人的渲染与收尾（会话断了自动退回快照模式） */
@@ -88,6 +91,7 @@ export class Game {
   /** 收购箱的 9 个格子：东西放进去立刻折算成岛币，不跨场景保存 */
   private buyBoxSlots: Slots = Array(9).fill(null);
   private visitIslandType: IslandType | null = null; private visitOwner: string | null = null; private visitPerm: VisitPerm | null = null;
+  private pvpHitCooldown = 0; // 误伤攻击间隔（秒）
   private scene: SceneMode = 'island'; // 场景三态：island(自己岛) / hall(大厅) / visit(陌生副本岛或好友岛)
   private islandSave: SaveData | null = null;
   private playerActions: PlayerActions | null = null; private pickup: Pickup | null = null;
@@ -98,6 +102,8 @@ export class Game {
   private worldCycles = new WorldCycles(); private skates = new SkateSystem();
   private container: ContainerPanel | null = null; private dyePanel: DyePanel | null = null;
   private hallMenu: HallMenu | null = null; private visitMenu: VisitMenu | null = null;
+  private givePanel: GivePanel | null = null; // 「送礼物」面板：同屏有人时按 C /「给」打开
+  private chatPanel: ChatPanel | null = null; // 访岛聊天：同屏有人时按 0 /「聊」开输入框
   private book = new RecipeBook(); private net: NetClient | null = null; private panels = new PanelStack();
   /** PC 端鼠标视角；手机版不建（用虚拟按键转视角），保持 null */
   private mouseLook: MouseLook | null = null;
@@ -178,9 +184,8 @@ export class Game {
     await runMenuFlow((mode, save, zombieAttack, slot, toHall) => this.begin(mode, save, zombieAttack, slot, toHall));
     const who = await probeAuth();
     // 老档没记过形象就按账号名固定挑一个（同一个名字每次进来都是同一个样子），随即写进档
-    if (who !== 'off' && who.name && !this.characterFromSave) {
-      this.character = pickCharacter(who.name);
-      this.characterFromSave = true;
+    if (who !== 'off' && who.name && !this.appearance.characterFromSave) {
+      this.appearance.set(pickCharacter(who.name));
       this.persistCharacter();
     }
     const denyMsgs: Record<string, string> = {
@@ -217,10 +222,16 @@ export class Game {
         if (this.scene === 'island') this.saveNow();
         void this.enterFriendVisit(owner, perm, ticket, pos);
       },
-      onVisitGuest: (guest) => this.onGuestArriving(guest),
+      onVisitGuest: (guest, perm) => this.onGuestArriving(guest, perm),
       onVisitPeer: (m) => this.visitSync.onPeerPos(m),
       onVisitBlocks: (cells) => this.visitSync.onRemoteBlocks(cells),
       onVisitEnd: (reason, name) => this.visitSync.onPeerEnd(reason, name),
+      onVisitHit: (from) => this.onPeerHit(from),
+      onVisitGive: (from, gift) => this.onPeerGive(from, gift),
+      onVisitChat: (from, text) => {
+        this.chatPanel?.push(from, text);
+        this.hud?.showMessage(`${from} 发来消息了，按 0 回复`, 2.5);
+      },
       onVisitDenied: (reason) => { window.clearTimeout(this.visitSendTimer); this.hud?.showMessage(denyMsgs[reason] ?? '对方拒绝/未响应', 3); },
     }, this.everCreative);
     this.net.connect();
@@ -236,8 +247,7 @@ export class Game {
   private begin(mode: GameMode, save: SaveData | undefined, zombieAttack: boolean, slot: number, toHall = false): void {
     this.fires.clear(); this.saveSlot = slot;
     this.everCreative = Boolean(mode === 'creative' || save?.everCreative || save?.mode === 'creative');
-    this.character = save?.character ?? 'steve';
-    this.characterFromSave = Boolean(save?.character);
+    this.appearance.load(save);
     this.mobs.zombieAttack = zombieAttack; this.mobs.zombieSpawn = zombieAttack;
     this.hunger = new Hunger(mode); this.health = new Health(mode, () => this.hunger!.respawn());
     this.inventory = new Inventory(mode);
@@ -247,7 +257,7 @@ export class Game {
     hudRef.onSlotPick = (i) => { this.slot = i; hudRef.selectSlot(i); };
     if (this.net) this.hud.setNetState(this.net.getStatus(), this.net.getOnlineList());
     this.panel = new Panel(this.inventory, this.atlas, {
-      kind: () => this.character,
+      kind: () => this.appearance.character,
       swap: () => this.swapCharacter(),
     });
     this.shopPanel = new ShopPanel(this.atlas, () => this.coins, (good) => this.buyGood(good));
@@ -270,6 +280,21 @@ export class Game {
         this.net?.replyVisit(visitor, accept, perm, this.everCreative || this.inventory?.mode === 'creative', pos);
       },
     });
+    this.givePanel = new GivePanel({
+      coins: () => this.coins,
+      inventory: () => this.inventory!,
+      peerName: () => this.visitSync.peer || null,
+      onGive: (gift) => this.doGive(gift),
+    });
+    this.chatPanel = new ChatPanel({
+      peerName: () => this.visitSync.peer || null,
+      onSend: (text) => {
+        if (!this.visitSync.active) { this.hud?.showMessage('身边没有人，说了也听不见', 2); return false; }
+        return this.net?.sendVisitChat(text) ?? false;
+      },
+    });
+    this.panels.register({ name: 'give', isOpen: () => this.givePanel!.visible, close: () => this.givePanel!.close() });
+    this.panels.register({ name: 'chat', isOpen: () => this.chatPanel!.visible, close: () => this.chatPanel!.close() });
     this.panels.register({ name: 'visitRequest', isOpen: () => this.visitMenu!.requestVisible, close: () => this.visitMenu!.closeRequest() });
     this.panels.register({ name: 'visitPerm', isOpen: () => this.visitMenu!.permVisible, close: () => this.visitMenu!.closePerm() });
     this.panels.register({ name: 'hallMenu', isOpen: () => this.hallMenu!.visible, close: () => this.hallMenu!.close() });
@@ -295,6 +320,7 @@ export class Game {
       bookFull: () => this.book.hasAllNormal(),
       islandFruit: () => ISLAND_TYPES[this.scene === 'visit' && this.visitIslandType ? this.visitIslandType : this.islandType].fruitId,
       visitPerm: () => (this.scene === 'visit' && this.visitOwner ? this.visitPerm : null),
+      inHall: () => this.scene === 'hall',
       openShop: (kind) => this.openShop(kind),
       openBuyBox: () => this.openBuyBox(),
       summonWarrior: (eggId, x, y, z) => this.summonWarrior(eggId, x, y, z),
@@ -381,8 +407,23 @@ export class Game {
     );
   }
 
-  /** 点「购买」：先看钱和背包够不够，够了扣钱发货（小战士蛋还要抽品质） */
+  /** 买皮肤：扣岛币、永久解锁，走和售卖机一样的存档时机（大厅里要回岛才整档写入） */
+  private buySkin(good: ShopGood, kind: CharacterKind): void {
+    if (this.appearance.owns(kind)) { this.hud!.showMessage(`你已经有「${CHARACTER_NAMES[kind]}」啦`, 2.5); return; }
+    if (this.coins < good.price) {
+      this.hud!.showMessage(`岛币不够，还差 ${fmtCoins(good.price - this.coins)} 岛币`, 2.5);
+      return;
+    }
+    this.addCoins(-good.price);
+    this.appearance.unlock(kind);
+    this.shopPanel?.refreshCoins();
+    this.hud!.showMessage(`买到了${CHARACTER_NAMES[kind]}皮肤！背包里点「人物」就能换上`, 3);
+    this.saveNow();
+  }
+
+  /** 点「购买」：先看钱和背包够不够，够了扣钱发货（小战士蛋还要抽品质；皮肤走 buySkin） */
   private buyGood(good: ShopGood): void {
+    if (good.unlock) { this.buySkin(good, good.unlock); return; }
     const inv = this.inventory!;
     if (this.coins < good.price) {
       this.hud!.showMessage(`岛币不够，还差 ${fmtCoins(good.price - this.coins)} 岛币`, 2.5);
@@ -430,10 +471,9 @@ export class Game {
 
   /** 背包里点「人物」换一个形象：史蒂夫 ↔ 艾力克斯，换完马上写进档（在大厅/副本岛时也照写） */
   private swapCharacter(): void {
-    this.character = this.character === 'steve' ? 'alex' : 'steve';
-    this.characterFromSave = true;
+    this.appearance.swap();
     this.persistCharacter();
-    this.hud?.showMessage(`换成了${CHARACTER_NAMES[this.character]}`, 1.5);
+    this.hud?.showMessage(`换成了${CHARACTER_NAMES[this.appearance.character]}`, 1.5);
   }
 
   /** 只改人物形象也要落盘：在自己岛上就整档存，在大厅/副本岛就只把人物字段写回本岛存档 */
@@ -441,18 +481,19 @@ export class Game {
     if (this.scene === 'island') { this.saveNow(); return; }
     const save = this.islandSave ?? readSave(this.saveSlot);
     if (!save) return;
-    save.character = this.character;
+    save.character = this.appearance.character;
     this.islandSave = save;
     writeSave(this.saveSlot, save);
   }
 
-  /** 把当前本岛状态打包存进浏览器（在大厅/副本岛时不覆盖本岛存档） */
+  /** 把当前本岛状态打包存进浏览器（在大厅/副本岛时不覆盖本岛地形，只把随身收获并回存档） */
   private saveNow(): void {
-    if (!this.started || this.scene !== 'island' || !this.body || !this.inventory || !this.health || !this.hunger) return;
+    if (!this.started || !this.body || !this.inventory || !this.health || !this.hunger) return;
+    if (this.scene !== 'island') { this.saveCarryOnly(); return; }
     if (this.inventory.mode === 'creative') this.everCreative = true;
     this.net?.setEverCreative(this.everCreative);
     const data = buildSave({
-      mode: this.inventory.mode, everCreative: this.everCreative, islandType: this.islandType, character: this.character, spawn: this.spawn, body: this.body,
+      mode: this.inventory.mode, everCreative: this.everCreative, islandType: this.islandType, character: this.appearance.character, skins: this.appearance.owned, spawn: this.spawn, body: this.body,
       coins: this.coins,
       health: this.health, hunger: this.hunger, slot: this.slot, inv: this.inventory,
       world: this.world, animals: this.mobs.animals, zombies: this.mobs.zombies, drops: this.drops,
@@ -465,9 +506,32 @@ export class Game {
     writeSave(this.saveSlot, data);
   }
 
+  /** 在大厅/外岛时的轻量存档：不动本岛的地形和房子，只把随身背包、岛币、血条饿条并回本岛存档——
+   *  不然在外岛摘的桃子、挣的岛币，一刷新页面或退出登录就全没了 */
+  private saveCarryOnly(): void {
+    const save = readSave(this.saveSlot) ?? this.islandSave;
+    if (!save) return;
+    const inv = this.inventory!;
+    const clone = (s: typeof inv.hotbar) => s.map((x) => (x ? { ...x } : null));
+    save.inv = {
+      hotbar: clone(inv.hotbar), storage: clone(inv.storage), armor: clone(inv.armor),
+      waistbag: clone(inv.waistbag), craftIn: clone(inv.craftIn), craftBig: clone(inv.craftBig),
+      held: inv.held ? { ...inv.held } : null,
+    };
+    save.coins = this.coins;
+    save.hp = this.health!.hp; save.oxygen = this.health!.oxygen;
+    save.hunger = this.hunger!.value; save.hungerOn = this.hunger!.enabled;
+    save.slot = this.slot; save.mode = inv.mode;
+    save.everCreative = this.everCreative || inv.mode === 'creative';
+    save.character = this.appearance.character; save.skins = [...this.appearance.owned];
+    this.islandSave = JSON.parse(JSON.stringify(save)) as SaveData;
+    writeSave(this.saveSlot, save);
+  }
+
   /** 清空当前世界网格与场内所有活物、掉落物、飞行药水、载具、火焰 */
   private clearScene(): void {
     this.visitSync.leave(); // 换场景=离开同屏：跟对端打完招呼再收摊
+    this.givePanel?.close(); // 没人可送了，礼物面板顺手关掉
     this.playerActions?.cancelMining(); this.hud?.setProgress(0); this.highlight.visible = false;
     this.visitAvatar.clear(this.renderer.scene);
     for (const a of this.mobs.animals) this.renderer.scene.remove(a.group);
@@ -585,11 +649,59 @@ export class Game {
   }
 
   /** 同屏·岛主侧：我批准的客人正在路上——人得在自己岛上才能迎客，不在就先回去 */
-  private onGuestArriving(guest: string): void {
+  private onGuestArriving(guest: string, perm?: VisitPerm): void {
     if (this.scene !== 'island') this.leaveHall();
+    if (perm) this.visitPerm = perm; // 岛主也记一份权限：误伤/放置判定两边都用它
     this.visitSync.start('host', guest);
     this.hud!.setVisitLabel(`🏠 ${guest} 在你家做客 · 按 H 回大厅`);
     this.hud!.showMessage(`${guest} 来参观你的岛啦！`, 3);
+  }
+
+  /** 收到「visit.hit」：误伤开启时被对方打中，扣血 + 飘提示（死了走重生） */
+  private onPeerHit(from: string): void {
+    if (!this.health) return;
+    const r = hurtPlayer(this.health, PVP.DAMAGE);
+    if (r.hurt) this.hud?.showMessage(`${from} 打了你一下！`, 0.8);
+    if (r.died) { this.respawn(); this.hud?.showMessage('被打了，回重生点了', 2); }
+  }
+
+  /** 收到「visit.give」：对面送的岛币进账、送的物品进背包，随后马上落盘 */
+  private onPeerGive(from: string, gift: GiveGift): void {
+    if (gift.coins && gift.coins > 0) {
+      this.addCoins(gift.coins);
+      this.hud?.showMessage(`🎁 ${from} 送了你 ${gift.coins} 岛币！`, 3);
+    } else if (gift.itemId && gift.count && gift.count > 0) {
+      this.inventory?.add(gift.itemId, gift.count);
+      this.hud?.showMessage(`🎁 ${from} 送了你 ${gift.count} 个${BLOCKS[gift.itemId]?.cn ?? '物品'}！`, 3);
+    } else {
+      return;
+    }
+    this.hud?.refreshHotbar(this.inventory!, this.slot);
+    this.saveNow();
+  }
+
+  /** 送礼物给同屏的对面：先扣自己的再发消息，发不出去就把东西还回来 */
+  private doGive(gift: GiveGift): boolean {
+    if (!this.visitSync.active) { this.hud?.showMessage('没人在你身边，没人能收', 2); return false; }
+    const inv = this.inventory!;
+    let sent = false;
+    if (gift.coins && gift.coins > 0) {
+      const n = Math.min(Math.floor(gift.coins), this.coins);
+      if (n <= 0) { this.hud?.showMessage('岛币不够', 1.5); return false; }
+      sent = this.net?.sendVisitGive({ coins: n }) ?? false;
+      if (sent) { this.addCoins(-n); this.hud?.showMessage(`送出 ${n} 岛币`, 1.5); }
+    } else if (gift.itemId && gift.count && gift.count > 0) {
+      const n = Math.min(Math.floor(gift.count), inv.countOf(gift.itemId));
+      if (n <= 0) { this.hud?.showMessage('没有这个物品了', 1.5); return false; }
+      sent = this.net?.sendVisitGive({ itemId: gift.itemId, count: n }) ?? false;
+      if (sent) { inv.take(gift.itemId, n); this.hud?.showMessage(`送出 ${n} 个${BLOCKS[gift.itemId]?.cn ?? '物品'}`, 1.5); }
+    } else {
+      return false;
+    }
+    if (!sent) { this.hud?.showMessage('礼物没送出去，连接断了，东西还在你包里', 2.5); return false; }
+    this.hud?.refreshHotbar(inv, this.slot);
+    this.saveNow();
+    return true;
   }
 
   /** 收到 visit.approved：凭一次性票据拉取好友存档并作为临时副本加载（不写回岛主存档），同时接通同屏会话 */
@@ -696,6 +808,14 @@ export class Game {
     if (!this.paused && this.controller.take('book')) this.book.open();
     if (!this.paused) {
       if (this.controller.take('hall')) { if (this.scene === 'hall') this.leaveHall(); else this.enterHall(); }
+      if (this.controller.take('give')) {
+        if (this.visitSync.active) this.givePanel?.open();
+        else hud.showMessage('身边没有人可以收礼物', 2);
+      }
+      if (this.controller.take('chat')) {
+        if (this.visitSync.active) this.chatPanel?.open();
+        else hud.showMessage('身边没有人，说了也听不见', 2);
+      }
       this.survival!.toggleHungerKey();
       if (this.controller.take('toggleZombieSpawn')) {
         if (!this.mobs.zombieAttack) {
@@ -747,11 +867,19 @@ export class Game {
       if (!riding && this.controller.take('door')) {
         if (!this.playerActions!.tryMeatMagic() && hit) this.playerActions!.useBlock(hit.x, hit.y, hit.z);
       }
+      // 误伤：岛主开了开关且同屏有人时，出拳打到对面小人就发「visit.hit」（伤害由对面自己结算）
+      this.pvpHitCooldown = Math.max(0, this.pvpHitCooldown - dt);
+      if (this.visitPerm?.friendly && this.visitSync.active && this.pvpHitCooldown <= 0 && this.controller.isDown('mine')
+        && this.visitSync.hitPeer(body.x, body.y + PLAYER.EYE, body.z, dx, dy, dz, PVP.HIT_DISTANCE)) {
+        this.pvpHitCooldown = PVP.HIT_COOLDOWN;
+        this.net?.sendVisitHit();
+        hud.showMessage('打到对方啦！', 0.8);
+      }
       this.survival!.eatKey(body); this.slot = this.survival!.hotbarKeys(this.slot);
       if (this.scene === 'island') this.mobs.update(dt, body.x, body.y, body.z, this.day.time >= DAY.NIGHT_FROM, this.day.time);
       this.potions.update(dt, this.world); this.fires.update(dt);
       this.visitAvatar.update(dt, body.x, body.z);
-      this.visitSync.update(dt, body, this.character, this.day.time);
+      this.visitSync.update(dt, body, this.appearance.character, this.day.time);
       this.drops = this.pickup!.update(dt, body);
       if (this.scene === 'island') this.challenge.update(dt, body, this.inventory!, hud);
       if (this.scene !== 'hall') this.streamChunks(2);

@@ -45,6 +45,8 @@ export class TouchControls {
         <button class="tbtn sm" data-act="turnRight">↻</button>
       </div>
       <div class="trow trow-top">
+        <button class="tbtn sm" data-act="give">给</button>
+        <button class="tbtn sm" data-act="chat">聊</button>
         <button class="tbtn sm" data-act="book">书</button>
         <button class="tbtn sm" data-act="save">存</button>
         <button class="tbtn sm" data-act="respawn">家</button>

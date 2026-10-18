@@ -299,8 +299,10 @@ export const KEYS = {
   save: ['Digit1', 'Numpad1'], // 手动存档
   respawn: ['Digit3', 'Numpad3'], // 回城：瞬移回重生点（不掉血不死）
   book: ['Digit7', 'Numpad7'], // 打开制作方法收集册（DIY 手册学过的方法都在这）
-  quit: ['Digit0', 'Numpad0'], // 暂停时按它退出账号（存档回菜单）
+  quit: ['KeyQ'], // 暂停时按它存档回菜单（原 0 键让给聊天了，暂停菜单里也有按钮）
   hall: ['KeyH'], // 在自己的岛与大厅之间来回切换
+  give: ['KeyC'], // 访岛同屏时打开「送礼物」面板，把岛币/物品给对面的人
+  chat: ['Digit0', 'Numpad0'], // 访岛同屏时打开聊天框，跟对面说话
 } as const;
 
 /** 手机版域名：Nginx 把这些域名反代到同一个服务，前端据此切换手机 UI */
@@ -348,12 +350,23 @@ export const ISLAND = {
   LEAF_FRUIT_CHANCE: 0.05,  // 挖掉本岛树叶掉专属水果的概率（5%）
 };
 
-/** 访客挖掘权限：模式三选一 + 水果例外开关（仅在 none / all 下生效） */
+/** 访客挖掘权限：模式三选一 + 水果例外开关（仅在 none / all 下生效） + 是否允许放置方块 */
 export type VisitPermMode = 'none' | 'all' | 'list';
 export interface VisitPerm {
   mode: VisitPermMode;
   fruitException?: boolean;
+  /** 允许访客放置方块（岛主放行时勾选；缺省 = 不许放，兼容旧版） */
+  place?: boolean;
+  /** 开启误伤：同屏时双方可以互相打（每拳扣 PVP.DAMAGE 血 = 半颗心；缺省 = 不许打） */
+  friendly?: boolean;
 }
+
+/** 玩家互打（误伤）：岛主开「误伤」后生效 */
+export const PVP = {
+  DAMAGE: 1,          // 打一下扣多少血（1 血 = 半颗心）
+  HIT_COOLDOWN: 0.4,  // 攻击间隔（秒），和打怪同节奏
+  HIT_DISTANCE: 3.2,  // 拳头要离对方身体多近才算打到（格）
+};
 
 /** 大厅场景：固定 16×16 木板平台 + 中间双层木桌 + 四周栅栏边界 */
 export const HALL = {
@@ -394,6 +407,16 @@ export const SHOP = {
   EGG_SELL: 10,         // 收购箱：还没孵化的蛋（三档同价）
   EGG_ROLL: [0.8, 0.19, 0.01] as const, // 买蛋抽品质概率：普通 / 高级 / 绝世
   DRINK_SELL_MULT: 0.5, // 收购箱收饮料 = 买价 × 0.5
+  SKIN_PRISMARINE_PRICE: 70, // 特殊物品售卖机：海晶史蒂夫皮肤（买一次永久解锁）
+  SKIN_ENDER_PRICE: 85,      // 特殊物品售卖机：末影史蒂夫皮肤（买一次永久解锁）
+  SKIN_BLOODMOON_PRICE: 56,  // 特殊物品售卖机：血月史蒂夫皮肤（买一次永久解锁）
+  SKIN_WHITE_PRICE: 34,      // 特殊物品售卖机：白衣使者皮肤（买一次永久解锁）
+  SKIN_TECH_PRICE: 89,       // 特殊物品售卖机：科技史蒂夫皮肤（买一次永久解锁）
+  SKIN_CRYSTAL_PRICE: 78,    // 特殊物品售卖机：蓝色水晶盔甲史蒂夫皮肤（买一次永久解锁）
+  SKIN_DOG_PRICE: 58,        // 特殊物品售卖机：嘉宾犬人皮肤（买一次永久解锁）
+  SKIN_RAINBOW_PRICE: 158,   // 特殊物品售卖机：彩色史蒂夫皮肤（买一次永久解锁）
+  SKIN_GHOST_PRICE: 69,      // 特殊物品售卖机：史蒂夫鬼版·万圣节（买一次永久解锁）
+  SKIN_PUMPKIN_PRICE: 32,    // 特殊物品售卖机：史蒂夫南瓜头版·万圣节（买一次永久解锁）
 };
 
 /** 收购箱价目表：物品ID → { coins: 一份换多少岛币, per: 几个算一份 }

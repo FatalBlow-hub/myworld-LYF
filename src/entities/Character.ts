@@ -12,13 +12,29 @@ import {
   LEG_LEFT_RECTS, LEG_RIGHT_RECTS, SKIN_SIZE, TORSO_RECTS, characterSkin,
 } from '../render/SkinTextures';
 
-/** 目前两个人：史蒂夫、艾力克斯 */
-export type CharacterKind = 'steve' | 'alex';
+/** 人物形象：史蒂夫、艾力克斯（默认送的），海晶/末影/血月史蒂夫、白衣使者（售卖机买的皮肤） */
+export type CharacterKind = 'steve' | 'alex' | 'prismarine' | 'ender' | 'bloodmoon' | 'white' | 'tech' | 'crystal' | 'dog' | 'rainbow' | 'ghost' | 'pumpkin';
+
+/** 所有人物，按背包里「人物」按钮循环切换的顺序排 */
+export const CHARACTER_KINDS: readonly CharacterKind[] = ['steve', 'alex', 'prismarine', 'ender', 'bloodmoon', 'white', 'tech', 'crystal', 'dog', 'rainbow', 'ghost', 'pumpkin'];
+
+export const isCharacterKind = (v: unknown): v is CharacterKind =>
+  typeof v === 'string' && (CHARACTER_KINDS as readonly string[]).includes(v);
 
 /** 人物中文名（提示文案用） */
 export const CHARACTER_NAMES: Record<CharacterKind, string> = {
   steve: '史蒂夫',
   alex: '艾力克斯',
+  prismarine: '海晶史蒂夫',
+  ender: '末影史蒂夫',
+  bloodmoon: '血月史蒂夫',
+  white: '白衣使者',
+  tech: '科技史蒂夫',
+  crystal: '蓝色水晶盔甲史蒂夫',
+  dog: '嘉宾犬人',
+  rainbow: '彩色史蒂夫',
+  ghost: '史蒂夫鬼版·万圣节',
+  pumpkin: '史蒂夫南瓜头版·万圣节',
 };
 
 /** 皮肤上 1 像素 = 多少格：模型 32 像素高，正好等于玩家身高 */

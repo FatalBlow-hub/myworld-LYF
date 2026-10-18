@@ -10,7 +10,7 @@
  */
 
 import * as THREE from 'three';
-import { CharacterKind, CharacterModel, createCharacter } from '../entities/Character';
+import { CharacterKind, CharacterModel, createCharacter, isCharacterKind } from '../entities/Character';
 import { World } from '../world/World';
 import { PlayerBody } from '../player/Physics';
 import { NetClient } from '../net/Client';
@@ -53,6 +53,30 @@ export class VisitSync {
     return this.role !== null;
   }
 
+  /** 对面玩家的名字（送礼物面板标题用） */
+  get peer(): string {
+    return this.peerName;
+  }
+
+  /** 对端小人当前位置（插值后的实时位置）；模型不在场景里时返回 null */
+  peerPosition(): { x: number; y: number; z: number } | null {
+    return this.model ? { x: this.model.group.position.x, y: this.model.group.position.y, z: this.model.group.position.z } : null;
+  }
+
+  /** 拳头打没打中对面小人：从 (x,y,z) 沿 (dx,dy,dz) 发出的射线，离对方身体中心线的距离在 hitDist 内且没打过头 */
+  hitPeer(x: number, y: number, z: number, dx: number, dy: number, dz: number, hitDist: number): boolean {
+    const p = this.peerPosition();
+    if (!p) return false;
+    // 对方身体中心在脚底上方约半人高；中心线偏离拳头射线不超过 hitDist 就算命中
+    const cx = p.x, cy = p.y + 0.9, cz = p.z;
+    const vx = cx - x, vy = cy - y, vz = cz - z;
+    const along = vx * dx + vy * dy + vz * dz;
+    if (along < -0.5 || along > 4) return false; // 在背后或者够不着
+    const px = x + dx * along, py = y + dy * along, pz = z + dz * along;
+    const dist = Math.hypot(px - cx, py - cy, pz - cz);
+    return dist <= hitDist;
+  }
+
   /** 开始同屏：挂上世界改动钩子，之后每帧 update 会自动广播位置与方块改动 */
   start(role: VisitRole, peerName: string): void {
     this.stop();
@@ -71,7 +95,7 @@ export class VisitSync {
     this.hasTarget = true;
     // 访客的钟表跟岛主走：他家天黑我这儿也天黑
     if (this.role === 'guest' && typeof m.day === 'number') this.d.day.time = m.day;
-    const kind: CharacterKind = m.kind === 'alex' ? 'alex' : 'steve';
+    const kind: CharacterKind = isCharacterKind(m.kind) ? m.kind : 'steve';
     if (!this.model || this.modelKind !== kind) this.replaceModel(kind);
     if (first) this.d.onPeerAlive?.(this.peerName, this.role);
   }

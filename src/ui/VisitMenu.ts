@@ -15,6 +15,8 @@ export class VisitMenu {
   private fruitLabelEl: HTMLLabelElement;
   private fruitCheckEl: HTMLInputElement;
   private fruitDescEl: HTMLSpanElement;
+  private placeCheckEl: HTMLInputElement;
+  private friendlyCheckEl: HTMLInputElement;
   private modeRadios: Record<VisitPermMode, HTMLInputElement>;
   private visitor = '';
   private selectedMode: VisitPermMode = 'list';
@@ -81,7 +83,7 @@ export class VisitMenu {
     const permTitle = document.createElement('p');
     permTitle.className = 'inv-sub';
     Object.assign(permTitle.style, { fontSize: '18px', fontWeight: 'bold', textAlign: 'center', marginBottom: '2px' });
-    permTitle.textContent = '设置访客挖掘权限';
+    permTitle.textContent = '设置访客权限';
     permWin.appendChild(permTitle);
 
     this.permSubEl = document.createElement('p');
@@ -122,9 +124,37 @@ export class VisitMenu {
     this.fruitLabelEl.appendChild(this.fruitDescEl);
     permWin.appendChild(this.fruitLabelEl);
 
+    // 放置方块权限：默认不勾（保持旧行为「访客不允许放置」），岛主勾了才放行
+    const placeLabel = document.createElement('label');
+    Object.assign(placeLabel.style, {
+      display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#222',
+      cursor: 'pointer', padding: '6px 8px', background: 'rgba(0,0,0,0.06)', borderRadius: '4px',
+    });
+    this.placeCheckEl = document.createElement('input');
+    this.placeCheckEl.type = 'checkbox';
+    placeLabel.appendChild(this.placeCheckEl);
+    const placeDesc = document.createElement('span');
+    placeDesc.textContent = '允许放置方块（不勾：访客只能挖不能放）';
+    placeLabel.appendChild(placeDesc);
+    permWin.appendChild(placeLabel);
+
+    // 误伤开关：默认不勾（谁都打不了谁），勾了双方都能打对方、每拳半颗心
+    const friendlyLabel = document.createElement('label');
+    Object.assign(friendlyLabel.style, {
+      display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#222',
+      cursor: 'pointer', padding: '6px 8px', background: 'rgba(0,0,0,0.06)', borderRadius: '4px',
+    });
+    this.friendlyCheckEl = document.createElement('input');
+    this.friendlyCheckEl.type = 'checkbox';
+    friendlyLabel.appendChild(this.friendlyCheckEl);
+    const friendlyDesc = document.createElement('span');
+    friendlyDesc.textContent = '开启误伤（勾了：双方可以互相打，每拳半颗心）';
+    friendlyLabel.appendChild(friendlyDesc);
+    permWin.appendChild(friendlyLabel);
+
     permWin.appendChild(makeBtn('确认放行', '#4a7c3a', () => {
       this.permHandled = true;
-      const perm: VisitPerm = { mode: this.selectedMode, fruitException: this.fruitCheckEl.checked };
+      const perm: VisitPerm = { mode: this.selectedMode, fruitException: this.fruitCheckEl.checked, place: this.placeCheckEl.checked, friendly: this.friendlyCheckEl.checked };
       const v = this.visitor;
       this.closePerm();
       this.cb.onReply(v, true, perm);
@@ -173,6 +203,8 @@ export class VisitMenu {
     this.selectedMode = 'list';
     this.modeRadios.list.checked = true;
     this.fruitCheckEl.checked = false;
+    this.placeCheckEl.checked = false;
+    this.friendlyCheckEl.checked = false;
     this.permSubEl.textContent = `为访客「${fromName}」配置本岛挖掘权限：`;
     this.syncFruitState();
     this.permVisible = true;

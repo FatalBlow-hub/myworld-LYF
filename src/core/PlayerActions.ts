@@ -61,6 +61,8 @@ export interface PlayerActionDeps {
   islandFruit: () => number | null;
   /** 当前好友岛的访客挖掘权限（在好友岛时返回 VisitPerm，自己岛或随机陌生岛返回 null） */
   visitPerm?: () => VisitPerm | null;
+  /** 现在是不是站在大厅里（大厅是公共区域，方块禁挖禁放） */
+  inHall: () => boolean;
   /** 对着售卖机按 M：打开对应货架（special = 特殊物品售卖机，drink = 饮料售卖机） */
   openShop: (kind: 'special' | 'drink') => void;
   /** 对着收购箱按 M：打开收购界面 */
@@ -111,6 +113,12 @@ export class PlayerActions {
     if (!controller.isDown('mine')) {
       this.cancelMining();
       hud.setProgress(0);
+      return;
+    }
+    if (this.d.inHall()) {
+      this.cancelMining();
+      hud.setProgress(0);
+      hud.showMessage('大厅是公共区域，不能挖方块', 1.5);
       return;
     }
     // 拿着桶，指线上碰到液体 = 盛起来：水只用铁桶；泽液铁桶/玻璃桶都行，同种最多 3 格不混装
@@ -174,7 +182,12 @@ export class PlayerActions {
   placeItem(hit: BlockHit | null, body: PlayerBody): void {
     const { controller, world, inventory, hud } = this.d;
     if (!controller.take('place') || !hit) return;
-    if (this.d.visitPerm?.()) {
+    if (this.d.inHall()) {
+      hud.showMessage('大厅是公共区域，不能放方块', 1.5);
+      return;
+    }
+    const perm = this.d.visitPerm?.() ?? null;
+    if (perm && perm.place !== true) {
       hud.showMessage('访客不允许放置方块');
       return;
     }

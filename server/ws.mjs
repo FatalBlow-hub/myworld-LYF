@@ -145,7 +145,7 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null, a
   /** 规范化访客挖掘权限 */
   function normalizePerm(raw) {
     const mode = raw && (raw.mode === 'none' || raw.mode === 'all' || raw.mode === 'list') ? raw.mode : 'none';
-    return { mode, fruitException: Boolean(raw?.fruitException) };
+    return { mode, fruitException: Boolean(raw?.fruitException), place: Boolean(raw?.place), friendly: Boolean(raw?.friendly) };
   }
 
   /** 发 JSON 消息给单个连接 */
@@ -492,7 +492,34 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null, a
         return;
       }
 
-      // 同屏会话中的转发业务：位置改个名发过去（pos→peer），方块改动原样转发，leave 校验对端名再拆会话
+      // 同屏会话中的转发业务：位置改个名发过去（pos→peer），方块改动原样转发，打人附带上谁打的，leave 校验对端名再拆会话
+      if (msg.t === 'visit.hit') {
+        const s = visitSessions.get(ws);
+        if (s && s.peer.readyState === s.peer.OPEN) sendMsg(s.peer, { t: 'visit.hit', name: info.name });
+        return;
+      }
+      // 送礼物：只转合法字段（coins 或 itemId+count 二选一），数量取正整数上限封顶防刷屏溢出
+      if (msg.t === 'visit.give') {
+        const s = visitSessions.get(ws);
+        if (!s || s.peer.readyState !== s.peer.OPEN) return;
+        const coins = Math.floor(Number(msg.coins));
+        const itemId = Math.floor(Number(msg.itemId));
+        const count = Math.floor(Number(msg.count));
+        if (Number.isFinite(coins) && coins > 0 && coins <= 9999) {
+          sendMsg(s.peer, { t: 'visit.give', name: info.name, coins });
+        } else if (Number.isFinite(itemId) && itemId > 0 && Number.isFinite(count) && count > 0 && count <= 999) {
+          sendMsg(s.peer, { t: 'visit.give', name: info.name, itemId, count });
+        }
+        return;
+      }
+      // 聊天：截断到 60 字再转发，去掉换行和控制符免得刷屏
+      if (msg.t === 'visit.chat') {
+        const s = visitSessions.get(ws);
+        if (!s || s.peer.readyState !== s.peer.OPEN) return;
+        const text = String(msg.text ?? '').replace(/[\x00-\x1f]/g, ' ').trim().slice(0, 60);
+        if (text) sendMsg(s.peer, { t: 'visit.chat', name: info.name, text });
+        return;
+      }
       if (msg.t === 'visit.pos' || msg.t === 'visit.blocks') {
         const s = visitSessions.get(ws);
         if (!s) return; // 没会话的消息直接丢（比如断线重连后旧会话已拆）

@@ -62,7 +62,7 @@ interface GameStat {
 /** 展示用的中文映射（不引游戏 config，控制台保持独立入口） */
 const CN: Record<string, string> = {
   survival: '生存', creative: '创造',
-  steve: '史蒂夫', alex: '艾力克斯',
+   steve: '史蒂夫', alex: '艾力克斯', prismarine: '海晶史蒂夫', ender: '末影史蒂夫', bloodmoon: '血月史蒂夫', white: '白衣使者', tech: '科技史蒂夫', crystal: '蓝色水晶盔甲史蒂夫', dog: '嘉宾犬人', rainbow: '彩色史蒂夫', ghost: '万圣节鬼版', pumpkin: '万圣节南瓜头',
   apple: '苹果岛', peach: '桃子岛', orange: '橙子岛',
 };
 

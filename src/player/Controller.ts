@@ -17,6 +17,9 @@ export class Controller {
     }
 
     addEventListener('keydown', (e) => {
+      // 正在输入框/文本域里打字时不触发游戏快捷键（不然聊天打个 P 就开始挖矿了）
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       const action = this.codeToAction.get(e.code);
       if (!action || !this.active) return;
       e.preventDefault();

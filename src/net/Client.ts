@@ -35,6 +35,12 @@ export interface NetClientCallbacks {
   onVisitBlocks?: (cells: number[][]) => void;
   /** 同屏会话结束（对方离开或掉线） */
   onVisitEnd?: (reason: 'left' | 'offline', name?: string) => void;
+  /** 同屏对端打了我一下（误伤开启时才有） */
+  onVisitHit?: (from: string) => void;
+  /** 收到对面送的礼物：coins 或 itemId+count 二选一 */
+  onVisitGive?: (from: string, gift: { coins?: number; itemId?: number; count?: number }) => void;
+  /** 收到对面发来的聊天消息 */
+  onVisitChat?: (from: string, text: string) => void;
   /** 服务器确认收到访岛申请（申请在死管里丢掉时，客户端靠"没回执"发现） */
   onVisitRequested?: (to: string) => void;
   /** 访客收到拒绝/超时/验证失败/不在线时触发 */
@@ -145,6 +151,21 @@ export class NetClient {
   /** 同屏访岛：主动离开会话（回大厅/回本岛前打声招呼，对端好收摊） */
   sendVisitLeave(to: string): void {
     this.send({ t: 'visit.leave', to });
+  }
+
+  /** 同屏访岛：打到对方一下（误伤开启时才发；服务器原样转发，伤害由对端结算） */
+  sendVisitHit(): void {
+    this.send({ t: 'visit.hit' });
+  }
+
+  /** 同屏访岛：送礼物给对端（coins 送岛币，itemId+count 送物品；返回 false = 没发出去，调用方要把东西还回去） */
+  sendVisitGive(gift: { coins?: number; itemId?: number; count?: number }): boolean {
+    return this.send({ t: 'visit.give', ...gift });
+  }
+
+  /** 同屏访岛：发聊天消息给对端（返回 false = 没发出去） */
+  sendVisitChat(text: string): boolean {
+    return this.send({ t: 'visit.chat', text });
   }
 
   /** 更新本档是否曾开启创造模式标记 */
@@ -370,6 +391,18 @@ export class NetClient {
       }
       case 'visit.end': {
         this.callbacks.onVisitEnd?.(msg.reason, msg.name);
+        break;
+      }
+      case 'visit.hit': {
+        this.callbacks.onVisitHit?.(msg.name);
+        break;
+      }
+      case 'visit.give': {
+        this.callbacks.onVisitGive?.(msg.name, { coins: msg.coins, itemId: msg.itemId, count: msg.count });
+        break;
+      }
+      case 'visit.chat': {
+        this.callbacks.onVisitChat?.(msg.name, msg.text);
         break;
       }
       case 'visit.denied': {

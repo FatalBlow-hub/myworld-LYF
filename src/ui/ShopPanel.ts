@@ -1,5 +1,6 @@
 /** 售卖机面板 — 对着售卖机按 M 打开：一行一个商品（图标+名字+价格+购买按钮），顶上显示余额 */
 
+import { skinHeadIcon } from '../render/SkinTextures';
 import { Atlas } from '../render/Textures';
 import { BLOCKS } from '../world/Block';
 import { ShopGood, fmtCoins } from '../world/Shop';
@@ -51,13 +52,13 @@ export class ShopPanel {
     row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:4px 2px;';
 
     const img = document.createElement('img');
-    img.src = this.atlas.iconFor(g.id);
+    img.src = g.unlock ? skinHeadIcon(g.unlock) : this.atlas.iconFor(g.id!);
     img.style.cssText = 'width:32px;height:32px;image-rendering:pixelated;';
     row.appendChild(img);
 
     const name = document.createElement('span');
     name.style.cssText = 'flex:1;text-align:left;font-size:14px;';
-    name.textContent = (g.label ?? BLOCKS[g.id].cn) + (g.note ? `（${g.note}）` : '');
+    name.textContent = (g.label ?? BLOCKS[g.id!].cn) + (g.note ? `（${g.note}）` : '');
     row.appendChild(name);
 
     const btn = document.createElement('button');

@@ -86,6 +86,25 @@ export interface C2SVisitLeaveMsg {
   to: string;
 }
 
+/** 同屏访岛：打到对方一下（岛主开了「误伤」才允许发；服务器原样转发给对端，伤害由对端自己结算） */
+export interface C2SVisitHitMsg {
+  t: 'visit.hit';
+}
+
+/** 同屏访岛：送礼物给对端（coins = 送岛币；itemId+count = 送物品；二选一，服务器校验后转发） */
+export interface C2SVisitGiveMsg {
+  t: 'visit.give';
+  coins?: number;
+  itemId?: number;
+  count?: number;
+}
+
+/** 同屏访岛：发聊天消息给对端（服务器截断长度后转发） */
+export interface C2SVisitChatMsg {
+  t: 'visit.chat';
+  text: string;
+}
+
 /** 预留命名空间：后续访客/同步消息（本期不实现逻辑） */
 export interface C2SReservedMsg {
   t: 'room.visit' | 'world.sync';
@@ -104,6 +123,9 @@ export type C2SMsg =
   | C2SVisitPosMsg
   | C2SVisitBlocksMsg
   | C2SVisitLeaveMsg
+  | C2SVisitHitMsg
+  | C2SVisitGiveMsg
+  | C2SVisitChatMsg
   | C2SReservedMsg;
 export type C2SMsgType = C2SMsg['t'];
 
@@ -222,6 +244,28 @@ export interface S2CVisitEndMsg {
   name?: string;
 }
 
+/** 同屏访岛：对方打了你一下（误伤开启时才有；name = 谁打的，伤害固定走 PVP.DAMAGE） */
+export interface S2CVisitHitMsg {
+  t: 'visit.hit';
+  name: string;
+}
+
+/** 同屏访岛：对方送你东西（name = 谁送的；coins 或 itemId+count 二选一） */
+export interface S2CVisitGiveMsg {
+  t: 'visit.give';
+  name: string;
+  coins?: number;
+  itemId?: number;
+  count?: number;
+}
+
+/** 同屏访岛：对方发来的聊天（name = 谁说的，text = 内容） */
+export interface S2CVisitChatMsg {
+  t: 'visit.chat';
+  name: string;
+  text: string;
+}
+
 /** 好友访岛：拒绝 / 验证失败（creative）/ 超时 / 不在线；offline 时附带当前真实在线名单帮客户端刷新 */
 export interface S2CVisitDeniedMsg {
   t: 'visit.denied';
@@ -253,5 +297,8 @@ export type S2CMsg =
   | S2CVisitPeerMsg
   | S2CVisitBlocksMsg
   | S2CVisitEndMsg
+  | S2CVisitHitMsg
+  | S2CVisitGiveMsg
+  | S2CVisitChatMsg
   | S2CReservedMsg;
 export type S2CMsgType = S2CMsg['t'];

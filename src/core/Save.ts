@@ -70,6 +70,8 @@ export interface SaveData {
   coins?: number;
   /** 玩家形象（史蒂夫/艾力克斯）：旧档没有就按账号名固定挑一个，朋友访岛时看到的就是这个 */
   character?: CharacterKind;
+  /** 已拥有的皮肤（售卖机买的；老档没有就只有默认两个） */
+  skins?: CharacterKind[];
   /** 重生点 */
   spawn: { x: number; y: number; z: number };
   /** 玩家站的位置和朝向；boostT = 食物加速剩下的秒数；boostMult = 加速倍率 */
@@ -244,6 +246,7 @@ export function buildSave(g: {
   islandType: IslandType;
   coins: number;
   character?: CharacterKind;
+  skins?: CharacterKind[];
   spawn: { x: number; y: number; z: number };
   body: PlayerBody;
   health: Health;
@@ -271,6 +274,7 @@ export function buildSave(g: {
     islandType: g.islandType,
     coins: Math.round(g.coins * 100) / 100,
     character: g.character,
+    skins: g.skins,
     spawn: { ...g.spawn },
     body: {
       x: g.body.x, y: g.body.y, z: g.body.z,
