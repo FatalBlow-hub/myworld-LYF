@@ -45,3 +45,4 @@ npm run dev
 - `docs/_prompts/` — 交给 auggie CLI 实现的分批提示词与索引
 - `docs/进度/` — 每日工作日志与工作总结（按日期归档，10-14 起）
 - `docs/README.md` — docs 目录完整清单索引
+- `docs/原型/` — 界面改版设计稿（静态 HTML，浏览器直接打开）

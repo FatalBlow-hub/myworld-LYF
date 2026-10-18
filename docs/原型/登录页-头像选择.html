@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>登录页改版原型 — 本机账号头像选择（正方形头像 + 状态自适应）</title>
+<!--
+  登录页头像选择原型 v2 — 静态设计稿，不进构建、不影响游戏
+  相对 v1 的改动：
+    1. 头像 = 游戏内真 3D 人物模型渲染（机位灯光照抄背包预览 CharacterPreview），
+       正方形框裁「头 + 肩膀」特写；原型为离线展示嵌了渲染结果图，真实现时登录页
+       直接挂 3D 小画布（需把 CharacterPreview 的竖屏尺寸/机位参数化出方框版），无需预制图
+    2. 去掉登录/注册页签（v1 的"两个登录按钮"误解根源），主流程只有「进入游戏」
+    3. 状态自适应：本机有账户 → 头像行是主角，注册/其他账号是角落小链接；
+       新设备 → 注册表单是主角，没有头像行
+  对应实现：src/ui/Auth.ts（登录/注册界面）+ server/index.mjs（完整版需加 device_tokens）
+-->
+<style>
+  /* ---------- 原型页自身样式（深色评审底，非游戏样式） ---------- */
+  :root {
+    --bg: #0d1117; --panel: #1b2330; --line: #33405a;
+    --text: #e8ecf2; --dim: #8b96a8; --acc: #7cb342; --acc-dark: #558b2f;
+    --gold: #ffca28; --danger: #e57373;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px 24px 40px; background: var(--bg); color: var(--text);
+    font: 14px/1.7 system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  h1 { font-size: 18px; margin: 0 0 2px; }
+  .sub { color: var(--dim); font-size: 13px; margin: 0 0 20px; }
+  .frames { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+  .frame { display: flex; flex-direction: column; gap: 8px; }
+  .frame > .tag { color: var(--dim); font-size: 12px; letter-spacing: 1px; }
+  .statebar { display: flex; gap: 6px; }
+  .statebar button {
+    padding: 4px 12px; font-size: 12px; border: 1px solid var(--line); border-radius: 999px;
+    background: #ffffff08; color: var(--dim); cursor: pointer;
+  }
+  .statebar button.on { background: var(--acc-dark); border-color: var(--acc); color: #fff; }
+  .stage {
+    width: 440px; height: 700px; border-radius: 14px; overflow: hidden;
+    border: 1px solid var(--line); box-shadow: 0 10px 40px #0008;
+  }
+  .frame.mobile .stage { width: 372px; height: 700px; border-radius: 26px; border-width: 4px; }
+  .notes {
+    margin-top: 26px; max-width: 900px; border: 1px dashed var(--line);
+    border-radius: 10px; padding: 14px 18px; color: var(--dim); font-size: 13px;
+  }
+  .notes b { color: var(--text); }
+  .notes li { margin: 4px 0; }
+
+  /* ---------- 以下 .auth-* 仿游戏登录遮罩（与 src/ui/Auth.ts 的 class 对应） ---------- */
+  .overlay.auth {
+    height: 100%; overflow-y: auto; padding: 24px 22px;
+    background: radial-gradient(120% 90% at 50% 0%, #2b3a55 0%, #141a26 62%, #0d1117 100%);
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .overlay.auth > h1 {
+    margin: 4px 0 2px; font-size: 30px; letter-spacing: 4px;
+    text-shadow: 0 3px 0 #0006, 0 0 18px #6ab04c44;
+  }
+  .overlay.auth > .slogan { color: var(--dim); font-size: 12px; margin: 0 0 14px; text-align: center; }
+
+  /* 本机账号头像行（主角） */
+  .auth-local { width: 100%; max-width: 360px; }
+  .auth-local-title {
+    display: flex; justify-content: space-between; align-items: baseline;
+    color: var(--dim); font-size: 12px; margin-bottom: 8px;
+  }
+  .auth-local-title .more { color: #6a7a95; font-size: 11px; }
+  .auth-avatars { display: flex; gap: 10px; }
+  .avatar {
+    flex: 1; padding: 10px 0 8px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+    background: #ffffff0a; border: 2px solid var(--line); border-radius: 12px;
+    color: var(--text); cursor: pointer; transition: transform .08s, border-color .08s;
+  }
+  .avatar:hover { transform: translateY(-2px); border-color: #4c5c78; }
+  .avatar.on { border-color: var(--acc); background: #7cb3421c; }
+  .avatar img.full { width: 68px; height: 68px; image-rendering: pixelated; border-radius: 8px; }
+  .avatar .nm { font-size: 12px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .avatar .role { font-size: 10px; color: var(--gold); }
+  .avatar .role.none { visibility: hidden; }
+  .avatar.add { border-style: dashed; color: var(--dim); }
+  .avatar.add .plus { font-size: 26px; line-height: 68px; height: 68px; }
+  .auth-local .hint { margin: 10px 2px 0; font-size: 12px; color: var(--dim); min-height: 18px; }
+  .auth-local .hint b { color: var(--acc); }
+
+  .auth-fields { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+  .auth-field { position: relative; display: flex; }
+  .auth-field input {
+    flex: 1; padding: 10px 38px 10px 12px; font-size: 15px; color: var(--text);
+    background: #ffffff10; border: 1px solid var(--line); border-radius: 8px; outline: none;
+  }
+  .auth-field input:focus { border-color: var(--acc); }
+  .auth-field .eye {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    border: 0; background: none; cursor: pointer; font-size: 15px; padding: 4px 8px;
+  }
+  .auth-remember { width: 100%; max-width: 360px; margin: 2px 0; font-size: 12px; color: var(--dim); }
+  .auth-remember label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+  .auth-remember input { accent-color: var(--acc); }
+  .auth-submit {
+    width: 100%; margin-top: 4px; padding: 11px 0; font-size: 16px;
+    color: #fff; background: linear-gradient(#8bc34a, #689f38); border: 0; border-radius: 8px;
+    box-shadow: 0 3px 0 #4c7a2b; cursor: pointer;
+  }
+  .auth-submit:active { transform: translateY(2px); box-shadow: 0 1px 0 #4c7a2b; }
+  .auth-submit.ghost {
+    background: #ffffff10; color: var(--text); box-shadow: none;
+    border: 1px solid var(--line); font-size: 14px;
+  }
+  .auth-error { width: 100%; max-width: 360px; min-height: 18px; color: var(--danger); font-size: 12px; margin-top: 6px; }
+
+  /* 次要入口：其他账号 / 注册，只是小链接 */
+  .auth-alt {
+    width: 100%; max-width: 360px; margin-top: 14px; text-align: center;
+    color: var(--dim); font-size: 12px;
+  }
+  .link-btn {
+    border: 0; background: none; padding: 2px 4px; cursor: pointer;
+    color: #9fb4d8; font-size: 12px; text-decoration: underline;
+  }
+  .link-btn:hover { color: var(--text); }
+  .auth-alt .sep { color: #3a4763; margin: 0 6px; }
+
+  /* 折叠区：其他账号登录 / 注册新账号 */
+  .auth-fold {
+    width: 100%; max-width: 360px; margin-top: 12px; padding-top: 12px;
+    border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 10px;
+  }
+  .auth-fold[hidden] { display: none; }
+  .auth-fold .fold-title { color: var(--dim); font-size: 12px; margin: 0; }
+
+  .auth-welcome { width: 100%; max-width: 360px; color: var(--dim); font-size: 13px; margin: 0 0 14px; }
+  .auth-link {
+    width: 100%; max-width: 360px; margin-top: auto; padding-top: 14px; text-align: center;
+    color: #6a7a95; font-size: 12px; text-decoration: underline; cursor: pointer;
+  }
+  .auth-link.off { border: 1px dashed #3a4763; border-radius: 8px; padding: 7px 0; text-decoration: none; }
+  .auth-link.off::after { content: "（仅 GUEST_PLAY=1 时出现）"; color: #55627a; font-size: 11px; margin-left: 6px; }
+
+  /* 手机版微调 */
+  .is-mobile .avatar img.full { width: 60px; height: 60px; }
+  .is-mobile .avatar .nm { font-size: 11px; }
+  .is-mobile .overlay.auth > h1 { font-size: 26px; }
+</style>
+</head>
+<body>
+
+<h1>登录页改版原型 v2 — 本机账号头像选择</h1>
+<p class="sub">相对 v1：头像升级<b style="color:var(--text)">全身像</b>；去掉登录/注册页签（主流程只有「进入游戏」）；页面按状态下菜——顶部小按钮可切换「本机有账户 / 新设备」两种场景。交互可点：选头像、眼睛、展开其他账号/注册、记住此设备。</p>
+
+<div class="frames">
+  <div class="frame">
+    <div class="tag">桌面版（主站 ms.7shu.asia）</div>
+    <div class="statebar">
+      <button data-state="known" class="on">本机有账户</button>
+      <button data-state="fresh">新设备</button>
+    </div>
+    <div class="stage" id="stage-desktop"></div>
+  </div>
+  <div class="frame mobile">
+    <div class="tag">手机版（m.7shu.asia / ?touch=1）</div>
+    <div class="statebar">
+      <button data-state="known" class="on">本机有账户</button>
+      <button data-state="fresh">新设备</button>
+    </div>
+    <div class="stage is-mobile" id="stage-mobile"></div>
+  </div>
+</div>
+
+<div class="notes">
+  <b>设计说明（确认后我再动真代码）：</b>
+  <ol>
+    <li><b>头像就是游戏里的 3D 小人</b>（正方形「头 + 肩膀」特写）：直接用 <code>entities/Character</code> 的模型 + 背包预览同款机位灯光渲染（MeshLambert + 三灯），长相、光影与游戏里 100% 一致；真实现时登录页每个头像挂一个 <code>CharacterPreview</code> 小画布（需把它的 76×132 竖屏尺寸/机位参数化出方框版，停渲染时零开销），不预制图、不加包体（three 本来就在包里）。</li>
+    <li><b>状态自适应</b>：本机登录过的账号（浏览器本地记录）≥1 个 → 头像行是主角，点选后输密码进游戏；一个都没有 → 直接是注册表单，不摆空头像行骗人。</li>
+    <li><b>没有"两个登录按钮"了</b>：v1 的页签已删。主流程唯一确认按钮叫「进入游戏」；「注册新账号 / 用其他账号登录」是底部小链接，点开才出表单。</li>
+    <li><b>记住此设备</b>：勾上后，下次打开登录页点头像直接进游戏（服务端 device_tokens 换长期登录态；封停/删账号时令牌一并作废）。公共电脑别勾。</li>
+    <li><b>「不登录，玩本地存档」</b>在游客开关（GUEST_PLAY，默认关）关闭时整行不渲染；原型用虚线框标注它"默认不存在"。</li>
+  </ol>
+</div>
+
+<!-- 场景 A：本机有账户 —— 头像行主角 -->
+<template id="tpl-known">
+  <div class="overlay auth">
+    <h1>方块世界</h1>
+    <p class="slogan">浏览器里的方块小岛 · 生存 / 创造 / 联机</p>
+
+    <div class="auth-local">
+      <div class="auth-local-title"><span>本机账号</span><span class="more">点他直接进游戏</span></div>
+      <div class="auth-avatars">
+        <button type="button" class="avatar on" data-name="longjli001" data-kind="steve">
+          <img class="full" src="data:image/png;base64,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" alt="史蒂夫">
+          <span class="nm">longjli001</span><span class="role">管理员</span>
+        </button>
+        <button type="button" class="avatar" data-name="小聪老鼠" data-kind="alex">
+          <img class="full" src="data:image/png;base64,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" alt="艾力克斯">
+          <span class="nm">小聪老鼠</span><span class="role none">·</span>
+        </button>
+        <button type="button" class="avatar" data-name="尧婷婷2" data-kind="prismarine">
+          <img class="full" src="data:image/png;base64,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" alt="海晶史蒂夫">
+          <span class="nm">尧婷婷2</span><span class="role none">·</span>
+        </button>
+        <button type="button" class="avatar add" data-name="">
+          <span class="plus">＋</span>
+          <span class="nm">其他账号</span><span class="role none">·</span>
+        </button>
+      </div>
+      <p class="hint">已选 <b>longjli001</b> · 输入密码进入；记住此设备后，下次点他直接进</p>
+    </div>
+
+    <div class="auth-fields">
+      <div class="auth-field">
+        <input data-pass type="password" placeholder="密码（至少 4 位）" maxlength="64" autocomplete="current-password">
+        <button type="button" class="eye" data-eye="pass" title="显示 / 隐藏">👁</button>
+      </div>
+      <div class="auth-remember">
+        <label><input type="checkbox" checked> 记住此设备（下次点头像直接进；公共电脑别勾）</label>
+      </div>
+    </div>
+    <button type="button" class="auth-submit">进入游戏</button>
+    <div class="auth-error"></div>
+
+    <div class="auth-alt">
+      <button type="button" class="link-btn" data-alt="other">用其他账号登录</button>
+      <span class="sep">·</span>
+      <button type="button" class="link-btn" data-alt="register">注册新账号</button>
+    </div>
+
+    <div class="auth-fold" data-fold="other" hidden>
+      <p class="fold-title">用其他账号登录</p>
+      <div class="auth-field">
+        <input data-othername type="text" placeholder="名字（2~16位）" maxlength="16" autocomplete="username">
+      </div>
+      <div class="auth-field">
+        <input data-otherpass type="password" placeholder="密码" maxlength="64" autocomplete="current-password">
+        <button type="button" class="eye" data-eye="otherpass" title="显示 / 隐藏">👁</button>
+      </div>
+      <button type="button" class="auth-submit ghost">登录</button>
+    </div>
+
+    <div class="auth-fold" data-fold="register" hidden>
+      <p class="fold-title">注册新账号（小岛、背包、进度都存在账号里，换设备也能接着玩）</p>
+      <div class="auth-field">
+        <input data-rname type="text" placeholder="起个名字（2~16位）" maxlength="16">
+      </div>
+      <div class="auth-field">
+        <input data-rpass type="password" placeholder="密码（至少4位）" maxlength="64">
+        <button type="button" class="eye" data-eye="rpass" title="显示 / 隐藏">👁</button>
+      </div>
+      <div class="auth-field">
+        <input data-rpass2 type="password" placeholder="再输一次" maxlength="64">
+        <button type="button" class="eye" data-eye="rpass2" title="显示 / 隐藏">👁</button>
+      </div>
+      <button type="button" class="auth-submit ghost">注册并登录</button>
+    </div>
+
+    <div class="auth-link off">不登录，玩本地存档</div>
+  </div>
+</template>
+
+<!-- 场景 B：新设备（本机没有登录过的账号）—— 注册表单主角 -->
+<template id="tpl-fresh">
+  <div class="overlay auth">
+    <h1>方块世界</h1>
+    <p class="slogan">浏览器里的方块小岛 · 生存 / 创造 / 联机</p>
+
+    <p class="auth-welcome">第一次用这台设备？先注册一个账号——小岛、背包、进度都存在你的账号里，换台设备登录也能接着玩。</p>
+
+    <div class="auth-fields">
+      <div class="auth-field">
+        <input data-rname type="text" placeholder="起个名字（2~16位）" maxlength="16" autocomplete="username">
+      </div>
+      <div class="auth-field">
+        <input data-rpass type="password" placeholder="密码（至少4位）" maxlength="64" autocomplete="new-password">
+        <button type="button" class="eye" data-eye="rpass" title="显示 / 隐藏">👁</button>
+      </div>
+      <div class="auth-field">
+        <input data-rpass2 type="password" placeholder="再输一次" maxlength="64" autocomplete="new-password">
+        <button type="button" class="eye" data-eye="rpass2" title="显示 / 隐藏">👁</button>
+      </div>
+    </div>
+    <button type="button" class="auth-submit">注册并登录</button>
+    <div class="auth-error"></div>
+
+    <div class="auth-alt">
+      <button type="button" class="link-btn" data-alt="other">已有账号？点这里登录</button>
+    </div>
+
+    <div class="auth-fold" data-fold="other" hidden>
+      <p class="fold-title">登录已有账号</p>
+      <div class="auth-field">
+        <input data-othername type="text" placeholder="名字（2~16位）" maxlength="16" autocomplete="username">
+      </div>
+      <div class="auth-field">
+        <input data-otherpass type="password" placeholder="密码" maxlength="64" autocomplete="current-password">
+        <button type="button" class="eye" data-eye="otherpass" title="显示 / 隐藏">👁</button>
+      </div>
+      <button type="button" class="auth-submit ghost">登录</button>
+    </div>
+
+    <div class="auth-link off">不登录，玩本地存档</div>
+  </div>
+</template>
+
+<script>
+  /* ---------- 面板装配 ---------- */
+  function mountPanel(stage, state) {
+    stage.innerHTML = '';
+    const tpl = document.getElementById(state === 'fresh' ? 'tpl-fresh' : 'tpl-known');
+    stage.appendChild(tpl.content.cloneNode(true));
+    const root = stage.firstElementChild;
+
+    /* 头像：选中 → 光标跳密码框；「其他账号」→ 打开折叠的手动登录 */
+    const avatars = [...root.querySelectorAll('.avatar')];
+    const hint = root.querySelector('.auth-local .hint');
+    const passIn = root.querySelector('[data-pass]');
+    avatars.forEach((btn) => btn.addEventListener('click', () => {
+      avatars.forEach((a) => a.classList.toggle('on', a === btn));
+      const name = btn.dataset.name;
+      if (name) {
+        hint.innerHTML = `已选 <b>${name}</b> · 输入密码进入；记住此设备后，下次点他直接进`;
+        passIn?.focus();
+      } else {
+        hint.innerHTML = '手动输入名字登录（新设备 / 访客第一次用它）';
+        root.querySelector('[data-fold="other"]').hidden = false;
+        root.querySelector('[data-fold="register"]')?.setAttribute('hidden', '');
+        root.querySelector('[data-othername]')?.focus();
+      }
+    }));
+
+    /* 底部小链接：展开 / 收起对应折叠区（同时只开一个） */
+    root.querySelectorAll('[data-alt]').forEach((btn) => btn.addEventListener('click', () => {
+      const fold = root.querySelector(`[data-fold="${btn.dataset.alt}"]`);
+      const willOpen = fold.hidden;
+      root.querySelectorAll('.auth-fold').forEach((f) => { f.hidden = true; });
+      fold.hidden = !willOpen;
+    }));
+
+    /* 小眼睛：密码可见切换 */
+    root.querySelectorAll('.eye').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const input = root.querySelector(`[data-${btn.dataset.eye}]`);
+        input.type = input.type === 'password' ? 'text' : 'password';
+        input.focus();
+      });
+    });
+
+    /* 提交按钮：原型里只演示，不真发请求 */
+    root.querySelector('.auth-submit')?.addEventListener('click', (e) => {
+      const err = root.querySelector('.auth-error');
+      const label = e.currentTarget.textContent;
+      err.style.color = 'var(--acc)';
+      err.textContent = `（原型演示）${label}…`;
+      setTimeout(() => { err.textContent = ''; err.style.color = ''; }, 1800);
+    });
+  }
+
+  /* 两个设备框 × 两种状态，各自装配 */
+  function mountFrame(frameEl) {
+    const stage = frameEl.querySelector('.stage');
+    const buttons = [...frameEl.querySelectorAll('.statebar button')];
+    const apply = (state) => {
+      buttons.forEach((b) => b.classList.toggle('on', b.dataset.state === state));
+      mountPanel(stage, state);
+    };
+    buttons.forEach((b) => b.addEventListener('click', () => apply(b.dataset.state)));
+    apply('known');
+  }
+  document.querySelectorAll('.frame').forEach(mountFrame);
+</script>
+
+</body>
+</html>
