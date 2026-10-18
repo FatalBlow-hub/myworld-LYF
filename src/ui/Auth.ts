@@ -3,14 +3,20 @@
 
 /** 问服务器"我是谁"：
  *  返回 'off' = 后端没在跑（本地模式，用老的本地存档菜单）；
- *  { name: 'xxx' } = 已登录；{ name: null } = 后端在但没登录，该弹登录框了 */
-export async function probeAuth(): Promise<{ name: string | null } | 'off'> {
+ *  { name: 'xxx' } = 已登录；{ name: null } = 后端在但没登录，该弹登录框了
+ *  guest = 服务端 GUEST_PLAY 开关：未登录时要不要给「不登录，玩本地存档」入口（默认关） */
+export async function probeAuth(): Promise<{ name: string | null; guest: boolean } | 'off'> {
   try {
     const r = await fetch('/api/auth/me');
     if (!(r.headers.get('content-type') ?? '').includes('json')) return 'off'; // 纯前端模式
-    if (!r.ok) return { name: null };
-    const d = (await r.json()) as { name?: string };
-    return { name: typeof d.name === 'string' ? d.name : null };
+    if (!r.ok) {
+      // 401 体里带 guest 字段；老后端没这字段按关处理（入口不给）
+      let guest = false;
+      try { guest = (await r.json() as { guest?: boolean }).guest === true; } catch { /* 拿不到就当关 */ }
+      return { name: null, guest };
+    }
+    const d = (await r.json()) as { name?: string; guest?: boolean };
+    return { name: typeof d.name === 'string' ? d.name : null, guest: d.guest === true };
   } catch {
     return 'off'; // 后端没跑/断网 → 本地模式
   }
@@ -24,8 +30,8 @@ export async function logout(): Promise<void> {
 export interface AuthActions {
   /** 登录/注册成功（Cookie 已经带上了） */
   onDone: () => void;
-  /** 不想登录，玩本地存档 */
-  onLocal: () => void;
+  /** 不想登录，玩本地存档。游客游玩开关（服务端 GUEST_PLAY）关掉时不传——登录页不出这个入口 */
+  onLocal?: () => void;
 }
 
 type AuthTab = 'login' | 'register';
@@ -36,6 +42,10 @@ export class Auth {
   constructor(actions: AuthActions) {
     this.el = document.createElement('div');
     this.el.className = 'overlay auth';
+    // 游客游玩开关（GUEST_PLAY，默认关）关掉时，「不登录」入口整个不渲染——后端在跑就必须登录/注册
+    const guestLink = actions.onLocal
+      ? '<div class="auth-link" data-local>不登录，玩本地存档</div>'
+      : '';
     this.el.innerHTML = `
       <h1>方块世界</h1>
       <div class="auth-tabs">
@@ -58,7 +68,7 @@ export class Auth {
       <div class="auth-error"></div>
       <button type="button" data-submit>登录</button>
       <div class="auth-tip" data-tip>还没有账号？点上面的「注册」</div>
-      <div class="auth-link" data-local>不登录，玩本地存档</div>
+      ${guestLink}
     `;
     const nameIn = this.el.querySelector('input[data-name]') as HTMLInputElement;
     const passIn = this.el.querySelector('input[data-pass]') as HTMLInputElement;
@@ -128,10 +138,12 @@ export class Auth {
       if (curTab() === 'register') pass2In.focus(); else void submit();
     });
     pass2In.addEventListener('keydown', (e) => { if (e.key === 'Enter') void submit(); });
-    this.el.querySelector('[data-local]')!.addEventListener('click', () => {
-      this.el.remove();
-      actions.onLocal();
-    });
+    if (actions.onLocal) {
+      this.el.querySelector('[data-local]')!.addEventListener('click', () => {
+        this.el.remove();
+        actions.onLocal!();
+      });
+    }
     document.body.appendChild(this.el);
     nameIn.focus();
   }

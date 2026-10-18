@@ -98,11 +98,12 @@ export async function showAccountMenu(name: string, begin: BeginGame): Promise<v
 export async function runMenuFlow(begin: BeginGame): Promise<void> {
   const who = await probeAuth();
   if (who === 'off') {
-    await showLocalMenu(begin, false);
+    await showLocalMenu(begin, false); // 后端没跑：纯本地，大厅要联机所以不显示
   } else if (!who.name) {
     new Auth({
       onDone: () => location.reload(), // 登录成功刷新重进，带着 Cookie 走账号流程
-      onLocal: () => void showLocalMenu(begin, true), // 不想登录也能玩本地档
+      // 游客游玩开关（服务端 GUEST_PLAY，默认关）：关时不传 onLocal，登录页不给「不登录」入口
+      onLocal: who.guest ? () => void showLocalMenu(begin, true) : undefined,
     });
   } else {
     await showAccountMenu(who.name, begin);

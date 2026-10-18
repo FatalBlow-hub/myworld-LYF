@@ -39,6 +39,9 @@ const PORT = Number(process.env.PORT ?? 8787);
 const COOKIE_DOMAIN = (process.env.COOKIE_DOMAIN ?? '').trim();
 /** 防沉迷管理员名单（控制台 /admin.html 用）：逗号分隔的账号名，启动时同步 is_admin；留空 = 控制台停用 */
 const ADMIN_NAMES = (process.env.ADMIN_NAMES ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+/** 游客游玩开关：默认关——后端在跑时未登录不许玩（防沉迷计时/锁定/封停全按账号来，游客连接是管不到的盲区）；
+ *  填 1 恢复旧行为：登录页给「不登录」入口、未登录可进大厅、WS 接受游客连接 */
+const GUEST_PLAY = (process.env.GUEST_PLAY ?? '').trim() === '1';
 const HOST = process.env.HOST ?? '127.0.0.1'; // 默认只听本机回环，外网走 Nginx 反代
 const COOKIE = 'bw_token';          // 登录凭证的 Cookie 名
 const SESSION_DAYS = 30;            // 登录一次管 30 天
@@ -169,8 +172,9 @@ async function handleAuth(req, res, ip) {
 
   if (req.method === 'GET' && action === 'me') {
     const u = currentUser(req);
-    if (!u) return sendErr(res, 401, 'not logged in');
-    return send(res, 200, { name: u.name });
+    // 响应带 guest 字段（= 服务端 GUEST_PLAY 开关）：没登录时前端据此决定给不给「不登录」入口
+    if (!u) return send(res, 401, { error: 'not logged in', guest: GUEST_PLAY });
+    return send(res, 200, { name: u.name, guest: GUEST_PLAY });
   }
   if (req.method !== 'POST') return sendErr(res, 405, 'method not allowed');
   if (limited(ip, 'auth', AUTH_LIMIT)) return sendErr(res, 429, '试太多次啦，歇一分钟再来');
@@ -369,7 +373,7 @@ const addict = attachAddict({ db, currentUser, send, sendErr, readBody, limited,
 // 挂上游戏状态权威化（权威岛币 + 家长强制项，独立模块 server/gamestate.mjs）
 const gs = attachGameState({ db, currentUser, send, sendErr, readBody, limited, API_LIMIT });
 
-// 挂上 WebSocket 长连接服务（复用同一端口，处理 /ws 的 upgrade）；末参传入防沉迷：到点踢人 + ping 计时
-attachWs(server, currentUser, readSaveByUserName, userExistsByName, addict);
+// 挂上 WebSocket 长连接服务（复用同一端口，处理 /ws 的 upgrade）；传入防沉迷（到点踢人 + ping 计时）与游客开关（默认拒连未登录）
+attachWs(server, currentUser, readSaveByUserName, userExistsByName, addict, GUEST_PLAY);
 
 server.listen(PORT, HOST, () => console.log(`方块世界服务器跑起来啦 → http://${HOST}:${PORT}`));

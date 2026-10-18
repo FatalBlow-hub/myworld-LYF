@@ -44,6 +44,7 @@
 - ⚠️ 域名要用**一级子域**：证书是 `*.7shu.asia` 通配（Let's Encrypt，2026-12-14 到期），只覆盖一层；`m.ms.7shu.asia` 这种三层域名会被浏览器判证书不匹配，除非再签一张。到期前记得验证 `certbot renew --dry-run`
 - 子域共用登录态已配好（2026-10-16）：`/etc/systemd/system/minecraft-web.service.d/env.conf` 里写 `Environment=COOKIE_DOMAIN=.7shu.asia`（drop-in，不破坏原 unit）；`systemctl show minecraft-web -p Environment` 应同时看到 `HOST PORT COOKIE_DOMAIN` 三项，说明与原 unit 的变量合并生效
 - 防沉迷管理员名单也在同一 drop-in（2026-10-18 加）：`Environment=ADMIN_NAMES=longjli001`（逗号分隔可配多个）；控制台入口 `https://ms.7shu.asia/admin.html`，只有名单内账号能进，留空=控制台停用
+- 游客游玩默认**关闭**（2026-10-19 加，`GUEST_PLAY` 开关）：未登录只能登录/注册，进不了大厅，WS 拒连无登录 Cookie 的连接（防沉迷管不到没有账号的连接）；要恢复旧游客模式，drop-in 加 `Environment=GUEST_PLAY=1` 后 `systemctl restart minecraft-web`（三层全恢复）
 - 域名 `https://ms.7shu.asia` 由管理员配 Nginx 反代 → `127.0.0.1:8787`；证书/防火墙别碰
 - 部署（本机 Windows 没有 rsync，改用 scp；本地构建，只传产物和改动的后端文件）：
   ```powershell

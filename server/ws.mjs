@@ -53,8 +53,9 @@ export function consumeVisitTicket(ownerName, visitorAccount, ticketParam = null
  * @param {(name: string) => Record<string, any> | null} [readUserSave]
  * @param {(name: string) => boolean} [userExists]
  * @param {{ isLockedByName: (name: string) => boolean, beatByName: (name: string) => number }} [addict] 防沉迷：到点锁定查询 + ping 计时
+ * @param {boolean} [guestPlay] 游客游玩开关（GUEST_PLAY）：默认 false——没有登录 Cookie 的连接直接拒连
  */
-export function attachWs(server, resolveUser, readUserSave, userExists = null, addict = null) {
+export function attachWs(server, resolveUser, readUserSave, userExists = null, addict = null, guestPlay = false) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MSG_BYTES });
 
   /**
@@ -259,6 +260,14 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null, a
       cookieName = resolveUser ? (resolveUser(req)?.name ?? null) : null;
     } catch {
       cookieName = null;
+    }
+
+    // 游客游玩开关默认关：未登录连接直接拒连——防沉迷计时/锁定/封停全按账号来，
+    // 没有账号的连接（guest-XXXX）是管家系统管不到的盲区，大厅/访岛一并不放行
+    if (!guestPlay && !cookieName) {
+      console.log('[ws] 拒绝未登录连接（游客游玩未开启）');
+      try { ws.close(); } catch { /* 握手还没完就关不掉，随连接自然断开 */ }
+      return;
     }
 
     const info = { name: null, cookieName, lastSeen: Date.now(), everCreative: false };
