@@ -120,6 +120,9 @@ export const EAT_HP: Record<number, FoodEffect> = {
   236: { hunger: 1, hp: 1.5 }, // 苹果 +1 饥饿 +1.5 血
   237: { hunger: 2, hp: 0.5 }, // 桃子 +2 饥饿 +0.5 血
   238: { hunger: 1, hp: 1, boostSeconds: HUNGER.ORANGE_BOOST_SECONDS, boostMult: HUNGER.ORANGE_BOOST_MULT }, // 橙子 +1 饥饿 +1 血 + 3 秒 ×1.25 加速
+  244: { hunger: 2, hp: 1 },   // 椰子 +2 饥饿 +1 血（椰肉顶饱）
+  259: { hunger: 3, hp: 0 },   // 梨 +3 饥饿
+  260: { hunger: 0, hp: 2.5 }, // 柿子 +2.5 血
   // —— 7 种饮料：水果榨的 = 原水果效果再 +1 饥饿；酒是"更饱但掉血"；椰子汁直接回满饥饿 ——
   245: { hunger: 2, hp: 1.5 },  // 苹果汁：苹果(1,1.5) +1 饥饿
   246: { hunger: 2, hp: 1, boostSeconds: HUNGER.ORANGE_BOOST_SECONDS, boostMult: HUNGER.ORANGE_BOOST_MULT }, // 橘子汁：橙子 +1 饥饿
@@ -337,17 +340,21 @@ export const CROP = {
   MELON_CHANCE: 0.005,      // 草方块自然生成西瓜植株的概率（0.5%）
 };
 
-/** 专属岛屿类型与树叶掉水果配置（苹果岛 / 桃子岛 / 橙子岛） */
-export type IslandType = 'apple' | 'peach' | 'orange';
+/** 专属岛屿类型与树叶掉水果配置（苹果/桃子/橙子/梨子/柿子 五种岛） */
+export type IslandType = 'apple' | 'peach' | 'orange' | 'pear' | 'persimmon';
 
-export const ISLAND_TYPES: Record<IslandType, { id: IslandType; cn: string; fruitId: number }> = {
-  apple:  { id: 'apple',  cn: '苹果岛', fruitId: 236 }, // 236 = APPLE
-  peach:  { id: 'peach',  cn: '桃子岛', fruitId: 237 }, // 237 = PEACH
-  orange: { id: 'orange', cn: '橙子岛', fruitId: 238 }, // 238 = ORANGE
+export const ISLAND_TYPES: Record<IslandType, { id: IslandType; cn: string; fruitId: number; leafId: number }> = {
+  apple:     { id: 'apple',     cn: '苹果岛', fruitId: 236, leafId: 261 }, // 236 = APPLE，261 = 苹果树叶
+  peach:     { id: 'peach',     cn: '桃子岛', fruitId: 237, leafId: 262 },
+  orange:    { id: 'orange',    cn: '橙子岛', fruitId: 238, leafId: 263 },
+  pear:      { id: 'pear',      cn: '梨子岛', fruitId: 259, leafId: 264 }, // 259 = 梨，264 = 梨树叶
+  persimmon: { id: 'persimmon', cn: '柿子岛', fruitId: 260, leafId: 265 }, // 260 = 柿子，265 = 柿子树叶
 };
 
 export const ISLAND = {
-  LEAF_FRUIT_CHANCE: 0.05,  // 挖掉本岛树叶掉专属水果的概率（5%）
+  LEAF_FRUIT_CHANCE: 0.05,   // 挖掉普通树叶掉本岛专属水果的概率（5%，兼容老存档）
+  FRUIT_LEAF_CHANCE: 0.15,   // 挖掉果树树叶掉对应水果的概率（15%：果树上果子本来就多）
+  FRUIT_TREE_CHANCE: 0.31,   // 落地后约两成的树是本岛果树（hash 在区块边缘偏密，果树又要多留一格边，得掷高些才够两成）
 };
 
 /** 访客挖掘权限：模式三选一 + 水果例外开关（仅在 none / all 下生效） + 是否允许放置方块 */
@@ -437,6 +444,12 @@ export const SELL_PRICE: Record<number, { coins: number; per: number }> = {
   225: { coins: 3, per: 1 },     // 整个西瓜
   244: { coins: 1, per: 1 },     // 椰子
   7:   { coins: 0.01, per: 1 },  // 树叶
+  243: { coins: 0.01, per: 1 },  // 椰子叶
+  261: { coins: 0.01, per: 1 },  // 苹果树叶
+  262: { coins: 0.01, per: 1 },  // 桃树叶
+  263: { coins: 0.01, per: 1 },  // 橙子树叶
+  264: { coins: 0.01, per: 1 },  // 梨树叶
+  265: { coins: 0.01, per: 1 },  // 柿子树叶
   111: { coins: 1, per: 1 },     // 铁粒
   226: { coins: 0.33, per: 1 },  // 南瓜片
   227: { coins: 0.33, per: 1 },  // 西瓜片

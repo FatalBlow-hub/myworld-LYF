@@ -6,8 +6,8 @@ import { AIR } from './Block';
 export class Chunk {
   readonly cx: number;
   readonly cz: number;
-  /** 一格一个字节，存方块 ID */
-  readonly data = new Uint8Array(CHUNK.SIZE * CHUNK.HEIGHT * CHUNK.SIZE);
+  /** 一格两个字节，存方块 ID（果树树叶/树苗等新方块 ID 已超过 255，一字节存不下） */
+  readonly data = new Uint16Array(CHUNK.SIZE * CHUNK.HEIGHT * CHUNK.SIZE);
   /** 内容变过 → 需要重新生成网格 */
   dirty = true;
 

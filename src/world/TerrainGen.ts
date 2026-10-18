@@ -1,9 +1,11 @@
 /** 地形生成 — 用噪声画出有山有水有树的世界（固定种子，每次进游戏都一样） */
 
-import { CHUNK, CROP, ORE, PALM, SEA_LEVEL, SPAWN, WORLD_SEED } from '../config';
-import { BLUE_ORE, CACTUS, CARROT_MATURE, COAL_ORE, COCONUT, DANDELION, DIRT, GOLD_ORE, GRASS, ICE, IRON_ORE, LEAVES, MELON, PALM_LEAVES, PALM_WOOD, POPPY, PUMPKIN, RICE_MATURE, SAND, SANDSTONE, SEAWEED, SNOW, SOUL_GRASS, STONE, TALL_GRASS, WATER, WOOD } from './Block';
+import { CHUNK, CROP, ISLAND, ORE, PALM, SEA_LEVEL, SPAWN, WORLD_SEED } from '../config';
+import { BLUE_ORE, CACTUS, CARROT_MATURE, COAL_ORE, DANDELION, DIRT, GOLD_ORE, GRASS, ICE, IRON_ORE, LEAVES, MELON, PALM_LEAVES, POPPY, PUMPKIN, RICE_MATURE, SAND, SANDSTONE, SEAWEED, SNOW, SOUL_GRASS, SPECIES_BY_LEAF, STONE, TALL_GRASS, WATER, WOOD } from './Block';
 import { Chunk } from './Chunk';
 import { swampAt } from './Swamp';
+import { treeBlocks } from './Trees';
+import type { TreeSpecies } from './blocks.trees';
 
 const sampleTerrain = (x: number, z: number) => ({ height: heightAt(x, z), biome: biomeAt(x, z) });
 const liquidAt = (x: number, z: number) => swampAt(x, z, heightAt(x, z), biomeAt(x, z), sampleTerrain);
@@ -11,11 +13,14 @@ const liquidAt = (x: number, z: number) => swampAt(x, z, heightAt(x, z), biomeAt
 /** 当前地形种子与是否只生成草地（副本岛按 islandId 设种子并开启纯草地，无沙漠/无雪地；默认保持本岛原样） */
 let activeSeed = WORLD_SEED;
 let grassOnlyMode = false;
+/** 岛上果树的树叶方块 ID（0 = 这座岛不长果树）；每座岛的树里约两成是本岛品种的果树 */
+let activeFruitLeaf = 0;
 
-/** 切换地形生成参数：不传或传默认参数即恢复玩家自己的岛配置 */
-export function setTerrainConfig(seed = WORLD_SEED, grassOnly = false): void {
+/** 切换地形生成参数：不传或传默认参数即恢复玩家自己的岛配置；fruitLeaf 是本岛果树的树叶 ID */
+export function setTerrainConfig(seed = WORLD_SEED, grassOnly = false, fruitLeaf = 0): void {
   activeSeed = seed;
   grassOnlyMode = grassOnly;
+  activeFruitLeaf = fruitLeaf;
 }
 
 /** 确定性伪随机：同一个 (x,z) 永远算出同一个 0~1 的数 */
@@ -141,11 +146,19 @@ export function generateChunk(chunk: Chunk, opts?: { grassOnly?: boolean }): voi
         chunk.data[Chunk.index(lx, h - 2, lz)] = swamp;
       }
 
-      // 种树：沙漠不长树；只在草地上、离区块边缘 2 格以上（树冠才不会伸到别的区块）
+      // 种树：沙漠不长树；只在草地上、离区块边缘 2 格以上（树冠才不会伸到别的区块）。
+      // 先掷"是不是果树"（岛上两成的树是本岛品种），再按品种要的留边决定种不种：
+      // 果树树冠能伸 3 格要留 3 格边，普通树留 2 格；掷中果树但贴边就不种，免得果树比例被边偷走
       if (!swamp && !nearSea && biome !== 'desert' && hash(wx * 7 + 1, wz * 7 + 3) < 0.02 &&
-          lx >= 2 && lx <= CHUNK.SIZE - 3 && lz >= 2 && lz <= CHUNK.SIZE - 3 &&
           ![-2, -1, 0, 1, 2].some((dx) => [-2, -1, 0, 1, 2].some((dz) => liquidAt(wx + dx, wz + dz)))) {
-        plantTree(chunk, lx, h, lz);
+        const fruit = SPECIES_BY_LEAF[activeFruitLeaf];
+        const fruitRoll = fruit !== undefined && hash(wx * 29 + 11, wz * 37 + 5) < ISLAND.FRUIT_TREE_CHANCE;
+        const fruitBounds = lx >= 3 && lx <= CHUNK.SIZE - 4 && lz >= 3 && lz <= CHUNK.SIZE - 4;
+        if (fruitRoll && fruitBounds) {
+          plantSpecies(chunk, lx, h, lz, fruit);
+        } else if (lx >= 2 && lx <= CHUNK.SIZE - 3 && lz >= 2 && lz <= CHUNK.SIZE - 3) {
+          plantTree(chunk, lx, h, lz);
+        }
       }
 
       // 仙人掌：只长在沙漠的沙滩上，2~3 格高一小根
@@ -161,7 +174,7 @@ export function generateChunk(chunk: Chunk, opts?: { grassOnly?: boolean }): voi
       if (!swamp && beachSand && hash(wx * 43 + 13, wz * 43 + 29) < PALM.CHANCE &&
           lx >= 2 && lx <= CHUNK.SIZE - 3 && lz >= 2 && lz <= CHUNK.SIZE - 3 &&
           chunk.data[Chunk.index(lx, h, lz)] === 0) {
-        plantPalm(chunk, lx, h, lz);
+        plantSpecies(chunk, lx, h, lz, SPECIES_BY_LEAF[PALM_LEAVES]);
       }
 
       // 花草与作物点缀：草方块/泥土顶上是空格才长；稀稀拉拉，不铺满
@@ -200,31 +213,16 @@ export function generateChunk(chunk: Chunk, opts?: { grassOnly?: boolean }): voi
   grassOnlyMode = prevGrassOnly;
 }
 
-/** 一棵椰子树 = 浅色木干 + 顶上四瓣叶子（一横一竖两片大叶 + 斜向小叶）+ 叶下挂 3~4 个椰子 */
-function plantPalm(chunk: Chunk, x: number, groundY: number, z: number): void {
-  const h = PALM.HEIGHT_MIN + Math.floor(hash(x * 53 + 7, z * 53 + 19) * (PALM.HEIGHT_MAX - PALM.HEIGHT_MIN + 1));
-  const top = groundY + h;
-  if (top + 1 >= CHUNK.HEIGHT) return;
-  const put = (dx: number, y: number, dz: number, id: number) => {
-    const i = Chunk.index(x + dx, y, z + dz);
-    if (y >= 0 && y < CHUNK.HEIGHT && chunk.data[i] === 0) chunk.data[i] = id;
-  };
-  // 树干
-  for (let y = groundY; y < top; y++) chunk.data[Chunk.index(x, y, z)] = PALM_WOOD;
-  // 树冠：中间一格 + 四个方向各伸出去 2 格，尖端下垂一格
-  put(0, top, 0, PALM_LEAVES);
-  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-    put(dx, top, dz, PALM_LEAVES);
-    put(dx * 2, top, dz * 2, PALM_LEAVES);
-    put(dx * 2, top - 1, dz * 2, PALM_LEAVES);
-  }
-  // 椰子：挂在树冠底下的四个斜角上，随机 3~4 个
-  const span = PALM.COCONUT_MAX - PALM.COCONUT_MIN + 1;
-  const n = PALM.COCONUT_MIN + Math.floor(hash(x * 61 + 3, z * 61 + 23) * span);
-  const spots = [[1, 1], [-1, 1], [1, -1], [-1, -1]] as const;
-  for (let i = 0; i < Math.min(n, spots.length); i++) {
-    const [dx, dz] = spots[i];
-    put(dx, top - 1, dz, COCONUT);
+/** 一棵指定品种的树：造型由 Trees.ts 的树形表决定，只往空气格里塞，边缘伸出去的砍掉 */
+function plantSpecies(chunk: Chunk, x: number, groundY: number, z: number, sp: TreeSpecies): void {
+  // 确定性随机：同一格每次生成同样的高矮和挂果数（rand 每调一次换一个骰子）
+  let s = 0;
+  const rand = () => hash(x * 53 + 7 + s * 31, z * 53 + 19 + s++ * 17);
+  for (const b of treeBlocks(sp, rand)) {
+    const bx = x + b.x, y = groundY + b.y, bz = z + b.z;
+    if (bx < 0 || bx >= CHUNK.SIZE || bz < 0 || bz >= CHUNK.SIZE || y < 0 || y >= CHUNK.HEIGHT) continue;
+    const i = Chunk.index(bx, y, bz);
+    if (chunk.data[i] === 0) chunk.data[i] = b.id;
   }
 }
 

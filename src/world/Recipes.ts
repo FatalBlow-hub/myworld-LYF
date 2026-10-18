@@ -10,6 +10,8 @@ import {
   GLASS_BOTTLE, GLASS_BUCKET, GLASS_CONE, GLASS_SHARD,
   ICE, JUICE_APPLE, JUICE_CARROT, JUICE_COCONUT, JUICE_MELON, JUICE_ORANGE, JUICE_PEACH, WINE,
   MELON, MELON_SEED, MELON_SLICE, ORANGE, PEACH,
+  APPLE_LEAVES, APPLE_SAP1, COCONUT_SAP1, ORANGE_LEAVES, ORANGE_SAP1, PALM_LEAVES,
+  PEACH_LEAVES, PEACH_SAP1, PEAR_LEAVES, PEAR_SAP1, PERSIMMON_LEAVES, PERSIMMON_SAP1,
   POTION_BREATH, POTION_DEADLY, POTION_PHANTOM, POTION_POISON,
   PUMPKIN, PUMPKIN_SEED, PUMPKIN_SLICE,
   SWAMP_DEEP, SWAMP_DROWN, SWAMP_FILL, SWAMP_LIGHT, SWAMP_MID, SWAMP_PHANTOM, WATER,
@@ -156,6 +158,13 @@ export const RECIPES: Recipe[] = [
     out: GOLD_PICKAXE, outCount: 1, needs: [[GOLD_NUGGET, 3], [STICK, 2]], quiet: true,
     pattern: [GOLD_NUGGET, GOLD_NUGGET, GOLD_NUGGET, null, STICK, null, null, STICK, null],
   },
+  // —— 果树苗：4 片同种树叶拼 1 棵专属树苗；椰子树用椰子叶（树苗只能种沙滩） ——
+  { out: APPLE_SAP1, outCount: 1, needs: [[APPLE_LEAVES, 4]] },
+  { out: PEACH_SAP1, outCount: 1, needs: [[PEACH_LEAVES, 4]] },
+  { out: ORANGE_SAP1, outCount: 1, needs: [[ORANGE_LEAVES, 4]] },
+  { out: PEAR_SAP1, outCount: 1, needs: [[PEAR_LEAVES, 4]] },
+  { out: PERSIMMON_SAP1, outCount: 1, needs: [[PERSIMMON_LEAVES, 4]] },
+  { out: COCONUT_SAP1, outCount: 1, needs: [[PALM_LEAVES, 4]] },
   // —— 南瓜与西瓜 1:3 转化（支持批量按比例合成与拆解） ——
   { out: PUMPKIN_SLICE, outCount: CROP.SPLIT_COUNT, needs: [[PUMPKIN, 1]], scale: true, quiet: true },
   { out: PUMPKIN_SEED, outCount: CROP.SPLIT_COUNT, needs: [[PUMPKIN_SLICE, 1]], scale: true, quiet: true },

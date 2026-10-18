@@ -7,7 +7,11 @@ export const ISLAND_TILE_NAMES = [
   'pumpkin_stage1', 'pumpkin_stage2', 'pumpkin_stage3',
   'melon_top', 'melon_side', 'melon_slice', 'melon_seed',
   'melon_stage1', 'melon_stage2', 'melon_stage3',
-  'apple', 'peach', 'orange',
+  'apple', 'peach', 'orange', 'pear', 'persimmon',
+  // —— 五种果树树叶 ——
+  'leaves_apple', 'leaves_peach', 'leaves_orange', 'leaves_pear', 'leaves_persimmon',
+  // —— 六种树苗 × 三阶段（小苗/幼树/半成熟树） ——
+  ...['apple', 'peach', 'orange', 'pear', 'persimmon', 'coconut'].flatMap((k) => [`sap_${k}_1`, `sap_${k}_2`, `sap_${k}_3`]),
 ];
 
 export const ISLAND_PAINTERS: Record<string, Painter> = {
@@ -182,4 +186,108 @@ export const ISLAND_PAINTERS: Record<string, Painter> = {
     c.fillStyle = '#ffb84d';
     c.fillRect(x + 5, y + 5, 3, 2);
   },
+  // 梨：上细下宽的葫芦形，淡青黄色
+  pear: (c, x, y) => {
+    c.fillStyle = '#5a3a1e';
+    c.fillRect(x + 7, y + 1, 2, 3);
+    c.fillStyle = '#3d8528';
+    c.fillRect(x + 9, y + 2, 3, 2);
+    c.fillStyle = '#d8e078';
+    c.fillRect(x + 6, y + 4, 4, 4);
+    c.fillRect(x + 4, y + 7, 8, 6);
+    c.fillRect(x + 5, y + 13, 6, 1);
+    c.fillStyle = '#b8c458';
+    c.fillRect(x + 4, y + 11, 8, 2);
+    c.fillStyle = '#f2f4b8';
+    c.fillRect(x + 5, y + 8, 2, 3);
+  },
+  // 柿子：橙红色扁圆，顶上带绿色柿蒂，秋天的颜色
+  persimmon: (c, x, y) => {
+    c.fillStyle = '#5a3a1e';
+    c.fillRect(x + 7, y + 1, 2, 2);
+    c.fillStyle = '#3d8528';
+    c.fillRect(x + 5, y + 3, 6, 2);
+    c.fillStyle = '#e8661e';
+    c.fillRect(x + 4, y + 5, 8, 8);
+    c.fillRect(x + 3, y + 6, 10, 6);
+    c.fillStyle = '#c84a10';
+    c.fillRect(x + 4, y + 11, 8, 2);
+    c.fillStyle = '#ffb060';
+    c.fillRect(x + 5, y + 6, 2, 3);
+  },
 };
+
+// —— 果树树叶：统一画法（底色 + 噪点 + 果实斑点），每种树换配色和果形 ——
+const fruitDots = (c: CanvasRenderingContext2D, x: number, y: number, fruit: string, hi: string, long = false) => {
+  const dots = [[3, 3], [11, 4], [6, 8], [12, 10], [4, 12]];
+  c.fillStyle = fruit;
+  for (const [dx, dy] of dots) c.fillRect(x + dx, y + dy, long ? 1 : 2, long ? 3 : 2);
+  c.fillStyle = hi;
+  for (const [dx, dy] of dots) c.fillRect(x + dx, y + dy, 1, 1);
+};
+const fruitLeaf = (base: string, spots: string[], fruit: string, hi: string, long = false): Painter =>
+  (c, x, y) => {
+    fill(c, x, y, base);
+    speckle(c, x, y, spots, 120);
+    fruitDots(c, x, y, fruit, hi, long);
+  };
+ISLAND_PAINTERS.leaves_apple = fruitLeaf('#2f6119', ['#264f14', '#3d7a24', '#1e3f0e'], '#d62828', '#ff7b7b');       // 深绿叶 + 红苹果
+ISLAND_PAINTERS.leaves_peach = fruitLeaf('#7cb85c', ['#8fc96e', '#a8d98a', '#e8a0b8'], '#ff9ebb', '#ffd1e0');       // 嫩绿泛粉 + 粉桃子
+ISLAND_PAINTERS.leaves_orange = fruitLeaf('#7a9e2e', ['#8fb03a', '#96b845', '#5f7a1e'], '#f28518', '#ffb84d');      // 黄绿圆冠 + 橙果
+ISLAND_PAINTERS.leaves_pear = fruitLeaf('#a8c85c', ['#bcda70', '#94b845', '#c8e088'], '#e0d878', '#f5f0b0', true);  // 浅黄绿 + 长梨子
+// 柿子树：深绿底 + 橙红秋叶斑块 + 橙红柿子，一眼秋天的感觉
+ISLAND_PAINTERS.leaves_persimmon = (c, x, y) => {
+  fill(c, x, y, '#2e5c1e');
+  speckle(c, x, y, ['#c85a1e', '#d97b2e', '#3d7a24', '#8a3a10'], 90);
+  c.fillStyle = '#c85a1e';
+  c.fillRect(x + 1, y + 1, 3, 3); c.fillRect(x + 12, y + 13, 3, 3); c.fillRect(x + 13, y + 2, 2, 2);
+  fruitDots(c, x, y, '#e85d1e', '#ff9a5c');
+};
+
+// —— 树苗三阶段：同一种画法换配色；棕榈系的椰子树苗画扇形叶 ——
+const saplingPainters = (leaf: string, leafHi: string, fruit: string, palm = false) => {
+  const trunk = palm ? '#c8a878' : '#5a3a1e';
+  return {
+    1: ((c, x, y) => { // 小苗：刚冒芽的两片小叶
+      c.fillStyle = trunk; c.fillRect(x + 7, y + 13, 2, 3);
+      c.fillStyle = leaf;
+      c.fillRect(x + 5, y + 11, 2, 2); c.fillRect(x + 9, y + 11, 2, 2);
+      c.fillStyle = leafHi; c.fillRect(x + 5, y + 11, 1, 1); c.fillRect(x + 9, y + 11, 1, 1);
+    }) as Painter,
+    2: ((c, x, y) => { // 幼树：杆子长高了，又多一对叶
+      c.fillStyle = trunk; c.fillRect(x + 7, y + 9, 2, 7);
+      c.fillStyle = leaf;
+      c.fillRect(x + 4, y + 10, 3, 2); c.fillRect(x + 9, y + 10, 3, 2);
+      c.fillRect(x + 5, y + 7, 2, 2); c.fillRect(x + 9, y + 7, 2, 2);
+      c.fillStyle = leafHi; c.fillRect(x + 4, y + 10, 1, 1); c.fillRect(x + 9, y + 7, 1, 1);
+    }) as Painter,
+    3: ((c, x, y) => { // 半成熟树：小树造型出来了，顶上顶着小树冠
+      c.fillStyle = trunk; c.fillRect(x + 7, y + 9, 2, 7);
+      c.fillStyle = leaf;
+      if (palm) { // 棕榈：顶上四片扇叶散开
+        c.fillRect(x + 3, y + 6, 10, 2); c.fillRect(x + 7, y + 3, 2, 8);
+        c.fillRect(x + 4, y + 4, 2, 2); c.fillRect(x + 10, y + 4, 2, 2);
+      } else { // 果树：一坨小树冠 + 果实斑点
+        c.fillRect(x + 4, y + 4, 8, 5);
+        c.fillRect(x + 5, y + 3, 6, 1); c.fillRect(x + 5, y + 9, 6, 1);
+        c.fillStyle = leafHi; c.fillRect(x + 5, y + 5, 2, 2); c.fillRect(x + 10, y + 6, 2, 2);
+        c.fillStyle = fruit;
+        c.fillRect(x + 6, y + 6, 1, 1); c.fillRect(x + 9, y + 4, 1, 1); c.fillRect(x + 8, y + 8, 1, 1);
+      }
+    }) as Painter,
+  };
+};
+const SAP_COLORS: Record<string, [string, string, string, boolean?]> = {
+  apple:     ['#3d7a24', '#4c9430', '#d62828'],
+  peach:     ['#8fc96e', '#b8e09a', '#ff9ebb'],
+  orange:    ['#8fb03a', '#a8c84c', '#f28518'],
+  pear:      ['#bcda70', '#d8ec94', '#e0d878'],
+  persimmon: ['#c85a1e', '#d97b2e', '#e85d1e'], // 柿子苗就是秋叶色，从小透着股秋天的劲儿
+  coconut:   ['#4c9430', '#6db848', '#7a5a30', true],
+};
+for (const [key, [leaf, hi, fruit, palm]] of Object.entries(SAP_COLORS)) {
+  const p = saplingPainters(leaf, hi, fruit, palm === true);
+  ISLAND_PAINTERS[`sap_${key}_1`] = p[1];
+  ISLAND_PAINTERS[`sap_${key}_2`] = p[2];
+  ISLAND_PAINTERS[`sap_${key}_3`] = p[3];
+}

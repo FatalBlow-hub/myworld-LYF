@@ -1,8 +1,9 @@
 /** 世界 — 区块 + 方块朝向 + 箱子/熔炉内容 + 按碰撞盒的碰撞查询 */
 
 import { CHUNK, SMELT_TIME, WATER_FLOW } from '../config';
-import { AIR, CROP_NEXT, SOUL_FURNACE, STONE, WATER, Slots } from './Block';
+import { AIR, CROP_NEXT, SAPLING_MATURE, SAPLING_NEXT, SOUL_FURNACE, STONE, WATER, Slots } from './Block';
 import { solidBoxes } from './Shapes';
+import { tryGrowTree } from './Trees';
 import { SMELT } from './Recipes';
 import { Chunk } from './Chunk';
 import { generateChunk } from './TerrainGen';
@@ -237,6 +238,32 @@ export class World {
         if (next !== undefined) {
           chunk.data[i] = next;
           touched = true;
+        }
+      }
+      if (touched) this.dirtyChunks.add(key);
+    }
+  }
+
+  /** 果树苗跟庄稼一个节奏长：小苗→幼树→半成熟树；
+   *  半成熟树四周空位够就原地长成整棵大树，不够就停在那儿等（果树不能贴太近种） */
+  growSaplings(): void {
+    for (const [key, chunk] of this.chunks) {
+      let touched = false;
+      for (let i = 0; i < chunk.data.length; i++) {
+        const id = chunk.data[i];
+        const next = SAPLING_NEXT[id];
+        if (next !== undefined) {
+          chunk.data[i] = next;
+          touched = true;
+          continue;
+        }
+        const sp = SAPLING_MATURE[id];
+        if (sp) {
+          const lx = i % CHUNK.SIZE;
+          const lz = Math.floor(i / CHUNK.SIZE) % CHUNK.SIZE;
+          const y = Math.floor(i / (CHUNK.SIZE * CHUNK.SIZE));
+          // 走 setBlock 建树：树冠能跨过区块边，长成的树也会同步给同屏访客
+          tryGrowTree(this, chunk.cx * CHUNK.SIZE + lx, y, chunk.cz * CHUNK.SIZE + lz, sp);
         }
       }
       if (touched) this.dirtyChunks.add(key);

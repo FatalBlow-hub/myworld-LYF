@@ -12,6 +12,7 @@ export class WorldCycles {
     if (this.cropTimer <= 0) {
       this.cropTimer += CROP.GROW_EVERY;
       world.growCrops();
+      world.growSaplings(); // 果树苗和庄稼一个节奏
     }
     this.waterTimer -= dt;
     if (this.waterTimer <= 0) {

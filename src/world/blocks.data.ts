@@ -2,6 +2,10 @@
 
  *  纯数据、无逻辑：物品类型（Stack/Slots）与方块谓词见 Block.ts，加新方块就改这里 + 加一张贴图。 */
 
+import { APPLE_LEAVES, APPLE_SAP1, COCONUT_SAP1, FRUIT_LEAF_IDS, ORANGE_LEAVES, ORANGE_SAP1, PEACH_LEAVES, PEACH_SAP1, PEAR, PEAR_LEAVES, PEAR_SAP1, PERSIMMON, PERSIMMON_LEAVES, PERSIMMON_SAP1, TREE_BLOCKS } from './blocks.trees';
+
+export * from './blocks.trees'; // 果树一族（梨/柿子/果树叶/树苗）的 ID 与物种表也走这里转发，外部照旧只认 './Block'
+
 export const AIR = 0;
 export const GRASS = 1;
 export const DIRT = 2;
@@ -423,6 +427,7 @@ const INF = Infinity;
 
 export const BLOCKS: Record<number, BlockDef> = {
   ...GOLDEN_BLOCKS, // 黄金系列（blocks.golden.ts）：和别的方块一样进表，不再运行时塞
+  ...TREE_BLOCKS,   // 果树一族（blocks.trees.ts）：5 种果树叶 + 梨/柿子 + 6 种三阶段树苗
   [AIR]:         { cn: '空气',   tex: { top: '', side: '' }, solid: false, seeThrough: true, hardness: 0 },
   [GRASS]:       { cn: '草方块', tex: { top: 'grass_top', side: 'grass_side', bottom: 'dirt' }, solid: true, seeThrough: false, hardness: 0.6, drop: DIRT },
   [DIRT]:        { cn: '泥土',   tex: { top: 'dirt', side: 'dirt' }, solid: true, seeThrough: false, hardness: 0.5 },
@@ -719,7 +724,10 @@ export const ALL_ITEMS = [
   DIY_GOLD_CRAFT_TABLE, DIY_GOLD_DYE_TABLE, DIY_GOLD_CHEM_DECOMP, DIY_GOLD_PICKAXE,
   // 南瓜与西瓜系列 + 三种专属岛屿水果
   PUMPKIN, MELON, PUMPKIN_SLICE, MELON_SLICE, PUMPKIN_SEED, MELON_SEED,
-  APPLE, PEACH, ORANGE,
+  APPLE, PEACH, ORANGE, PEAR, PERSIMMON,
+  // 五种果树树叶 + 六种树苗（拿手上就能分清品种，种下慢慢长成大树）
+  APPLE_LEAVES, PEACH_LEAVES, ORANGE_LEAVES, PEAR_LEAVES, PERSIMMON_LEAVES,
+  APPLE_SAP1, PEACH_SAP1, ORANGE_SAP1, PEAR_SAP1, PERSIMMON_SAP1, COCONUT_SAP1,
   // 椰子树 + 7 种饮料 + 3 档小战士召唤蛋（三台机器本体不进创造面板，跟挑战石一个待遇）
   PALM_WOOD, PALM_LEAVES, COCONUT,
   JUICE_APPLE, JUICE_ORANGE, JUICE_PEACH, WINE, JUICE_COCONUT, JUICE_MELON, JUICE_CARROT,
@@ -762,5 +770,6 @@ export const VISIT_LIST_BLOCKS: ReadonlySet<number> = new Set([
   MELON, MELON_STAGE1, MELON_STAGE2, MELON_STAGE3,
   RICE_SEED, RICE_SPROUT, RICE_GREEN, RICE_MATURE,
   CARROT_SEED, CARROT_SPROUT, CARROT_GREEN, CARROT_MATURE,
-  APPLE, PEACH, ORANGE,
+  APPLE, PEACH, ORANGE, PEAR, PERSIMMON,
+  PALM_LEAVES, ...FRUIT_LEAF_IDS,
 ]);

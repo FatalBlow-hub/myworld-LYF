@@ -8,7 +8,7 @@ const HEARTBEAT_TIMEOUT_MS = 30_000; // 超过 30 秒没收到任何消息判定
 const MAX_MSG_BYTES = 16 * 1024; // 单条消息上限 16KB
 const NAME_MAX_LEN = 24;
 const QUEUE_MAX = 32; // 大厅队列人数上限
-const ISLAND_TYPES = ['apple', 'peach', 'orange'];
+const ISLAND_TYPES = ['apple', 'peach', 'orange', 'pear', 'persimmon'];
 const VISIT_TIMEOUT_MS = 60_000; // 访岛申请 60 秒无响应作废
 const TICKET_TTL_MS = 5 * 60_000; // 访问票据 5 分钟有效
 
@@ -98,7 +98,7 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null, a
     return fallback;
   }
 
-  /** 随机选一种岛屿类型（苹果/桃子/橙子 各 1/3 概率） */
+  /** 随机选一种岛屿类型（苹果/桃子/橙子/梨子/柿子 各 1/5 概率） */
   function pickIslandType() {
     return ISLAND_TYPES[Math.floor(Math.random() * ISLAND_TYPES.length)];
   }

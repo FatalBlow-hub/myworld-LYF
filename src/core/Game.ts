@@ -326,6 +326,10 @@ export class Game {
       summonWarrior: (eggId, x, y, z) => this.summonWarrior(eggId, x, y, z),
     });
     this.combat = new MobCombat(this.controller, this.inventory, () => this.slot, this.hud, this.mobs);
+    // 读档会立刻按存档坐标生成区块，得先把本岛果树品种喂给地形生成器，不然家门口不长果树
+    if (save?.islandType && save.islandType in ISLAND_TYPES) {
+      setTerrainConfig(WORLD_SEED, false, ISLAND_TYPES[save.islandType].leafId);
+    }
     if (save) {
       const r = this.restoreSaveState(save);
       this.paused = r.paused; this.day.time = r.dayTime;
@@ -335,6 +339,8 @@ export class Game {
       const gs = randomGrassSpawn();
       this.spawn = { x: gs.x, y: heightAt(Math.floor(gs.x), Math.floor(gs.z)) + 1, z: gs.z };
     }
+    // 开局定好地形参数：本岛种子 + 本岛品种的果树（梨/柿子岛也能长出对应果树）
+    setTerrainConfig(WORLD_SEED, false, ISLAND_TYPES[this.islandType].leafId);
     this.hud.refreshHotbar(this.inventory, this.slot);
     this.hud.setCoins(this.coins);
     this.hud.setPaused(this.paused);
@@ -555,7 +561,7 @@ export class Game {
     this.pendingHall = false;
     if (this.scene === 'island') this.saveNow();
     this.panels.closeAll(); this.clearScene();
-    setTerrainConfig(WORLD_SEED, false);
+    setTerrainConfig(WORLD_SEED, false, ISLAND_TYPES[this.islandType].leafId);
     buildHall(this.world); this.chunkMeshes.rebuildDirty(this.world);
     this.scene = 'hall'; this.visitIslandType = null; this.visitOwner = null; this.visitPerm = null; this.spawn = { ...HALL.SPAWN };
     this.hud!.setVisitOwner(null);
@@ -587,7 +593,7 @@ export class Game {
     const save = readSave(this.saveSlot) ?? (this.islandSave ? JSON.parse(JSON.stringify(this.islandSave)) as SaveData : null);
     if (!save) return;
     this.panels.closeAll(); this.net?.leaveHallQueue(); this.hallMenu?.setQueueState(false, [], 0);
-    this.clearScene(); setTerrainConfig(WORLD_SEED, false);
+    this.clearScene(); setTerrainConfig(WORLD_SEED, false, ISLAND_TYPES[this.islandType].leafId);
     this.scene = 'island'; this.visitIslandType = null; this.visitOwner = null; this.visitPerm = null;
     this.hud!.setVisitOwner(null);
     // 岛币跟着人走：存档里的是进大厅那一刻的余额，大厅里挣的/花的不能被读档冲掉
@@ -614,7 +620,7 @@ export class Game {
   /** 收到 hall.matched：按 islandId 固定种子生成无沙漠/无雪地、无怪无动物的副本岛 */
   private enterVisit(islandId: number, islandType: IslandType): void {
     this.panels.closeAll(); this.hallMenu?.setQueueState(false, [], 0);
-    this.clearScene(); setTerrainConfig(islandId, true);
+    this.clearScene(); setTerrainConfig(islandId, true, ISLAND_TYPES[islandType].leafId);
     this.scene = 'visit'; this.visitIslandType = islandType; this.visitOwner = null; this.visitPerm = null;
     this.hud!.setVisitOwner('随机岛'); // 随机串门也挂个牌子，免得以为还在自己家
     const gs = findGrassSpawn(8.5, 8.5);
@@ -715,8 +721,9 @@ export class Game {
       if (!isSupportedSave(raw)) { this.hud!.showMessage('好友存档版本不支持', 3); return; }
       const friendSave = migrateSave(raw);
       this.panels.closeAll(); this.hallMenu?.setQueueState(false, [], 0);
-      this.clearScene(); setTerrainConfig(WORLD_SEED, false);
+      this.clearScene();
       const ownerIslandType = friendSave.islandType && friendSave.islandType in ISLAND_TYPES ? friendSave.islandType : 'apple';
+      setTerrainConfig(WORLD_SEED, false, ISLAND_TYPES[ownerIslandType].leafId);
       this.scene = 'visit'; this.visitOwner = owner; this.visitPerm = perm; this.visitIslandType = ownerIslandType;
       this.hud!.setVisitOwner(owner);
       this.world.applyDiffs(friendSave.chunks); this.world.applyMeta(friendSave.meta);
