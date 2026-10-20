@@ -398,39 +398,58 @@ export const ISLAND_TYPES: Record<IslandType, { id: IslandType; cn: string; frui
   winter:    { id: 'winter',    cn: '冬季岛', fruitId: 0,   leafId: 0 },   // 冬季岛不长果树
 };
 
-/** 四季岛的自家岛 id（新档在这四种里随机，各 1/4） */
+/** 季节岛的自家岛 id（新档抽签用；落地后品种固定，见 SEASON_ISLAND_PICKS） */
 export type SeasonIslandId = 'spring' | 'summer' | 'autumn' | 'winter';
 
-/** 四季岛各自的地形与资源规则：
- *  春季岛只长桃树；夏季岛长苹果/梨/香蕉三种树 + 竹林；
- *  秋季岛长橘树/柿树 + 竹林，岛上年年长蘑菇（0.2%）；冬季岛全岛雪地 + 竹林，不长果树。
- *  冬季岛"持续下雪"、秋季岛"常年蘑菇"在游戏侧按岛型放开，其余岛仍按日期季节走。 */
-export const SEASON_ISLAND_RULES: Record<SeasonIslandId, {
-  season: 'spring' | 'summer' | 'autumn' | 'winter';
-  /** 岛上长的果树树叶 ID（空 = 只长普通树） */
-  trees: number[];
-  /** 附不附带竹林 */
+/** 能当自家岛的"品种岛"（冬季岛没有果树，其余每个对应一种树） */
+export type FruitIslandId = 'peach' | 'apple' | 'pear' | 'banana' | 'orange' | 'persimmon' | 'winter';
+
+/** 岛屿生成规则（用户 2026-10-20 定稿）：
+ *  先按季节各 1/4 抽，再在该季的候选岛型里抽一个——
+ *  春 = 桃岛；夏 = 苹果岛/梨岛/香蕉岛三选一；秋 = 橘子岛/柿子岛二选一；冬 = 冬季岛（雪地）。
+ *  **品种一旦确定就固定**：苹果岛永远只有苹果树、梨岛永远只有梨树……不会随玩家日期长出别的树。 */
+export const SEASON_ISLAND_PICKS: Record<SeasonIslandId, IslandType[]> = {
+  spring: ['peach'],
+  summer: ['apple', 'pear', 'banana'],
+  autumn: ['orange', 'persimmon'],
+  winter: ['winter'],
+};
+
+/** 每个岛型的固有规则（与玩家日期无关，生成时定死）：
+ *  春岛（桃）没竹林；夏/秋/冬三季的岛附带竹林；秋岛常年长蘑菇 0.2%；冬岛全岛雪地。 */
+export const ISLAND_RULES: Record<FruitIslandId, {
+  season: SeasonIslandId;
   bamboo: boolean;
   /** 全岛按雪地生成（地表盖雪、湖面结冰） */
   snowOnly?: boolean;
-  /** 岛上年年长蘑菇（别的岛等日期进了秋季才长） */
+  /** 岛上年年长蘑菇（与季节联动，不随玩家日期开关） */
   mushrooms?: boolean;
 }> = {
-  spring: { season: 'spring', trees: [262 /* PEACH_LEAVES */], bamboo: false },
-  summer: { season: 'summer', trees: [261 /* APPLE_LEAVES */, 264 /* PEAR_LEAVES */, 286 /* BANANA_LEAVES */], bamboo: true },
-  autumn: { season: 'autumn', trees: [263 /* ORANGE_LEAVES */, 265 /* PERSIMMON_LEAVES */], bamboo: true, mushrooms: true },
-  winter: { season: 'winter', trees: [], bamboo: true, snowOnly: true },
+  peach:     { season: 'spring', bamboo: false },
+  apple:     { season: 'summer', bamboo: true },
+  pear:      { season: 'summer', bamboo: true },
+  banana:    { season: 'summer', bamboo: true },
+  orange:    { season: 'autumn', bamboo: true, mushrooms: true },
+  persimmon: { season: 'autumn', bamboo: true, mushrooms: true },
+  winter:    { season: 'winter', bamboo: true, snowOnly: true },
 };
 
-/** 老存档的水果岛 → 四季岛（P6 迁移）：桃→春，苹果/梨/香蕉→夏，橘子/柿子→秋 */
-export const LEGACY_ISLAND_MAP: Record<string, SeasonIslandId> = {
-  peach: 'spring',
-  apple: 'summer', pear: 'summer', banana: 'summer',
-  orange: 'autumn', persimmon: 'autumn',
-};
+/** 按规则抽一座岛：季节各 1/4 → 该季候选里再抽一个。
+ *  excludeBanana = true 时夏季三分支排除香蕉（**登录出生**永远落不到香蕉岛；外出随机可以） */
+export function pickIslandType(rand: () => number = Math.random, excludeBanana = false): IslandType {
+  const seasons: SeasonIslandId[] = ['spring', 'summer', 'autumn', 'winter'];
+  const season = seasons[Math.floor(rand() * seasons.length)];
+  let picks = SEASON_ISLAND_PICKS[season];
+  if (excludeBanana && picks.includes('banana')) picks = picks.filter((t) => t !== 'banana');
+  return picks[Math.floor(rand() * picks.length)];
+}
 
-/** 新档分配自家岛时的池子：四个季节岛各 1/4（香蕉岛只作外出探索的目的地，登录出生落不到） */
-export const HOME_ISLAND_TYPE_IDS: IslandType[] = ['spring', 'summer', 'autumn', 'winter'];
+/** 旧季节岛（P6 的"一岛多树"版）→ 品种岛映射：读档时自动升级，品种岛本身原样保留 */
+export const LEGACY_ISLAND_MAP: Record<string, IslandType> = {
+  spring: 'peach',
+  summer: 'apple',
+  autumn: 'orange',
+};
 
 export const ISLAND = {
   LEAF_FRUIT_CHANCE: 0.05,   // 挖掉普通树叶掉本岛专属水果的概率（5%，兼容老存档）

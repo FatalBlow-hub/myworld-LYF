@@ -20,10 +20,8 @@ let activeTreeLeaves: number[] = [];
 let activeBamboo = false;
 /** 全岛按雪地生成（冬季岛：地表盖雪、湖面结冰） */
 let activeSnowOnly = false;
-/** 岛上年年长蘑菇（秋季岛；别的岛等日期进了秋季才长） */
+/** 这座岛长不长蘑菇（秋岛固定长，别的岛不长）——**不随玩家日期变化**，生成时定死 */
 let activeMushrooms = false;
-/** 当前季节：蘑菇按季节长，秋岛则无视季节 */
-let activeSeason: 'spring' | 'summer' | 'autumn' | 'winter' = 'summer';
 
 /** 切换地形生成参数：不传或传默认参数即恢复玩家自己的岛配置；fruitLeaf 是本岛果树的树叶 ID */
 export function setTerrainConfig(seed = WORLD_SEED, grassOnly = false, fruitLeaf = 0): void {
@@ -35,10 +33,8 @@ export function setTerrainConfig(seed = WORLD_SEED, grassOnly = false, fruitLeaf
   activeMushrooms = false;
 }
 
-/** 换季：地形生成按季节决定要不要长蘑菇（入冬后已长出来的由 World.clearBlocks 清掉） */
-export function setActiveSeason(season: 'spring' | 'summer' | 'autumn' | 'winter'): void {
-  activeSeason = season;
-}
+/** 换季（只影响视觉，不再开关蘑菇）：留作兼容，岛上蘑菇由 copyData 决定 */
+export function setActiveSeason(): void { /* 岛型定了蘑菇就定了，这里什么都不做 */ }
 
 /** 四季岛的额外地形规则：多品种果树、竹林、全岛雪地、常年蘑菇 */
 export function setIslandProfile(profile: { trees: number[]; bamboo: boolean; snowOnly?: boolean; mushrooms?: boolean }): void {
@@ -187,8 +183,8 @@ export function generateChunk(chunk: Chunk, opts?: { grassOnly?: boolean }): voi
         }
       }
 
-      // 蘑菇：秋岛无视季节，别的岛等日期进了秋季；草地上 0.2% 概率冒一朵（入冬时已长出来的会被清掉）
-      if ((activeMushrooms || activeSeason === 'autumn') && !swamp && !nearSea && biome !== 'desert'
+      // 蘑菇：只有秋岛（橘子/柿子）长，0.2% 概率冒一朵——品种固定，不随玩家日期变
+      if (activeMushrooms && !swamp && !nearSea && biome !== 'desert'
           && chunk.data[Chunk.index(lx, h - 1, lz)] === GRASS
           && chunk.data[Chunk.index(lx, h, lz)] === 0
           && hash(wx * 31 + 7, wz * 31 + 17) < MUSHROOM_GROW_CHANCE) {

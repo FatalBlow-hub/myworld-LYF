@@ -8,8 +8,16 @@ const HEARTBEAT_TIMEOUT_MS = 30_000; // 超过 30 秒没收到任何消息判定
 const MAX_MSG_BYTES = 16 * 1024; // 单条消息上限 16KB
 const NAME_MAX_LEN = 24;
 const QUEUE_MAX = 32; // 大厅队列人数上限
-// 外出探索能随机到的岛：四季岛 + 香蕉岛（自家岛永远落不到香蕉岛）
-const ISLAND_TYPES = ['spring', 'summer', 'autumn', 'winter', 'banana'];
+// 岛屿生成规则（用户 2026-10-20 定稿）：先按季节各 1/4 抽，再在该季候选岛型里抽一个
+// 春 = 桃岛；夏 = 苹果/梨/香蕉三选一；秋 = 橘子/柿子二选一；冬 = 冬季岛（雪地）。
+// 品种一旦生成即固定：苹果岛永远只有苹果树，不随玩家日期变化。
+const SEASON_PICKS = {
+  spring: ['peach'],
+  summer: ['apple', 'pear', 'banana'],
+  autumn: ['orange', 'persimmon'],
+  winter: ['winter'],
+};
+const SEASON_KEYS = Object.keys(SEASON_PICKS);
 const VISIT_TIMEOUT_MS = 60_000; // 访岛申请 60 秒无响应作废
 const TICKET_TTL_MS = 5 * 60_000; // 访问票据 5 分钟有效
 
@@ -100,9 +108,10 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null, a
     return fallback;
   }
 
-  /** 随机选一种岛屿类型（苹果/桃子/橙子/梨子/柿子 各 1/5 概率） */
+  /** 随机选一座外岛：季节各 1/4 → 该季候选岛型里再抽一个（香蕉岛只能作为外岛随机到） */
   function pickIslandType() {
-    return ISLAND_TYPES[Math.floor(Math.random() * ISLAND_TYPES.length)];
+    const season = SEASON_KEYS[Math.floor(Math.random() * SEASON_KEYS.length)];
+    return SEASON_PICKS[season][Math.floor(Math.random() * SEASON_PICKS[season].length)];
   }
 
   /** 汇总当前所有已完成 hello 握手的去重在线用户名单 */

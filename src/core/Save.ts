@@ -1,7 +1,7 @@
 /** 存档 — 把当前游戏打包成 JSON 存进浏览器，刷新/关掉页面后还能继续玩 */
 
 import * as THREE from 'three';
-import { HOME_ISLAND_TYPE_IDS, HUNGER, LEGACY_ISLAND_MAP, SEASON_ISLAND_RULES, IslandType, SKATES } from '../config';
+import { HUNGER, ISLAND_TYPES, LEGACY_ISLAND_MAP, pickIslandType, IslandType, SKATES } from '../config';
 import { Animal, AnimalKind } from '../entities/Animal';
 import { CharacterKind } from '../entities/Character';
 import { ItemDrop } from '../entities/ItemDrop';
@@ -37,18 +37,16 @@ export function isSupportedSave(d: SaveData | null | undefined): d is SaveData {
   return !!d && typeof d.v === 'number' && d.v > 0 && d.v <= SAVE_VERSION;
 }
 
-/** 随机抽取一座自家的专属岛屿类型（不含香蕉岛：香蕉岛只能外出探索时随机到） */
+/** 新档抽一座自家岛：季节各 1/4 → 候选品种里再抽一个（登录出生落不到香蕉岛） */
 export function randomIslandType(): IslandType {
-  const keys = HOME_ISLAND_TYPE_IDS;
-  return keys[Math.floor(Math.random() * keys.length)];
+  return pickIslandType(Math.random, true);
 }
 
-/** 读档时的岛型归一（P6）：老水果岛按映射升成四季岛；认不出来回 null 由调用方随机 */
+/** 读档时的岛型归一：旧季节岛（P6 的一岛多树版）升成品种岛；合法品种岛原样保留 */
 function normalizeIslandType(raw: unknown): IslandType | null {
   const id = String(raw ?? '');
-  if (id in SEASON_ISLAND_RULES) return id as IslandType;
   if (id in LEGACY_ISLAND_MAP) return LEGACY_ISLAND_MAP[id];
-  return null;
+  return id in ISLAND_TYPES ? (id as IslandType) : null;
 }
 
 /** 老版本存档升级成当前版本（现在只有 v1；老档缺的字段在这里补默认值） */

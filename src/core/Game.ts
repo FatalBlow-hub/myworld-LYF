@@ -1,11 +1,10 @@
 /** 游戏主循环 — 把所有模块装配起来，每帧按固定顺序驱动它们 */
 
 import * as THREE from 'three';
-import { SEASON_ISLAND_RULES, SeasonIslandId, CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PVP, SAVE, SNOWFALL, VIEW_DISTANCE, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
+import { ISLAND_RULES, CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PVP, SAVE, SNOWFALL, VIEW_DISTANCE, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
 import { World } from '../world/World';
 import { buildHall } from '../world/HallMap';
-import { findGrassSpawn, heightAt, randomGrassSpawn, setIslandProfile, setActiveSeason, setTerrainConfig } from '../world/TerrainGen';
-import { MUSHROOM_IDS } from '../world/mushrooms';
+import { findGrassSpawn, heightAt, randomGrassSpawn, setIslandProfile, setTerrainConfig } from '../world/TerrainGen';
 import { createAtlas, Atlas } from '../render/Textures';
 import { ChunkMeshCache } from '../render/ChunkMeshCache';
 import { Renderer } from '../render/Renderer';
@@ -375,10 +374,9 @@ export class Game {
     this.body = createBody(this.spawn.x, this.spawn.y, this.spawn.z);
     if (save) this.restoreBodyFromSave(save);
     this.body.flying = this.inventory.infinite;
-    // 先定好本季的树叶贴图与蘑菇规则，下面建网格直接用
+    // 先定好本季的树叶贴图（蘑菇/雪地/果树由岛型定死，见 applyIslandTerrain）
     const season = seasonOf(this.day.date);
     this.lastSeason = season;
-    setActiveSeason(season);
     applySeasonLeaves(season);
     this.streamChunks(Infinity);
     this.chunkMeshes.rebuildDirty(this.world);
@@ -406,28 +404,27 @@ export class Game {
     this.hud?.showMessage('正在连接服务器，连上就去大厅…', 3);
   }
 
-  /** 按岛型给地形生成器喂参数：四季岛走规则表（多果树/竹林/全岛雪地/常年蘑菇），老水果岛与香蕉岛按单一果树。
-   *  默认按自家岛型来；串门时传对方的岛型——只影响地形的长相，不碰存档里记的 islandType。 */
+  /** 按岛型给地形生成器喂参数（规则见 config 的 ISLAND_RULES / 玩家 2026-10-20 定稿的生成规则）：
+   *  每个品种岛只长自己那一种树（苹果岛永远只有苹果树），竹林/雪地/蘑菇都在生成时定死，
+   *  **不随玩家日期变化**。默认按自家岛型来；串门时传对方的岛型——只影响地形，不碰存档里的 islandType。 */
   private applyIslandTerrain(type: IslandType = this.islandType): void {
-    if (type in SEASON_ISLAND_RULES) {
-      const r = SEASON_ISLAND_RULES[type as SeasonIslandId];
-      setIslandProfile({ trees: r.trees, bamboo: r.bamboo, snowOnly: r.snowOnly, mushrooms: r.mushrooms });
-    } else {
-      const leaf = ISLAND_TYPES[type]?.leafId ?? 0;
-      setIslandProfile({ trees: leaf ? [leaf] : [], bamboo: false });
-    }
-    this.winterIsland = type === 'winter'; // 冬季岛全年持续下雪，不受日历季节限制
+    const rules = ISLAND_RULES[type as keyof typeof ISLAND_RULES];
+    const leaf = ISLAND_TYPES[type]?.leafId ?? 0;
+    setIslandProfile({
+      trees: leaf ? [leaf] : [],
+      bamboo: rules?.bamboo ?? false,
+      snowOnly: rules?.snowOnly,
+      mushrooms: rules?.mushrooms,
+    });
+    this.winterIsland = type === 'winter'; // 冬季岛常年下雪，不受日历季节限制
   }
 
-  /** 翻到新的一天：刷新 HUD 日期；季节变了才做重活（换叶、清蘑菇），同一天内不重复搞 */
+  /** 翻到新的一天：刷新 HUD 日期；季节变了才换叶（蘑菇/雪/果树按岛型固定，不随日期动） */
   private onNewDay(): void {
     this.hud?.setDate(dateLabel(this.day.date));
     const season = seasonOf(this.day.date);
     if (this.lastSeason === season) return;
     this.lastSeason = season;
-    setActiveSeason(season);
-    // 入冬：全世界的蘑菇一次性清掉（设定：进入冬季后蘑菇全部消失）
-    if (season === 'winter') this.world.clearBlocks(MUSHROOM_IDS);
     if (!applySeasonLeaves(season)) return;
     this.world.markAllDirty();
     this.chunkMeshes.rebuildDirty(this.world);
