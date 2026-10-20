@@ -362,6 +362,11 @@ export const SNOWFALL = {
   RECHECK: 0.5,     // 隔几秒重新判断要不要下雪
 };
 
+/** 雪花：挖雪地时极低概率掉一朵（冬季岛满地是雪，看运气） */
+export const SNOWFLAKE_DROP = {
+  CHANCE: 0.001,
+};
+
 /** 掉落物：背包塞不下时不硬捡，把剩下的弹开，几秒内不再往玩家身上飞 */
 export const PICKUP = {
   REFUSE_SECONDS: 2,
@@ -376,7 +381,8 @@ export const CROP = {
 };
 
 /** 专属岛屿类型与树叶掉水果配置（苹果/桃子/橙子/梨子/柿子 五种岛 + 只能外出探索才能到的香蕉岛） */
-export type IslandType = 'apple' | 'peach' | 'orange' | 'pear' | 'persimmon' | 'banana';
+export type IslandType = 'apple' | 'peach' | 'orange' | 'pear' | 'persimmon' | 'banana'
+  | 'spring' | 'summer' | 'autumn' | 'winter';
 
 export const ISLAND_TYPES: Record<IslandType, { id: IslandType; cn: string; fruitId: number; leafId: number }> = {
   apple:     { id: 'apple',     cn: '苹果岛', fruitId: 236, leafId: 261 }, // 236 = APPLE，261 = 苹果树叶
@@ -385,10 +391,46 @@ export const ISLAND_TYPES: Record<IslandType, { id: IslandType; cn: string; frui
   pear:      { id: 'pear',      cn: '梨子岛', fruitId: 259, leafId: 264 }, // 259 = 梨，264 = 梨树叶
   persimmon: { id: 'persimmon', cn: '柿子岛', fruitId: 260, leafId: 265 }, // 260 = 柿子，265 = 柿子树叶
   banana:    { id: 'banana',    cn: '香蕉岛', fruitId: 287, leafId: 286 }, // 287 = 香蕉，286 = 香蕉树叶
+  // —— 四季岛：新档自家岛就落在这四种里，各 1/4；地形与资源规则见 SEASON_ISLAND_RULES ——
+  spring:    { id: 'spring',    cn: '春季岛', fruitId: 237, leafId: 262 },
+  summer:    { id: 'summer',    cn: '夏季岛', fruitId: 236, leafId: 261 },
+  autumn:    { id: 'autumn',    cn: '秋季岛', fruitId: 260, leafId: 265 },
+  winter:    { id: 'winter',    cn: '冬季岛', fruitId: 0,   leafId: 0 },   // 冬季岛不长果树
 };
 
-/** 新档分配自家岛时的池子：香蕉岛只作外出探索的目的地，登录出生永远不会落在香蕉岛 */
-export const HOME_ISLAND_TYPE_IDS: IslandType[] = ['apple', 'peach', 'orange', 'pear', 'persimmon'];
+/** 四季岛的自家岛 id（新档在这四种里随机，各 1/4） */
+export type SeasonIslandId = 'spring' | 'summer' | 'autumn' | 'winter';
+
+/** 四季岛各自的地形与资源规则：
+ *  春季岛只长桃树；夏季岛长苹果/梨/香蕉三种树 + 竹林；
+ *  秋季岛长橘树/柿树 + 竹林，岛上年年长蘑菇（0.2%）；冬季岛全岛雪地 + 竹林，不长果树。
+ *  冬季岛"持续下雪"、秋季岛"常年蘑菇"在游戏侧按岛型放开，其余岛仍按日期季节走。 */
+export const SEASON_ISLAND_RULES: Record<SeasonIslandId, {
+  season: 'spring' | 'summer' | 'autumn' | 'winter';
+  /** 岛上长的果树树叶 ID（空 = 只长普通树） */
+  trees: number[];
+  /** 附不附带竹林 */
+  bamboo: boolean;
+  /** 全岛按雪地生成（地表盖雪、湖面结冰） */
+  snowOnly?: boolean;
+  /** 岛上年年长蘑菇（别的岛等日期进了秋季才长） */
+  mushrooms?: boolean;
+}> = {
+  spring: { season: 'spring', trees: [262 /* PEACH_LEAVES */], bamboo: false },
+  summer: { season: 'summer', trees: [261 /* APPLE_LEAVES */, 264 /* PEAR_LEAVES */, 286 /* BANANA_LEAVES */], bamboo: true },
+  autumn: { season: 'autumn', trees: [263 /* ORANGE_LEAVES */, 265 /* PERSIMMON_LEAVES */], bamboo: true, mushrooms: true },
+  winter: { season: 'winter', trees: [], bamboo: true, snowOnly: true },
+};
+
+/** 老存档的水果岛 → 四季岛（P6 迁移）：桃→春，苹果/梨/香蕉→夏，橘子/柿子→秋 */
+export const LEGACY_ISLAND_MAP: Record<string, SeasonIslandId> = {
+  peach: 'spring',
+  apple: 'summer', pear: 'summer', banana: 'summer',
+  orange: 'autumn', persimmon: 'autumn',
+};
+
+/** 新档分配自家岛时的池子：四个季节岛各 1/4（香蕉岛只作外出探索的目的地，登录出生落不到） */
+export const HOME_ISLAND_TYPE_IDS: IslandType[] = ['spring', 'summer', 'autumn', 'winter'];
 
 export const ISLAND = {
   LEAF_FRUIT_CHANCE: 0.05,   // 挖掉普通树叶掉本岛专属水果的概率（5%，兼容老存档）
@@ -492,6 +534,7 @@ export const SELL_PRICE: Record<number, { coins: number; per: number }> = {
   293: { coins: 1, per: 1 },     // 金针菇
   294: { coins: 1, per: 1 },     // 平菇
   295: { coins: 2, per: 1 },     // 红伞伞（有毒但更值钱）
+  296: { coins: 1, per: 1 },     // 雪花（冬季岛雪地里挖到的收藏品）
   7:   { coins: 0.01, per: 1 },  // 树叶
   243: { coins: 0.01, per: 1 },  // 椰子叶
   261: { coins: 0.01, per: 1 },  // 苹果树叶

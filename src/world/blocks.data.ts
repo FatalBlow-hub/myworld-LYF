@@ -4,9 +4,11 @@
 
 import { APPLE_LEAVES, APPLE_SAP1, BANANA, BANANA_LEAVES, BANANA_SAP1, COCONUT_SAP1, FRUIT_LEAF_IDS, ORANGE_LEAVES, ORANGE_SAP1, PEACH_LEAVES, PEACH_SAP1, PEAR, PEAR_LEAVES, PEAR_SAP1, PERSIMMON, PERSIMMON_LEAVES, PERSIMMON_SAP1, TREE_BLOCKS } from './blocks.trees';
 import { MUSHROOM_BLOCKS, MUSHROOM_ENOKI, MUSHROOM_OYSTER, MUSHROOM_RED, MUSHROOM_SHIITAKE, MUSHROOM_SPORE } from './blocks.mushrooms';
+import { SNOWFLAKE, SNOW_BLOCKS } from './blocks.season';
 
 export * from './blocks.trees'; // 果树一族（梨/柿子/果树叶/树苗）的 ID 与物种表也走这里转发，外部照旧只认 './Block'
 export * from './blocks.mushrooms'; // 蘑菇一族（四种蘑菇 + 孢子）同样转发
+export * from './blocks.season'; // 季节小物（雪花）同样转发
 
 export const AIR = 0;
 export const GRASS = 1;
@@ -434,6 +436,7 @@ export const BLOCKS: Record<number, BlockDef> = {
   ...GOLDEN_BLOCKS, // 黄金系列（blocks.golden.ts）：和别的方块一样进表，不再运行时塞
   ...TREE_BLOCKS,   // 果树一族（blocks.trees.ts）：5 种果树叶 + 梨/柿子 + 6 种三阶段树苗
   ...MUSHROOM_BLOCKS, // 蘑菇一族（blocks.mushrooms.ts）：四种蘑菇 + 孢子
+  ...SNOW_BLOCKS,     // 季节小物（blocks.season.ts）：雪花
   [AIR]:         { cn: '空气',   tex: { top: '', side: '' }, solid: false, seeThrough: true, hardness: 0 },
   [GRASS]:       { cn: '草方块', tex: { top: 'grass_top', side: 'grass_side', bottom: 'dirt' }, solid: true, seeThrough: false, hardness: 0.6, drop: DIRT },
   [DIRT]:        { cn: '泥土',   tex: { top: 'dirt', side: 'dirt' }, solid: true, seeThrough: false, hardness: 0.5 },
@@ -746,6 +749,8 @@ export const ALL_ITEMS = [
   FISH_CLOWN, FISH_COD, FISH_SALMON, FISH_PUFFER,
   // 四种蘑菇 + 孢子（秋天草地上长，也能用孢子自己种）
   MUSHROOM_SPORE, MUSHROOM_SHIITAKE, MUSHROOM_ENOKI, MUSHROOM_OYSTER, MUSHROOM_RED,
+  // 雪花（冬季岛的雪地里偶尔能挖到）
+  SNOWFLAKE,
 ];
 
 /** 庄稼生长链：每 60 秒走一级（水稻/胡萝卜/南瓜/西瓜共用）；最后一级不在表里 = 熟透了不再长 */

@@ -7,7 +7,7 @@ export const ISLAND_TILE_NAMES = [
   'pumpkin_stage1', 'pumpkin_stage2', 'pumpkin_stage3',
   'melon_top', 'melon_side', 'melon_slice', 'melon_seed',
   'melon_stage1', 'melon_stage2', 'melon_stage3',
-  'apple', 'peach', 'orange', 'pear', 'persimmon', 'persimmon_cake', 'banana',
+  'apple', 'peach', 'orange', 'pear', 'persimmon', 'persimmon_cake', 'banana', 'snowflake',
   // —— 六种果树树叶（本色 + 秋叶版；香蕉叶只有外出探索的香蕉岛才有）——
   'leaves_apple', 'leaves_peach', 'leaves_orange', 'leaves_pear', 'leaves_persimmon', 'leaves_banana',
   'leaves_apple_autumn', 'leaves_peach_autumn', 'leaves_orange_autumn', 'leaves_pear_autumn', 'leaves_persimmon_autumn', 'leaves_banana_autumn',
@@ -290,6 +290,19 @@ ISLAND_PAINTERS.leaves_banana_autumn = (c, x, y) => {
   c.fillRect(x + 3, y + 3, 4, 1);
   c.fillRect(x + 8, y + 9, 3, 1);
   fruitDots(c, x, y, '#f0d040', '#fff0a0');
+};
+// —— 雪花：六角小冰花，淡蓝白，冬季岛的雪地里能挖到 ——
+ISLAND_PAINTERS.snowflake = (c, x, y) => {
+  c.fillStyle = '#dff0ff';
+  c.fillRect(x + 7, y + 2, 2, 12);  // 竖
+  c.fillRect(x + 2, y + 7, 12, 2);  // 横
+  c.fillStyle = '#f4fbff';
+  for (const [dx, dy] of [[5, 5], [9, 5], [5, 9], [9, 9]] as const) c.fillRect(x + dx, y + dy, 2, 2);
+  c.fillStyle = '#a8d4f0';
+  c.fillRect(x + 4, y + 6, 8, 1);
+  c.fillRect(x + 6, y + 4, 1, 8);
+  c.fillStyle = '#ffffff';
+  c.fillRect(x + 7, y + 7, 2, 2);
 };
 ISLAND_PAINTERS.banana = (c, x, y) => {
   // 一串三根弯香蕉：外黄内浅黄，两头带一点褐

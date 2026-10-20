@@ -2,7 +2,7 @@
  *  留在 core 层是因为这些动作会直接开 UI 面板（工作台、染色台），按依赖铁律下层不能反向依赖 ui。 */
 
 import * as THREE from 'three';
-import { GOLDEN, ISLAND, RUBBER_DROP, STACK_MAX, VisitPerm } from '../config';
+import { GOLDEN, ISLAND, RUBBER_DROP, SNOWFLAKE_DROP, STACK_MAX, VisitPerm } from '../config';
 import { FireSystem } from '../entities/Fire';
 import { ItemDrop } from '../entities/ItemDrop';
 import { TIER_OF_EGG } from '../entities/Warrior';
@@ -21,7 +21,7 @@ import {
   AIR, BLOCKS, BUCKET, BUY_BOX, CARROT, CHALLENGE_DOOR, CHALLENGE_HOUSE, CHEM_DECOMP, CRAFTING_TABLE,
   DIRT, DYE_TABLE, DYEABLE_CARPETS, FIRESTARTER_IDS, FRUIT_LEAF_IDS, FRUIT_OF_LEAF, GLASS_BUCKET, GRASS, HYDROGEN, ICE, IRON_NUGGET,
   LEAVES, MELON_SEED, MELON_STAGE1, MUSHROOM_SPORE, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT,
-  RICE_GRAIN, RUBBER, SAND, SAPLING_IDS, SEAWEED, SOUL_CHEST, SOUL_FIRESTARTER, SPECIES_BY_SAPLING, STAR_DYE_TABLE, STAR_TABLE, SWAMP_FILL,
+  RICE_GRAIN, RUBBER, SAND, SAPLING_IDS, SEAWEED, SNOW, SNOWFLAKE, SOUL_CHEST, SOUL_FIRESTARTER, SPECIES_BY_SAPLING, STAR_DYE_TABLE, STAR_TABLE, SWAMP_FILL,
   TANK, VENDING_DRINK, VENDING_SPECIAL, VISIT_LIST_BLOCKS, WATER_BUCKET, WOOD,
   dropCountOf, isBed, isChest, isDoor, isFurnace,
 } from '../world/Block';
@@ -178,6 +178,11 @@ export class PlayerActions {
         if (fruitId !== null && inSeason && Math.random() < chance) {
           spawnDrop(this.sink, fruitId, 1, hitX! + 0.5, hitY! + 0.5, hitZ! + 0.5);
         }
+      }
+      // 挖雪地偶尔掉一朵雪花（设定：每块雪 0.1%）；冬季岛满地是雪，看运气
+      if (id === SNOW && !creative && Math.random() < SNOWFLAKE_DROP.CHANCE) {
+        inventory.add(SNOWFLAKE, 1);
+        hud.showMessage('雪地里挖到一朵雪花！', 3);
       }
       if (goldPickaxe) this.pickaxeCooldown = GOLDEN.PICKAXE_COOLDOWN;
       this.cancelMining();

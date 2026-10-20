@@ -1,7 +1,7 @@
 /** 地形生成 — 用噪声画出有山有水有树的世界（固定种子，每次进游戏都一样） */
 
-import { CHUNK, CROP, ISLAND, ORE, PALM, SEA_LEVEL, SPAWN, WORLD_SEED } from '../config';
-import { BLUE_ORE, CACTUS, CARROT_MATURE, COAL_ORE, DANDELION, DIRT, GOLD_ORE, GRASS, ICE, IRON_ORE, LEAVES, MELON, PALM_LEAVES, POPPY, PUMPKIN, RICE_MATURE, SAND, SANDSTONE, SEAWEED, SNOW, SOUL_GRASS, SPECIES_BY_LEAF, STONE, TALL_GRASS, WATER, WOOD } from './Block';
+import { BAMBOO_FOREST, CHUNK, CROP, ISLAND, ORE, PALM, SEA_LEVEL, SPAWN, WORLD_SEED } from '../config';
+import { BAMBOO, BLUE_ORE, CACTUS, CARROT_MATURE, COAL_ORE, DANDELION, DIRT, GOLD_ORE, GRASS, ICE, IRON_ORE, LEAVES, MELON, PALM_LEAVES, POPPY, PUMPKIN, RICE_MATURE, SAND, SANDSTONE, SEAWEED, SNOW, SOUL_GRASS, SPECIES_BY_LEAF, STONE, TALL_GRASS, WATER, WOOD } from './Block';
 import { Chunk } from './Chunk';
 import { swampAt } from './Swamp';
 import { treeBlocks } from './Trees';
@@ -14,21 +14,38 @@ const liquidAt = (x: number, z: number) => swampAt(x, z, heightAt(x, z), biomeAt
 /** 当前地形种子与是否只生成草地（副本岛按 islandId 设种子并开启纯草地，无沙漠/无雪地；默认保持本岛原样） */
 let activeSeed = WORLD_SEED;
 let grassOnlyMode = false;
-/** 岛上果树的树叶方块 ID（0 = 这座岛不长果树）；每座岛的树里约两成是本岛品种的果树 */
-let activeFruitLeaf = 0;
-/** 当前季节：蘑菇只在秋季长，别的季节生成的新区块不长蘑菇 */
+/** 岛上果树的树叶方块 ID 列表（空 = 这座岛不长果树）；每座岛的树里约两成是本岛品种的果树，多品种时随机挑一种 */
+let activeTreeLeaves: number[] = [];
+/** 这座岛附不附带竹林（夏/秋/冬岛附带） */
+let activeBamboo = false;
+/** 全岛按雪地生成（冬季岛：地表盖雪、湖面结冰） */
+let activeSnowOnly = false;
+/** 岛上年年长蘑菇（秋季岛；别的岛等日期进了秋季才长） */
+let activeMushrooms = false;
+/** 当前季节：蘑菇按季节长，秋岛则无视季节 */
 let activeSeason: 'spring' | 'summer' | 'autumn' | 'winter' = 'summer';
 
 /** 切换地形生成参数：不传或传默认参数即恢复玩家自己的岛配置；fruitLeaf 是本岛果树的树叶 ID */
 export function setTerrainConfig(seed = WORLD_SEED, grassOnly = false, fruitLeaf = 0): void {
   activeSeed = seed;
   grassOnlyMode = grassOnly;
-  activeFruitLeaf = fruitLeaf;
+  activeTreeLeaves = fruitLeaf ? [fruitLeaf] : [];
+  activeBamboo = false;
+  activeSnowOnly = false;
+  activeMushrooms = false;
 }
 
-/** 换季：地形生成按季节决定要不要长蘑菇（入冬后已长出来的由 World.clearMushrooms 清掉） */
+/** 换季：地形生成按季节决定要不要长蘑菇（入冬后已长出来的由 World.clearBlocks 清掉） */
 export function setActiveSeason(season: 'spring' | 'summer' | 'autumn' | 'winter'): void {
   activeSeason = season;
+}
+
+/** 四季岛的额外地形规则：多品种果树、竹林、全岛雪地、常年蘑菇 */
+export function setIslandProfile(profile: { trees: number[]; bamboo: boolean; snowOnly?: boolean; mushrooms?: boolean }): void {
+  activeTreeLeaves = [...profile.trees];
+  activeBamboo = profile.bamboo;
+  activeSnowOnly = profile.snowOnly === true;
+  activeMushrooms = profile.mushrooms === true;
 }
 
 /** 确定性伪随机：同一个 (x,z) 永远算出同一个 0~1 的数 */
@@ -100,6 +117,7 @@ export function randomGrassSpawn(): { x: number; z: number } {
 /** 掷一次"温度骰子"：噪声变化很慢，所以群系是上百格宽的一大块（副本岛开启 grassOnly 时只返回 grass，无沙漠/无雪地） */
 export function biomeAt(wx: number, wz: number): Biome {
   if (grassOnlyMode) return 'grass';
+  if (activeSnowOnly) return 'snow'; // 冬季岛：整座岛都是雪地
   const t = smoothNoise(wx * 0.008 + 777, wz * 0.008 - 333);
   if (t < 1 / 3) return 'snow';
   if (t > 2 / 3) return 'desert';
@@ -159,7 +177,7 @@ export function generateChunk(chunk: Chunk, opts?: { grassOnly?: boolean }): voi
       // 果树树冠能伸 3 格要留 3 格边，普通树留 2 格；掷中果树但贴边就不种，免得果树比例被边偷走
       if (!swamp && !nearSea && biome !== 'desert' && hash(wx * 7 + 1, wz * 7 + 3) < 0.02 &&
           ![-2, -1, 0, 1, 2].some((dx) => [-2, -1, 0, 1, 2].some((dz) => liquidAt(wx + dx, wz + dz)))) {
-        const fruit = SPECIES_BY_LEAF[activeFruitLeaf];
+        const fruit = SPECIES_BY_LEAF[activeTreeLeaves[Math.floor(hash(wx * 7 + 33, wz * 7 + 33) * activeTreeLeaves.length)] ?? 0];
         const fruitRoll = fruit !== undefined && hash(wx * 29 + 11, wz * 37 + 5) < ISLAND.FRUIT_TREE_CHANCE;
         const fruitBounds = lx >= 3 && lx <= CHUNK.SIZE - 4 && lz >= 3 && lz <= CHUNK.SIZE - 4;
         if (fruitRoll && fruitBounds) {
@@ -169,12 +187,29 @@ export function generateChunk(chunk: Chunk, opts?: { grassOnly?: boolean }): voi
         }
       }
 
-      // 蘑菇：只有秋天才有，草地上 0.2% 概率冒一朵（入冬时已长出来的会被清掉）
-      if (activeSeason === 'autumn' && !swamp && !nearSea && biome !== 'desert'
+      // 蘑菇：秋岛无视季节，别的岛等日期进了秋季；草地上 0.2% 概率冒一朵（入冬时已长出来的会被清掉）
+      if ((activeMushrooms || activeSeason === 'autumn') && !swamp && !nearSea && biome !== 'desert'
           && chunk.data[Chunk.index(lx, h - 1, lz)] === GRASS
           && chunk.data[Chunk.index(lx, h, lz)] === 0
           && hash(wx * 31 + 7, wz * 31 + 17) < MUSHROOM_GROW_CHANCE) {
         chunk.data[Chunk.index(lx, h, lz)] = pickMushroom(() => hash(wx * 41 + 3, wz * 41 + 9));
+      }
+
+      // 竹林：夏/秋/冬岛附带竹子——按 96 格的大网格掷一片竹林，林是半径 6 格的圆，圆里再按密度长竹丛
+      const bambooGround = chunk.data[Chunk.index(lx, h - 1, lz)];
+      const onSnowGrass = activeSnowOnly && bambooGround === SNOW; // 冬季岛满岛是雪，雪地上也长竹子
+      if (activeBamboo && !swamp && !nearSea && biome !== 'desert'
+          && (bambooGround === GRASS || onSnowGrass)
+          && chunk.data[Chunk.index(lx, h, lz)] === 0) {
+        const gx = Math.round(wx / BAMBOO_FOREST.CELL_SIZE) * BAMBOO_FOREST.CELL_SIZE;
+        const gz = Math.round(wz / BAMBOO_FOREST.CELL_SIZE) * BAMBOO_FOREST.CELL_SIZE;
+        const inGrove = (wx - gx) ** 2 + (wz - gz) ** 2 <= BAMBOO_FOREST.RADIUS ** 2;
+        const hasGrove = hash(gx * 3 + 11, gz * 3 + 7) < BAMBOO_FOREST.CHANCE;
+        if (inGrove && hasGrove && hash(wx * 5 + 3, wz * 5 + 9) < 0.16) {
+          const tall = BAMBOO_FOREST.HEIGHT_MIN
+            + Math.floor(hash(wx * 9 + 5, wz * 9 + 13) * (BAMBOO_FOREST.HEIGHT_MAX - BAMBOO_FOREST.HEIGHT_MIN + 1));
+          for (let i = 0; i < tall; i++) chunk.data[Chunk.index(lx, h + i, lz)] = BAMBOO;
+        }
       }
 
       // 仙人掌：只长在沙漠的沙滩上，2~3 格高一小根

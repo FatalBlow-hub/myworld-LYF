@@ -1,10 +1,10 @@
 /** 游戏主循环 — 把所有模块装配起来，每帧按固定顺序驱动它们 */
 
 import * as THREE from 'three';
-import { CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PVP, SAVE, SNOWFALL, VIEW_DISTANCE, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
+import { SEASON_ISLAND_RULES, SeasonIslandId, CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PVP, SAVE, SNOWFALL, VIEW_DISTANCE, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
 import { World } from '../world/World';
 import { buildHall } from '../world/HallMap';
-import { findGrassSpawn, heightAt, randomGrassSpawn, setActiveSeason, setTerrainConfig } from '../world/TerrainGen';
+import { findGrassSpawn, heightAt, randomGrassSpawn, setIslandProfile, setActiveSeason, setTerrainConfig } from '../world/TerrainGen';
 import { MUSHROOM_IDS } from '../world/mushrooms';
 import { createAtlas, Atlas } from '../render/Textures';
 import { ChunkMeshCache } from '../render/ChunkMeshCache';
@@ -123,6 +123,8 @@ export class Game {
   private boardPanel: BoardPanel | null = null;
   /** 上一次生效的季节：只有换季才做换叶 / 清蘑菇这些重活 */
   private lastSeason: Season | null = null;
+  /** 自家/访岛是不是冬季岛：冬季岛常年下雪，不受日历季节限制 */
+  private winterIsland = false;
   private day = new DayCycle(
     () => this.hud?.showMessage('天黑了！小心血尸和星空尸出没，对着床按 M 可以睡觉', 3),
     () => { this.survival!.wakeUp(this.body!, this.spawn); this.pickup!.dropStarShard(this.spawn.x, this.spawn.y, this.spawn.z); },
@@ -358,8 +360,9 @@ export class Game {
       const gs = randomGrassSpawn();
       this.spawn = { x: gs.x, y: heightAt(Math.floor(gs.x), Math.floor(gs.z)) + 1, z: gs.z };
     }
-    // 开局定好地形参数：本岛种子 + 本岛品种的果树（梨/柿子岛也能长出对应果树）
+    // 开局定好地形参数：本岛种子 + 本岛果树/竹林/雪地规则（四季岛按规则表来）
     setTerrainConfig(WORLD_SEED, false, ISLAND_TYPES[this.islandType].leafId);
+    this.applyIslandTerrain();
     this.hud.refreshHotbar(this.inventory, this.slot);
     this.hud.setCoins(this.coins);
     this.hud.setPaused(this.paused);
@@ -400,6 +403,19 @@ export class Game {
     this.hud?.showMessage('正在连接服务器，连上就去大厅…', 3);
   }
 
+  /** 按岛型给地形生成器喂参数：四季岛走规则表（多果树/竹林/全岛雪地/常年蘑菇），老水果岛与香蕉岛按单一果树。
+   *  默认按自家岛型来；串门时传对方的岛型——只影响地形的长相，不碰存档里记的 islandType。 */
+  private applyIslandTerrain(type: IslandType = this.islandType): void {
+    if (type in SEASON_ISLAND_RULES) {
+      const r = SEASON_ISLAND_RULES[type as SeasonIslandId];
+      setIslandProfile({ trees: r.trees, bamboo: r.bamboo, snowOnly: r.snowOnly, mushrooms: r.mushrooms });
+    } else {
+      const leaf = ISLAND_TYPES[type]?.leafId ?? 0;
+      setIslandProfile({ trees: leaf ? [leaf] : [], bamboo: false });
+    }
+    this.winterIsland = type === 'winter'; // 冬季岛全年持续下雪，不受日历季节限制
+  }
+
   /** 翻到新的一天：刷新 HUD 日期；季节变了才做重活（换叶、清蘑菇），同一天内不重复搞 */
   private onNewDay(): void {
     this.hud?.setDate(dateLabel(this.day.date));
@@ -419,7 +435,7 @@ export class Game {
     this.snowTimer -= dt;
     if (this.snowTimer <= 0) {
       this.snowTimer = SNOWFALL.RECHECK;
-      const on = seasonOf(this.day.date) === 'winter'
+      const on = (this.winterIsland || seasonOf(this.day.date) === 'winter')
         && (this.scene === 'island' || this.scene === 'visit')
         && this.nearSnow(body.x, body.y, body.z);
       this.snow?.setActive(on, body.x, body.y, body.z);
@@ -659,6 +675,7 @@ export class Game {
     if (!save) return;
     this.panels.closeAll(); this.net?.leaveHallQueue(); this.hallMenu?.setQueueState(false, [], 0);
     this.clearScene(); setTerrainConfig(WORLD_SEED, false, ISLAND_TYPES[this.islandType].leafId);
+    this.applyIslandTerrain(); // 回自己岛：果树/竹林/雪地规则跟着自家岛走
     this.scene = 'island'; this.visitIslandType = null; this.visitOwner = null; this.visitPerm = null;
     this.hud!.setVisitOwner(null);
     // 岛币跟着人走：存档里的是进大厅那一刻的余额，大厅里挣的/花的不能被读档冲掉
@@ -686,6 +703,7 @@ export class Game {
   private enterVisit(islandId: number, islandType: IslandType): void {
     this.panels.closeAll(); this.hallMenu?.setQueueState(false, [], 0);
     this.clearScene(); setTerrainConfig(islandId, true, ISLAND_TYPES[islandType].leafId);
+    this.applyIslandTerrain(islandType); // 随机串门到四季岛/香蕉岛：按那边的岛型生成
     this.scene = 'visit'; this.visitIslandType = islandType; this.visitOwner = null; this.visitPerm = null;
     this.hud!.setVisitOwner('随机岛'); // 随机串门也挂个牌子，免得以为还在自己家
     const gs = findGrassSpawn(8.5, 8.5);
@@ -787,8 +805,9 @@ export class Game {
       const friendSave = migrateSave(raw);
       this.panels.closeAll(); this.hallMenu?.setQueueState(false, [], 0);
       this.clearScene();
-      const ownerIslandType = friendSave.islandType && friendSave.islandType in ISLAND_TYPES ? friendSave.islandType : 'apple';
+      const ownerIslandType = friendSave.islandType && friendSave.islandType in ISLAND_TYPES ? friendSave.islandType : 'summer';
       setTerrainConfig(WORLD_SEED, false, ISLAND_TYPES[ownerIslandType].leafId);
+      this.applyIslandTerrain(ownerIslandType); // 好友家的岛型只影响地形，不写进自家存档
       this.scene = 'visit'; this.visitOwner = owner; this.visitPerm = perm; this.visitIslandType = ownerIslandType;
       this.hud!.setVisitOwner(owner);
       this.world.applyDiffs(friendSave.chunks); this.world.applyMeta(friendSave.meta);

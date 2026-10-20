@@ -8,8 +8,8 @@ const HEARTBEAT_TIMEOUT_MS = 30_000; // 超过 30 秒没收到任何消息判定
 const MAX_MSG_BYTES = 16 * 1024; // 单条消息上限 16KB
 const NAME_MAX_LEN = 24;
 const QUEUE_MAX = 32; // 大厅队列人数上限
-// 外出探索能随机到的岛：比出生池多一个香蕉岛（新档永远不会分配香蕉岛）
-const ISLAND_TYPES = ['apple', 'peach', 'orange', 'pear', 'persimmon', 'banana'];
+// 外出探索能随机到的岛：四季岛 + 香蕉岛（自家岛永远落不到香蕉岛）
+const ISLAND_TYPES = ['spring', 'summer', 'autumn', 'winter', 'banana'];
 const VISIT_TIMEOUT_MS = 60_000; // 访岛申请 60 秒无响应作废
 const TICKET_TTL_MS = 5 * 60_000; // 访问票据 5 分钟有效
 
