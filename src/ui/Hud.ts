@@ -15,6 +15,7 @@ export class Hud {
   private coinsEl: HTMLElement;
   private netEl: HTMLElement;
   private visitEl: HTMLElement;
+  private dateEl: HTMLElement;
   private netStatus: NetStatus = 'disconnected';
   private onlineList: string[] = [];
   private hotbarEl = document.getElementById('hotbar')!;
@@ -78,6 +79,19 @@ export class Hud {
       this.root.appendChild(visitEl);
     }
     this.visitEl = visitEl;
+    // 日期 + 季节：常驻左上角（跨天、睡醒、读档时刷新）
+    let dateEl = document.getElementById('game-date');
+    if (!dateEl) {
+      dateEl = document.createElement('div');
+      dateEl.id = 'game-date';
+      dateEl.style.position = 'absolute';
+      dateEl.style.top = '52px';
+      dateEl.style.left = '14px';
+      dateEl.style.fontSize = '14px';
+      dateEl.style.textShadow = '1px 1px 2px var(--hud-shadow)';
+      this.root.appendChild(dateEl);
+    }
+    this.dateEl = dateEl;
     this.renderNetStatus();
     if (!showHealth) {
       this.heartsEl.textContent = '';
@@ -167,6 +181,11 @@ export class Hud {
   /** 刷新岛币余额显示（🪙 图标 + 数字） */
   setCoins(n: number): void {
     this.coinsEl.textContent = `🪙 ${fmtCoins(n)} 岛币`;
+  }
+
+  /** 刷新左上角的日期 + 季节（跨天、睡醒、读档时调） */
+  setDate(text: string): void {
+    this.dateEl.textContent = text;
   }
 
   showMessage(text: string, seconds = 2.5): void {

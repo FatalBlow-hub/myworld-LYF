@@ -36,11 +36,17 @@ export const PERSIMMON_SAP3 = 280;
 export const COCONUT_SAP1 = 281;
 export const COCONUT_SAP2 = 282;
 export const COCONUT_SAP3 = 283;
+// —— 香蕉（286~290）：只在香蕉岛长，登录出生永远分配不到香蕉岛 ——
+export const BANANA_LEAVES = 286;
+export const BANANA = 287;
+export const BANANA_SAP1 = 288;
+export const BANANA_SAP2 = 289;
+export const BANANA_SAP3 = 290;
 
 /** 一个树种的所有静态信息：树叶/果实/三阶段树苗 + 树冠参数 + 种植限制 */
 export interface TreeSpecies {
   /** 英文 key，也当贴图前缀用（leaves_apple / sap_apple_1…） */
-  key: 'apple' | 'peach' | 'orange' | 'pear' | 'persimmon' | 'coconut';
+  key: 'apple' | 'peach' | 'orange' | 'pear' | 'persimmon' | 'coconut' | 'banana';
   /** 树苗物品名，比如「苹果树苗」 */
   cn: string;
   /** 树叶方块 ID（4 片合 1 树苗；椰子树用已有的 243 椰子叶） */
@@ -66,9 +72,10 @@ export interface TreeSpecies {
 export const TREE_SPECIES: TreeSpecies[] = [
   { key: 'apple',     cn: '苹果树苗',   leaf: APPLE_LEAVES,     fruit: 236 /* APPLE */,    stages: [APPLE_SAP1, APPLE_SAP2, APPLE_SAP3],         trunk: 4, dyMin: -1, dyMax: 1, canopyR: 3 },
   { key: 'peach',     cn: '桃树苗',     leaf: PEACH_LEAVES,     fruit: 237 /* PEACH */,    stages: [PEACH_SAP1, PEACH_SAP2, PEACH_SAP3],         trunk: 4, dyMin: -1, dyMax: 1, canopyR: 4 },
-  { key: 'orange',    cn: '橙子树苗',   leaf: ORANGE_LEAVES,    fruit: 238 /* ORANGE */,   stages: [ORANGE_SAP1, ORANGE_SAP2, ORANGE_SAP3],      trunk: 4, dyMin: -1, dyMax: 2, canopyR: 3 },
+  { key: 'orange',    cn: '橘子树苗',   leaf: ORANGE_LEAVES,    fruit: 238 /* ORANGE */,   stages: [ORANGE_SAP1, ORANGE_SAP2, ORANGE_SAP3],      trunk: 4, dyMin: -1, dyMax: 2, canopyR: 3 },
   { key: 'pear',      cn: '梨树苗',     leaf: PEAR_LEAVES,      fruit: PEAR,               stages: [PEAR_SAP1, PEAR_SAP2, PEAR_SAP3],            trunk: 5, dyMin: -1, dyMax: 1, canopyR: 3 },
   { key: 'persimmon', cn: '柿子树苗',   leaf: PERSIMMON_LEAVES, fruit: PERSIMMON,          stages: [PERSIMMON_SAP1, PERSIMMON_SAP2, PERSIMMON_SAP3], trunk: 4, dyMin: -1, dyMax: 1, canopyR: 3 },
+  { key: 'banana',    cn: '香蕉树苗',   leaf: BANANA_LEAVES,    fruit: BANANA,             stages: [BANANA_SAP1, BANANA_SAP2, BANANA_SAP3],      trunk: 3, dyMin: -1, dyMax: 1, canopyR: 4 },
   { key: 'coconut',   cn: '椰子树苗',   leaf: 243 /* PALM_LEAVES */, fruit: 244 /* COCONUT */, stages: [COCONUT_SAP1, COCONUT_SAP2, COCONUT_SAP3], trunk: 6, dyMin: 0, dyMax: 0, canopyR: 0, palm: true, sandOnly: true },
 ];
 
@@ -112,12 +119,14 @@ export const TREE_BLOCKS: Record<number, BlockDef> = {
   // —— 新水果 ——
   [PEAR]:      itemDef('梨', 'pear'),
   [PERSIMMON]: itemDef('柿子', 'persimmon'),
-  // —— 五种果树树叶：颜色 + 果实斑点都不一样，远看就能认品种 ——
+  [BANANA]:    itemDef('香蕉', 'banana'),
+  // —— 六种果树树叶：颜色 + 果实斑点都不一样，远看就能认品种 ——
   [APPLE_LEAVES]:     leafDef('苹果树叶', 'leaves_apple'),
   [PEACH_LEAVES]:     leafDef('桃树叶',   'leaves_peach'),
-  [ORANGE_LEAVES]:    leafDef('橙子树叶', 'leaves_orange'),
+  [ORANGE_LEAVES]:    leafDef('橘子树叶', 'leaves_orange'),
   [PEAR_LEAVES]:      leafDef('梨树叶',   'leaves_pear'),
   [PERSIMMON_LEAVES]: leafDef('柿子树叶', 'leaves_persimmon'),
+  [BANANA_LEAVES]:    leafDef('香蕉树叶', 'leaves_banana'),
   // —— 树苗三阶段：交叉薄片小花苗，打掉都退回一棵小苗 ——
   ...Object.fromEntries(TREE_SPECIES.flatMap((s) => {
     const [s1, s2, s3] = s.stages;

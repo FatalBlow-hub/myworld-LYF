@@ -63,6 +63,25 @@ CREATE TABLE IF NOT EXISTS coin_log (
   created_at INTEGER NOT NULL
 );
 
+-- 0004 大厅留言板：公开评论（谁都能看，登录才能发）
+CREATE TABLE IF NOT EXISTS board_posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  content TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_board_posts_created ON board_posts(created_at DESC);
+
+-- 0004 信箱：玩家之间的私信（只有收件人能看到）
+CREATE TABLE IF NOT EXISTS mails (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  from_id INTEGER NOT NULL REFERENCES users(id),
+  to_id INTEGER NOT NULL REFERENCES users(id),
+  content TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_mails_to ON mails(to_id, created_at DESC);
+
 -- 迁移记录表（migrate.mjs 维护，保证迁移幂等）
 CREATE TABLE IF NOT EXISTS schema_migrations (
   name TEXT PRIMARY KEY,

@@ -1,7 +1,7 @@
 /** 掉落物拾取 — 地上的东西滚一帧、被吸进背包；DIY 手册捡到直接学方法（不进包） */
 
 import * as THREE from 'three';
-import { DAY } from '../config';
+import { DAY, PICKUP } from '../config';
 import { DropSink, dropShardNear } from '../entities/drops';
 import { ItemDrop } from '../entities/ItemDrop';
 import { Inventory } from '../player/Inventory';
@@ -48,8 +48,22 @@ export class Pickup {
           goldenPaper = true;
           hud.showMessage(learned.isNew ? '捡到金色 DIY 手册，学会黄金配方！' : '捡到金色 DIY 手册，复习了一条黄金配方！');
         } else {
-          inventory.add(d.itemId, d.count);
-          hud.showMessage(`+${d.count} ${BLOCKS[d.itemId].cn}`);
+          const room = inventory.roomFor(d.itemId);
+          if (room <= 0) {
+            // 一格都塞不下：弹开，东西留在地上（背包满时不硬捡）
+            if (d.refuseT <= 0) hud.showMessage(`背包满了，${BLOCKS[d.itemId].cn}捡不起来！`);
+            d.repel(body, PICKUP.REFUSE_SECONDS);
+          } else {
+            const take = Math.min(room, d.count);
+            inventory.add(d.itemId, take);
+            hud.showMessage(`+${take} ${BLOCKS[d.itemId].cn}`);
+            d.count -= take;
+            if (d.count > 0) {
+              // 只装得下一部分：剩下的弹回地上
+              hud.showMessage(`背包快满了，剩下 ${d.count} 个${BLOCKS[d.itemId].cn}捡不起来`);
+              d.repel(body, PICKUP.REFUSE_SECONDS);
+            }
+          }
         }
       }
       if (d.dead) scene.remove(d.mesh);

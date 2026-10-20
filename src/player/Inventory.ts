@@ -50,8 +50,8 @@ export class Inventory {
     }
   }
 
-  /** 背包还装得下这么多吗：同类没满的堆 + 空格加起来够不够 */
-  hasRoom(id: number, n = 1): boolean {
+  /** 背包还能再装几个这种东西：空格 + 同类没堆满的格子，加起来算 */
+  roomFor(id: number): number {
     let room = 0;
     const groups = [this.hotbar, this.storage];
     if (this.waistbagCapacity && !isWaistbag(id)) groups.push(this.waistbag.slice(0, this.waistbagCapacity));
@@ -59,10 +59,14 @@ export class Inventory {
       for (const s of slots) {
         if (!s) room += stackMaxFor(id);
         else if (id !== WATER_BUCKET && !(id in SWAMP_FILL) && s.id === id && s.count < stackMaxFor(id)) room += stackMaxFor(id) - s.count;
-        if (room >= n) return true;
       }
     }
-    return false;
+    return room;
+  }
+
+  /** 背包还装得下这么多吗：同类没满的堆 + 空格加起来够不够 */
+  hasRoom(id: number, n = 1): boolean {
+    return this.roomFor(id) >= n;
   }
 
   private mergeInto(slots: Slots, id: number, n: number, limit = slots.length): number {

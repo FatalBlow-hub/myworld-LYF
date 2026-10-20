@@ -2,9 +2,11 @@
 
  *  纯数据、无逻辑：物品类型（Stack/Slots）与方块谓词见 Block.ts，加新方块就改这里 + 加一张贴图。 */
 
-import { APPLE_LEAVES, APPLE_SAP1, COCONUT_SAP1, FRUIT_LEAF_IDS, ORANGE_LEAVES, ORANGE_SAP1, PEACH_LEAVES, PEACH_SAP1, PEAR, PEAR_LEAVES, PEAR_SAP1, PERSIMMON, PERSIMMON_LEAVES, PERSIMMON_SAP1, TREE_BLOCKS } from './blocks.trees';
+import { APPLE_LEAVES, APPLE_SAP1, BANANA, BANANA_LEAVES, BANANA_SAP1, COCONUT_SAP1, FRUIT_LEAF_IDS, ORANGE_LEAVES, ORANGE_SAP1, PEACH_LEAVES, PEACH_SAP1, PEAR, PEAR_LEAVES, PEAR_SAP1, PERSIMMON, PERSIMMON_LEAVES, PERSIMMON_SAP1, TREE_BLOCKS } from './blocks.trees';
+import { MUSHROOM_BLOCKS, MUSHROOM_ENOKI, MUSHROOM_OYSTER, MUSHROOM_RED, MUSHROOM_SHIITAKE, MUSHROOM_SPORE } from './blocks.mushrooms';
 
 export * from './blocks.trees'; // 果树一族（梨/柿子/果树叶/树苗）的 ID 与物种表也走这里转发，外部照旧只认 './Block'
+export * from './blocks.mushrooms'; // 蘑菇一族（四种蘑菇 + 孢子）同样转发
 
 export const AIR = 0;
 export const GRASS = 1;
@@ -325,6 +327,9 @@ export const FISH_CLOWN = 255;   // 小丑鱼：橙底白条
 export const FISH_COD = 256;     // 鳕鱼：青背白肚
 export const FISH_SALMON = 257;  // 鲑鱼：粉红身子
 export const FISH_PUFFER = 258;  // 河豚：黄黄圆圆一身刺，会扎人
+// —— 梨子汁与柿子饼（284~285）：季节限定的进阶食物，只能自己做、买不到 ——
+export const JUICE_PEAR = 284;      // 梨子汁：1 梨 + 1 玻璃瓶榨的，喝着跟啃梨一样
+export const PERSIMMON_CAKE = 285;  // 柿子饼：10 稻粒 + 1 柿子摊的，柿子的回血再加 3 点
 
 export const WAISTBAG_SLOT = 1; // 装备栏从上往下第二格，也就是从下往上第三格
 export const WOOL_BAG_DYES = [
@@ -428,6 +433,7 @@ const INF = Infinity;
 export const BLOCKS: Record<number, BlockDef> = {
   ...GOLDEN_BLOCKS, // 黄金系列（blocks.golden.ts）：和别的方块一样进表，不再运行时塞
   ...TREE_BLOCKS,   // 果树一族（blocks.trees.ts）：5 种果树叶 + 梨/柿子 + 6 种三阶段树苗
+  ...MUSHROOM_BLOCKS, // 蘑菇一族（blocks.mushrooms.ts）：四种蘑菇 + 孢子
   [AIR]:         { cn: '空气',   tex: { top: '', side: '' }, solid: false, seeThrough: true, hardness: 0 },
   [GRASS]:       { cn: '草方块', tex: { top: 'grass_top', side: 'grass_side', bottom: 'dirt' }, solid: true, seeThrough: false, hardness: 0.6, drop: DIRT },
   [DIRT]:        { cn: '泥土',   tex: { top: 'dirt', side: 'dirt' }, solid: true, seeThrough: false, hardness: 0.5 },
@@ -655,7 +661,7 @@ export const BLOCKS: Record<number, BlockDef> = {
   // —— 专属岛屿水果：树叶掉落的可食用物品 ——
   [APPLE]:          { cn: '苹果',     tex: { top: 'apple', side: 'apple' }, solid: false, seeThrough: true, hardness: 0, item: true },
   [PEACH]:          { cn: '桃子',     tex: { top: 'peach', side: 'peach' }, solid: false, seeThrough: true, hardness: 0, item: true },
-  [ORANGE]:         { cn: '橙子',     tex: { top: 'orange', side: 'orange' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [ORANGE]:         { cn: '橘子',     tex: { top: 'orange', side: 'orange' }, solid: false, seeThrough: true, hardness: 0, item: true },
   // —— 大厅三台机器：挖不动，对着按 M 打开各自的面板 ——
   [VENDING_SPECIAL]: { cn: '特殊物品售卖机', tex: { top: 'vend_special_top', side: 'vend_special_side', front: 'vend_special_front' }, solid: true, seeThrough: false, hardness: Infinity },
   [VENDING_DRINK]:   { cn: '饮料售卖机',   tex: { top: 'vend_drink_top', side: 'vend_drink_side', front: 'vend_drink_front' }, solid: true, seeThrough: false, hardness: Infinity },
@@ -672,6 +678,9 @@ export const BLOCKS: Record<number, BlockDef> = {
   [JUICE_COCONUT]: { cn: '椰子汁',   tex: { top: 'juice_coconut', side: 'juice_coconut' }, solid: false, seeThrough: true, hardness: 0, item: true },
   [JUICE_MELON]:   { cn: '西瓜汁',   tex: { top: 'juice_melon', side: 'juice_melon' }, solid: false, seeThrough: true, hardness: 0, item: true },
   [JUICE_CARROT]:  { cn: '胡萝卜汁', tex: { top: 'juice_carrot', side: 'juice_carrot' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  // —— 梨子汁与柿子饼：买不到，只能自己做（梨榨汁，稻粒摊柿子饼）——
+  [JUICE_PEAR]:      { cn: '梨子汁', tex: { top: 'juice_pear', side: 'juice_pear' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [PERSIMMON_CAKE]:  { cn: '柿子饼', tex: { top: 'persimmon_cake', side: 'persimmon_cake' }, solid: false, seeThrough: true, hardness: 0, item: true },
   // —— 小战士召唤蛋：拿着对地按 M 召唤保镖，品质写在蛋上 ——
   [EGG_WARRIOR_NORMAL]:   { cn: '小战士蛋（普通）', tex: { top: 'egg_warrior_normal', side: 'egg_warrior_normal' }, solid: false, seeThrough: true, hardness: 0, item: true },
   [EGG_WARRIOR_ADVANCED]: { cn: '小战士蛋（高级）', tex: { top: 'egg_warrior_advanced', side: 'egg_warrior_advanced' }, solid: false, seeThrough: true, hardness: 0, item: true },
@@ -724,16 +733,19 @@ export const ALL_ITEMS = [
   DIY_GOLD_CRAFT_TABLE, DIY_GOLD_DYE_TABLE, DIY_GOLD_CHEM_DECOMP, DIY_GOLD_PICKAXE,
   // 南瓜与西瓜系列 + 三种专属岛屿水果
   PUMPKIN, MELON, PUMPKIN_SLICE, MELON_SLICE, PUMPKIN_SEED, MELON_SEED,
-  APPLE, PEACH, ORANGE, PEAR, PERSIMMON,
-  // 五种果树树叶 + 六种树苗（拿手上就能分清品种，种下慢慢长成大树）
-  APPLE_LEAVES, PEACH_LEAVES, ORANGE_LEAVES, PEAR_LEAVES, PERSIMMON_LEAVES,
-  APPLE_SAP1, PEACH_SAP1, ORANGE_SAP1, PEAR_SAP1, PERSIMMON_SAP1, COCONUT_SAP1,
+  APPLE, PEACH, ORANGE, PEAR, PERSIMMON, BANANA,
+  // 六种果树树叶 + 七种树苗（拿手上就能分清品种，种下慢慢长成大树）
+  APPLE_LEAVES, PEACH_LEAVES, ORANGE_LEAVES, PEAR_LEAVES, PERSIMMON_LEAVES, BANANA_LEAVES,
+  APPLE_SAP1, PEACH_SAP1, ORANGE_SAP1, PEAR_SAP1, PERSIMMON_SAP1, BANANA_SAP1, COCONUT_SAP1,
   // 椰子树 + 7 种饮料 + 3 档小战士召唤蛋（三台机器本体不进创造面板，跟挑战石一个待遇）
   PALM_WOOD, PALM_LEAVES, COCONUT,
-  JUICE_APPLE, JUICE_ORANGE, JUICE_PEACH, WINE, JUICE_COCONUT, JUICE_MELON, JUICE_CARROT,
+  JUICE_APPLE, JUICE_ORANGE, JUICE_PEACH, WINE, JUICE_COCONUT, JUICE_MELON, JUICE_CARROT, JUICE_PEAR,
+  PERSIMMON_CAKE,
   ...WARRIOR_EGG_IDS,
   // 四种生鱼（正常靠下海打鱼获得，创造面板也放一份方便）
   FISH_CLOWN, FISH_COD, FISH_SALMON, FISH_PUFFER,
+  // 四种蘑菇 + 孢子（秋天草地上长，也能用孢子自己种）
+  MUSHROOM_SPORE, MUSHROOM_SHIITAKE, MUSHROOM_ENOKI, MUSHROOM_OYSTER, MUSHROOM_RED,
 ];
 
 /** 庄稼生长链：每 60 秒走一级（水稻/胡萝卜/南瓜/西瓜共用）；最后一级不在表里 = 熟透了不再长 */

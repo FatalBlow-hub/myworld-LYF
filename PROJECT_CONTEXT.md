@@ -38,6 +38,7 @@
 
 ### 部署（云服务器）
 - 腾讯云 `49.235.124.163`（OpenCloudOS，登录用户 root）；本机是 Windows，在 `~/.ssh/config` 里配了别名，`ssh mc` 直连（专用密钥 `~/.ssh/id_ed25519_mc`，只给这台服务器用，和 GitHub 那两把分开）
+- ⚠️ **连接方式**：只用 `ssh mc`（别名已带 root + 密钥）。服务器**只开公钥登录、关了密码登录**，且登录用户是 `root` 不是 `尧`——用 `尧@ms.7shu.asia` + 密码那种方式必被拒（`Permission denied (publickey...)`）。要直接动库：`ssh mc` 进去后 `sqlite3 /www/wwwroot/minecraft-web/server/data.db "..."`（命令串避免 `$`，见下方踩坑）
 - 站点 `/www/wwwroot/minecraft-web/`；systemd 服务 `minecraft-web`（开机自启+崩溃重启），只听 `127.0.0.1:8787`
 - Nginx 配置在 `/www/server/nginx/conf/nginx.conf`（宝塔装的），改完用 `nginx -t` 校验
 - 手机版入口：另一个域名（如 `m.7shu.asia`）加一条 A 记录指向本机，Nginx 加一个 `server_name` 反代到同一个 `127.0.0.1:8787` 即可，前端按域名自动切手机 UI，**不需要第二份代码或第二个 html**

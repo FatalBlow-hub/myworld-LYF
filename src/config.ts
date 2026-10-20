@@ -123,6 +123,12 @@ export const EAT_HP: Record<number, FoodEffect> = {
   244: { hunger: 2, hp: 1 },   // 椰子 +2 饥饿 +1 血（椰肉顶饱）
   259: { hunger: 3, hp: 0 },   // 梨 +3 饥饿
   260: { hunger: 0, hp: 2.5 }, // 柿子 +2.5 血
+  287: { hunger: 2, hp: 1 },   // 香蕉 +2 饥饿 +1 血（香蕉岛专属）
+  // —— 四种蘑菇（秋季限定；红伞伞的毒在 Survival 里特判）——
+  292: { hunger: 1, hp: 0 },   // 香菇：+1 饥饿
+  293: { hunger: 0, hp: 2 },   // 金针菇：回 1 颗心
+  294: { hunger: 0, hp: 1, boostSeconds: 3, boostMult: 1.25 }, // 平菇：半颗心 + 3 秒 ×1.25 移速
+  295: { hunger: 1, hp: 0 },   // 红伞伞：先回 1 饥饿，随后中毒
   // —— 7 种饮料：水果榨的 = 原水果效果再 +1 饥饿；酒是"更饱但掉血"；椰子汁直接回满饥饿 ——
   245: { hunger: 2, hp: 1.5 },  // 苹果汁：苹果(1,1.5) +1 饥饿
   246: { hunger: 2, hp: 1, boostSeconds: HUNGER.ORANGE_BOOST_SECONDS, boostMult: HUNGER.ORANGE_BOOST_MULT }, // 橘子汁：橙子 +1 饥饿
@@ -136,6 +142,8 @@ export const EAT_HP: Record<number, FoodEffect> = {
   256: { hunger: 1, hp: 1 },    // 生鳕鱼
   257: { hunger: 2, hp: 1 },    // 生鲑鱼
   258: { hunger: 1, hp: -2 },   // 生河豚：有毒！-2 血 +1 饥饿
+  284: { hunger: 3, hp: 0 },    // 梨子汁：跟直接啃梨一个效果（只管饱，不回血）
+  285: { hunger: 0, hp: 5.5 },  // 柿子饼：柿子本身的 2.5 血，再额外 +3 血
 };
 
 /** 鱼：四种都住在海里（水里游来游去），下水按 P 打，打死掉对应的鱼物品 */
@@ -304,6 +312,8 @@ export const KEYS = {
   book: ['Digit7', 'Numpad7'], // 打开制作方法收集册（DIY 手册学过的方法都在这）
   quit: ['KeyQ'], // 暂停时按它存档回菜单（原 0 键让给聊天了，暂停菜单里也有按钮）
   hall: ['KeyH'], // 在自己的岛与大厅之间来回切换
+  board: ['KeyB'], // 大厅留言板：看大家说什么，自己也能发一条
+  mail: ['KeyV'], // 信箱：看别人写给自己的私信
   give: ['KeyC'], // 访岛同屏时打开「送礼物」面板，把岛币/物品给对面的人
   chat: ['Digit0', 'Numpad0'], // 访岛同屏时打开聊天框，跟对面说话
 } as const;
@@ -323,6 +333,13 @@ export const MANUAL = {
   PAPER_SECONDS: 15, // 捡到时弹出的白纸停留几秒
 };
 
+/** 游戏日历：一个月 10 天、开局 7 月 8 日（四季划分与日期推进见 core/Calendar.ts） */
+export const CALENDAR = {
+  MONTH_DAYS: 10,  // 一个月几天
+  START_MONTH: 7,  // 新档从几月开始
+  START_DAY: 8,    // 新档从几号开始
+};
+
 export const DAY = {
   LENGTH: 120,      // 一天多少秒
   NIGHT_FROM: 80,   // 第几秒开始天黑（80~120 是黑夜）
@@ -330,6 +347,24 @@ export const DAY = {
   SLEEP_SECONDS: 1, // 睡觉黑屏几秒
   STAR_RANGE: 10,   // 碎片落在床附近多少格以内
   MANG_CHANCE: 0.5, // 睡醒只掉一颗：一半是芒星碎片，另一半是星星碎片
+};
+
+/** 冬季降雪粒子：只在「冬季 + 站在雪地上」时开，纯视觉，不写世界数据 */
+export const SNOWFALL = {
+  PARTICLES: 260,   // 同屏雪花数量
+  AREA: 22,         // 玩家周围多宽的范围里下雪
+  HEIGHT: 14,       // 在玩家头顶多高生成
+  BELOW: 6,         // 落到玩家脚下多低就回头顶重生
+  FALL_SPEED: 1.8,  // 下落速度（格/秒）
+  DRIFT: 0.35,      // 横向飘的速度（格/秒）
+  SIZE: 0.12,       // 雪花大小
+  COLOR: 0xffffff,
+  RECHECK: 0.5,     // 隔几秒重新判断要不要下雪
+};
+
+/** 掉落物：背包塞不下时不硬捡，把剩下的弹开，几秒内不再往玩家身上飞 */
+export const PICKUP = {
+  REFUSE_SECONDS: 2,
 };
 
 export const CROP = {
@@ -340,16 +375,20 @@ export const CROP = {
   MELON_CHANCE: 0.005,      // 草方块自然生成西瓜植株的概率（0.5%）
 };
 
-/** 专属岛屿类型与树叶掉水果配置（苹果/桃子/橙子/梨子/柿子 五种岛） */
-export type IslandType = 'apple' | 'peach' | 'orange' | 'pear' | 'persimmon';
+/** 专属岛屿类型与树叶掉水果配置（苹果/桃子/橙子/梨子/柿子 五种岛 + 只能外出探索才能到的香蕉岛） */
+export type IslandType = 'apple' | 'peach' | 'orange' | 'pear' | 'persimmon' | 'banana';
 
 export const ISLAND_TYPES: Record<IslandType, { id: IslandType; cn: string; fruitId: number; leafId: number }> = {
   apple:     { id: 'apple',     cn: '苹果岛', fruitId: 236, leafId: 261 }, // 236 = APPLE，261 = 苹果树叶
   peach:     { id: 'peach',     cn: '桃子岛', fruitId: 237, leafId: 262 },
-  orange:    { id: 'orange',    cn: '橙子岛', fruitId: 238, leafId: 263 },
+  orange:    { id: 'orange',    cn: '橘子岛', fruitId: 238, leafId: 263 },
   pear:      { id: 'pear',      cn: '梨子岛', fruitId: 259, leafId: 264 }, // 259 = 梨，264 = 梨树叶
   persimmon: { id: 'persimmon', cn: '柿子岛', fruitId: 260, leafId: 265 }, // 260 = 柿子，265 = 柿子树叶
+  banana:    { id: 'banana',    cn: '香蕉岛', fruitId: 287, leafId: 286 }, // 287 = 香蕉，286 = 香蕉树叶
 };
+
+/** 新档分配自家岛时的池子：香蕉岛只作外出探索的目的地，登录出生永远不会落在香蕉岛 */
+export const HOME_ISLAND_TYPE_IDS: IslandType[] = ['apple', 'peach', 'orange', 'pear', 'persimmon'];
 
 export const ISLAND = {
   LEAF_FRUIT_CHANCE: 0.05,   // 挖掉普通树叶掉本岛专属水果的概率（5%，兼容老存档）
@@ -443,6 +482,16 @@ export const SELL_PRICE: Record<number, { coins: number; per: number }> = {
   224: { coins: 3, per: 1 },     // 整个南瓜
   225: { coins: 3, per: 1 },     // 整个西瓜
   244: { coins: 1, per: 1 },     // 椰子
+  236: { coins: 1, per: 1 },     // 苹果
+  237: { coins: 1, per: 1 },     // 桃子
+  238: { coins: 1, per: 1 },     // 橘子（橙子）
+  259: { coins: 1, per: 1 },     // 梨
+  260: { coins: 1, per: 1 },     // 柿子
+  287: { coins: 1, per: 1 },     // 香蕉
+  292: { coins: 1, per: 1 },     // 香菇
+  293: { coins: 1, per: 1 },     // 金针菇
+  294: { coins: 1, per: 1 },     // 平菇
+  295: { coins: 2, per: 1 },     // 红伞伞（有毒但更值钱）
   7:   { coins: 0.01, per: 1 },  // 树叶
   243: { coins: 0.01, per: 1 },  // 椰子叶
   261: { coins: 0.01, per: 1 },  // 苹果树叶

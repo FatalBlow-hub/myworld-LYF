@@ -7,9 +7,10 @@ export const ISLAND_TILE_NAMES = [
   'pumpkin_stage1', 'pumpkin_stage2', 'pumpkin_stage3',
   'melon_top', 'melon_side', 'melon_slice', 'melon_seed',
   'melon_stage1', 'melon_stage2', 'melon_stage3',
-  'apple', 'peach', 'orange', 'pear', 'persimmon',
-  // —— 五种果树树叶 ——
-  'leaves_apple', 'leaves_peach', 'leaves_orange', 'leaves_pear', 'leaves_persimmon',
+  'apple', 'peach', 'orange', 'pear', 'persimmon', 'persimmon_cake', 'banana',
+  // —— 六种果树树叶（本色 + 秋叶版；香蕉叶只有外出探索的香蕉岛才有）——
+  'leaves_apple', 'leaves_peach', 'leaves_orange', 'leaves_pear', 'leaves_persimmon', 'leaves_banana',
+  'leaves_apple_autumn', 'leaves_peach_autumn', 'leaves_orange_autumn', 'leaves_pear_autumn', 'leaves_persimmon_autumn', 'leaves_banana_autumn',
   // —— 六种树苗 × 三阶段（小苗/幼树/半成熟树） ——
   ...['apple', 'peach', 'orange', 'pear', 'persimmon', 'coconut'].flatMap((k) => [`sap_${k}_1`, `sap_${k}_2`, `sap_${k}_3`]),
 ];
@@ -215,6 +216,24 @@ export const ISLAND_PAINTERS: Record<string, Painter> = {
     c.fillStyle = '#ffb060';
     c.fillRect(x + 5, y + 6, 2, 3);
   },
+  // 柿子饼：柿肉摊成的小圆饼，边上烤出麦色，面上还沾着几粒麦子
+  persimmon_cake: (c, x, y) => {
+    c.fillStyle = '#c8792e';
+    c.fillRect(x + 3, y + 4, 10, 8);
+    c.fillRect(x + 2, y + 5, 12, 6);
+    c.fillStyle = '#e8661e';
+    c.fillRect(x + 4, y + 6, 8, 4);
+    c.fillStyle = '#f0a040';
+    c.fillRect(x + 5, y + 6, 2, 2);
+    c.fillRect(x + 9, y + 7, 2, 1);
+    c.fillStyle = '#a05a1e';
+    c.fillRect(x + 3, y + 10, 3, 1);
+    c.fillRect(x + 10, y + 5, 2, 1);
+    c.fillStyle = '#f2e0a8';
+    c.fillRect(x + 5, y + 4, 1, 1);
+    c.fillRect(x + 10, y + 9, 1, 1);
+    c.fillRect(x + 7, y + 11, 1, 1);
+  },
 };
 
 // —— 果树树叶：统一画法（底色 + 噪点 + 果实斑点），每种树换配色和果形 ——
@@ -242,6 +261,50 @@ ISLAND_PAINTERS.leaves_persimmon = (c, x, y) => {
   c.fillStyle = '#c85a1e';
   c.fillRect(x + 1, y + 1, 3, 3); c.fillRect(x + 12, y + 13, 3, 3); c.fillRect(x + 13, y + 2, 2, 2);
   fruitDots(c, x, y, '#e85d1e', '#ff9a5c');
+};
+
+// —— 秋叶版：秋天到了这五种果树换这身叶子（颜色按设定：桃黄、苹果淡黄、梨深黄、橘橙、柿红）——
+ISLAND_PAINTERS.leaves_apple_autumn = fruitLeaf('#e3d071', ['#d4bf58', '#efe08d', '#c9b04a'], '#d62828', '#ff7b7b');       // 苹果：淡黄
+ISLAND_PAINTERS.leaves_peach_autumn = fruitLeaf('#e8c84a', ['#d6b437', '#f2dc74', '#c9a52a'], '#ff9ebb', '#ffd1e0');       // 桃子：黄
+ISLAND_PAINTERS.leaves_pear_autumn = fruitLeaf('#c9a02a', ['#b58c1c', '#dbb840', '#9c7614'], '#e0d878', '#f5f0b0', true);  // 梨：深黄
+ISLAND_PAINTERS.leaves_orange_autumn = fruitLeaf('#dd8a2c', ['#c97618', '#efa844', '#b06010'], '#f28518', '#ffb84d');      // 橘子：橙
+ISLAND_PAINTERS.leaves_persimmon_autumn = fruitLeaf('#c8422a', ['#b03118', '#dc5f3c', '#8f2410'], '#e85d1e', '#ff9a5c');   // 柿子：红
+
+// —— 香蕉：本色大片宽叶，秋天按设定黄黑相间；果子是一串弯香蕉 ——
+ISLAND_PAINTERS.leaves_banana = (c, x, y) => {
+  fill(c, x, y, '#3f8f2e');
+  speckle(c, x, y, ['#357a26', '#4fa83a', '#2c6a1e'], 120);
+  // 宽叶的叶脉：两道斜纹
+  c.fillStyle = '#2a6a1c';
+  c.fillRect(x + 2, y + 10, 11, 1);
+  c.fillRect(x + 4, y + 5, 9, 1);
+  fruitDots(c, x, y, '#f0d040', '#fff0a0');
+};
+ISLAND_PAINTERS.leaves_banana_autumn = (c, x, y) => {
+  fill(c, x, y, '#e8c832');
+  speckle(c, x, y, ['#d4b424', '#f2d854', '#c9a81c'], 110);
+  c.fillStyle = '#26261e'; // 黄黑相间的黑条纹
+  c.fillRect(x + 1, y + 3, 14, 2);
+  c.fillRect(x + 2, y + 9, 12, 2);
+  c.fillStyle = '#f2d854';
+  c.fillRect(x + 3, y + 3, 4, 1);
+  c.fillRect(x + 8, y + 9, 3, 1);
+  fruitDots(c, x, y, '#f0d040', '#fff0a0');
+};
+ISLAND_PAINTERS.banana = (c, x, y) => {
+  // 一串三根弯香蕉：外黄内浅黄，两头带一点褐
+  const px = (dx: number, dy: number, w: number, h: number, col: string) => {
+    c.fillStyle = col;
+    c.fillRect(x + dx, y + dy, w, h);
+  };
+  px(3, 3, 4, 9, '#f0d040');
+  px(7, 4, 4, 9, '#f5dc58');
+  px(11, 5, 3, 8, '#e8c832');
+  px(4, 4, 1, 7, '#fff0a0');
+  px(8, 5, 1, 7, '#fff6b8');
+  px(3, 11, 3, 2, '#8a6a20'); // 蒂
+  px(7, 12, 3, 2, '#8a6a20');
+  px(11, 12, 3, 2, '#7a5c18');
 };
 
 // —— 树苗三阶段：同一种画法换配色；棕榈系的椰子树苗画扇形叶 ——
@@ -283,6 +346,7 @@ const SAP_COLORS: Record<string, [string, string, string, boolean?]> = {
   orange:    ['#8fb03a', '#a8c84c', '#f28518'],
   pear:      ['#bcda70', '#d8ec94', '#e0d878'],
   persimmon: ['#c85a1e', '#d97b2e', '#e85d1e'], // 柿子苗就是秋叶色，从小透着股秋天的劲儿
+  banana:    ['#4fa83a', '#6cc44e', '#f0d040'],
   coconut:   ['#4c9430', '#6db848', '#7a5a30', true],
 };
 for (const [key, [leaf, hi, fruit, palm]] of Object.entries(SAP_COLORS)) {

@@ -1,18 +1,25 @@
-/** 昼夜 + 睡觉 — 一天 120 秒，第 80 秒天黑；天黑了对床按 M，黑屏一秒变早上 */
+/** 昼夜 + 睡觉 — 一天 120 秒，第 80 秒天黑；天黑了对床按 M，黑屏一秒变早上（顺带过一天） */
 
 import { DAY } from '../config';
 import { Renderer } from '../render/Renderer';
+import { advanceDate, GameDate, START_DATE } from './Calendar';
 
 export class DayCycle {
-  /** 今天是第几秒（0~120，80 以后是黑夜） */
+  /** 今天第几秒（0~120，80 以后是黑夜） */
   time = 0;
+  /** 游戏内日期：走过零点、睡过夜都会往后翻一天（开局 7 月 8 日） */
+  date: GameDate = { ...START_DATE };
   /** 睡觉黑屏进度：-1 = 没睡；0~SLEEP_SECONDS 是黑屏动画 */
   private sleepT = -1;
   private sleepSwapped = false;
   private el: HTMLDivElement;
 
-  /** onNightfall：刚天黑时喊一声（显示提示）；onWake：黑屏放完该起床了 */
-  constructor(private onNightfall: () => void, private onWake?: () => void) {
+  /** onNightfall：刚天黑时喊一声（显示提示）；onWake：黑屏放完该起床了；onNewDay：翻到新的一天了 */
+  constructor(
+    private onNightfall: () => void,
+    private onWake?: () => void,
+    private onNewDay?: (d: GameDate) => void,
+  ) {
     this.el = document.createElement('div');
     this.el.id = 'sleepfade';
     document.body.appendChild(this.el);
@@ -53,6 +60,7 @@ export class DayCycle {
       if (p >= 0.5 && !this.sleepSwapped) {
         this.sleepSwapped = true;
         this.time = 0; // 一觉睡到早上
+        this.nextDay(); // 睡过夜也算过了一天（季节会跟着往前推）
       }
       if (p >= 1) {
         this.sleepT = -1;
@@ -63,8 +71,21 @@ export class DayCycle {
       return;
     }
     const wasDay = this.time < DAY.NIGHT_FROM;
-    this.time = (this.time + dt) % DAY.LENGTH;
+    const next = this.time + dt;
+    if (next >= DAY.LENGTH) this.nextDay(); // 走过零点，翻到第二天
+    this.time = next % DAY.LENGTH;
     if (wasDay && this.time >= DAY.NIGHT_FROM) this.onNightfall();
     renderer.setDaylight(this.daylight());
+  }
+
+  /** 读档：把日期设成存档里的那一天 */
+  setDate(d: GameDate): void {
+    this.date = { ...d };
+  }
+
+  /** 往后翻一天：零点跨天和睡过夜都走这里，翻完喊一声让 HUD 刷新 */
+  private nextDay(): void {
+    this.date = advanceDate(this.date);
+    this.onNewDay?.(this.date);
   }
 }

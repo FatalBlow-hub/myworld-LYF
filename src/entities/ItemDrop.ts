@@ -17,6 +17,8 @@ export class ItemDrop {
   private vy = 3;
   dead = false;
   age = 0;
+  /** 被背包拒收后的躲避时间（秒）：这几秒不往玩家身上飞，免得站在原地被提示刷屏 */
+  refuseT = 0;
   private spin = Math.random() * Math.PI * 2;
 
   constructor(public itemId: number, public count: number, x: number, y: number, z: number) {
@@ -48,10 +50,11 @@ export class ItemDrop {
       this.vy -= 20 * dt;
     }
 
-    // 靠近玩家 → 飞过去被吃掉
+    // 靠近玩家 → 飞过去被吃掉（刚被拒收的东西先躲一会儿）
+    if (this.refuseT > 0) this.refuseT = Math.max(0, this.refuseT - dt);
     const px = body.x, py = body.y + 0.8, pz = body.z;
     const dist = Math.hypot(px - this.x, py - this.y, pz - this.z);
-    if (dist < PICKUP_DIST) {
+    if (this.refuseT <= 0 && dist < PICKUP_DIST) {
       const k = Math.min(1, MAGNET_SPEED * dt / Math.max(dist, 0.01));
       this.x += (px - this.x) * k;
       this.y += (py - this.y) * k;
@@ -62,6 +65,18 @@ export class ItemDrop {
     this.mesh.position.set(this.x, this.y + SIZE / 2 + Math.sin(this.spin * 0.6) * 0.05, this.z);
     this.mesh.rotation.y = this.spin;
     return false;
+  }
+
+  /** 背包满/装不下：把剩下这堆弹开，几秒内不再往玩家身上飞（东西留在地上，不凭空消失） */
+  repel(body: PlayerBody, seconds: number): void {
+    const dx = this.x - body.x;
+    const dz = this.z - body.z;
+    const len = Math.hypot(dx, dz) || 1;
+    this.x = body.x + (dx / len) * (PICKUP_DIST + 0.6);
+    this.z = body.z + (dz / len) * (PICKUP_DIST + 0.6);
+    this.vy = 2;
+    this.dead = false;      // 捡到一半时要把"已被捡走"的标记撤回
+    this.refuseT = seconds;
   }
 }
 

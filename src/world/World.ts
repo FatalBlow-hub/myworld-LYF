@@ -135,6 +135,28 @@ export class World {
     this.onBlockChange?.(wx, wy, wz, id);
   }
 
+  /** 把世界里所有指定方块清掉（换成空气）：入冬清蘑菇用；返回清掉几格 */
+  clearBlocks(ids: readonly number[]): number {
+    const set = new Set(ids);
+    let count = 0;
+    for (const [key, chunk] of this.chunks) {
+      let touched = false;
+      for (let i = 0; i < chunk.data.length; i++) {
+        if (!set.has(chunk.data[i])) continue;
+        chunk.data[i] = AIR;
+        touched = true;
+        count++;
+      }
+      if (touched) this.dirtyChunks.add(key);
+    }
+    return count;
+  }
+
+  /** 把所有已生成的区块标脏：全局换贴图（比如秋天树叶变色）后要整片重建网格 */
+  markAllDirty(): void {
+    for (const key of this.chunks.keys()) this.dirtyChunks.add(key);
+  }
+
   private markDirty(cx: number, cz: number): void {
     if (this.chunks.has(World.key(cx, cz))) {
       this.dirtyChunks.add(World.key(cx, cz));

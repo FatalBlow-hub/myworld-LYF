@@ -20,15 +20,18 @@ import { RecipeBook } from '../ui/RecipeBook';
 import {
   AIR, BLOCKS, BUCKET, BUY_BOX, CARROT, CHALLENGE_DOOR, CHALLENGE_HOUSE, CHEM_DECOMP, CRAFTING_TABLE,
   DIRT, DYE_TABLE, DYEABLE_CARPETS, FIRESTARTER_IDS, FRUIT_LEAF_IDS, FRUIT_OF_LEAF, GLASS_BUCKET, GRASS, HYDROGEN, ICE, IRON_NUGGET,
-  LEAVES, MELON_SEED, MELON_STAGE1, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT,
+  LEAVES, MELON_SEED, MELON_STAGE1, MUSHROOM_SPORE, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT,
   RICE_GRAIN, RUBBER, SAND, SAPLING_IDS, SEAWEED, SOUL_CHEST, SOUL_FIRESTARTER, SPECIES_BY_SAPLING, STAR_DYE_TABLE, STAR_TABLE, SWAMP_FILL,
   TANK, VENDING_DRINK, VENDING_SPECIAL, VISIT_LIST_BLOCKS, WATER_BUCKET, WOOD,
   dropCountOf, isBed, isChest, isDoor, isFurnace,
 } from '../world/Block';
 import { GOLD_CHEM_DECOMP, GOLD_DYE_TABLE, GOLD_PICKAXE, ICE_MOLECULE } from '../world/GoldenItems';
+import { pickMushroom } from '../world/mushrooms';
 import { metaFromYaw } from '../world/Shapes';
 import { World } from '../world/World';
+import { seasonOf } from './Calendar';
 import { DayCycle } from './DayCycle';
+import { isFruitInSeason } from './SeasonRules';
 
 export interface PlayerActionDeps {
   world: World;
@@ -166,11 +169,13 @@ export class PlayerActions {
         hud.showMessage(`树干里蹦出 ${n} 块橡胶！`);
       }
       // 挖树叶掉水果：果树树叶按自己的品种掉（15%，果子本来就挂在叶子上）；
-      // 普通树叶只在自己岛上 5% 掉本岛专属水果（兼容老岛上没有果树的存档）
+      // 普通树叶只在自己岛上 5% 掉本岛专属水果（兼容老岛上没有果树的存档）。
+      // 季节限定：只有到了这种果树自己的季节才会掉果（桃子春、苹果/梨夏、橘子/柿子秋）
       if (id === LEAVES || id in FRUIT_OF_LEAF) {
         const fruitId = id === LEAVES ? this.d.islandFruit() : FRUIT_OF_LEAF[id];
         const chance = id === LEAVES ? ISLAND.LEAF_FRUIT_CHANCE : ISLAND.FRUIT_LEAF_CHANCE;
-        if (fruitId !== null && Math.random() < chance) {
+        const inSeason = fruitId !== null && isFruitInSeason(fruitId, seasonOf(this.d.day.date));
+        if (fruitId !== null && inSeason && Math.random() < chance) {
           spawnDrop(this.sink, fruitId, 1, hitX! + 0.5, hitY! + 0.5, hitZ! + 0.5);
         }
       }
@@ -214,6 +219,17 @@ export class PlayerActions {
       // 胡萝卜不是方块：种在草地或泥土上
       if (plantCarrot(world, hit)) spend();
       else hud.showMessage('胡萝卜要种在草地上或泥土上');
+    } else if (stack.id === MUSHROOM_SPORE) {
+      // 蘑菇孢子：种在草地或泥土上（上面得空着），按 30/30/30/10 长出四种蘑菇之一
+      const x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz;
+      const ground = world.getBlock(hit.x, hit.y, hit.z);
+      if ((ground === GRASS || ground === DIRT) && world.getBlock(x, y, z) === AIR) {
+        world.setBlock(x, y, z, pickMushroom());
+        spend();
+        hud.showMessage('孢子长出蘑菇了！');
+      } else {
+        hud.showMessage('孢子要种在草地或泥土上（上面得空着）');
+      }
     } else if (SAPLING_IDS.includes(stack.id)) {
       // 果树苗：普通果树种在草地/泥土上，椰子树苗只能种在沙滩（沙子）上；
       // 种下去会慢慢长大，四周要留空位，贴着别的树就长不大

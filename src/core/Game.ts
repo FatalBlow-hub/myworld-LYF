@@ -1,13 +1,16 @@
 /** 游戏主循环 — 把所有模块装配起来，每帧按固定顺序驱动它们 */
 
 import * as THREE from 'three';
-import { CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PVP, SAVE, VIEW_DISTANCE, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
+import { CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PVP, SAVE, SNOWFALL, VIEW_DISTANCE, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
 import { World } from '../world/World';
 import { buildHall } from '../world/HallMap';
-import { findGrassSpawn, heightAt, randomGrassSpawn, setTerrainConfig } from '../world/TerrainGen';
+import { findGrassSpawn, heightAt, randomGrassSpawn, setActiveSeason, setTerrainConfig } from '../world/TerrainGen';
+import { MUSHROOM_IDS } from '../world/mushrooms';
 import { createAtlas, Atlas } from '../render/Textures';
 import { ChunkMeshCache } from '../render/ChunkMeshCache';
 import { Renderer } from '../render/Renderer';
+import { Snowfall } from '../render/Snowfall';
+import { applySeasonLeaves } from '../world/SeasonLeaves';
 import { Controller } from '../player/Controller';
 import { PlayerBody, createBody, stepPhysics } from '../player/Physics';
 import { MouseLook } from '../player/MouseLook';
@@ -37,9 +40,11 @@ import { VisitMenu } from '../ui/VisitMenu';
 import { GivePanel, GiveGift } from '../ui/GivePanel';
 import { ChatPanel } from '../ui/ChatPanel';
 import { ShopPanel } from '../ui/ShopPanel';
+import { BoardPanel } from '../ui/BoardPanel';
 import { DRINK_GOODS, SPECIAL_GOODS, ShopGood, fmtCoins, rollGood } from '../world/Shop';
 import { Appearance } from './Appearance';
 import { SaveData, applySave, buildSave, isSupportedSave, migrateSave, randomIslandType, readSave, writeSave } from './Save';
+import { Season, dateLabel, seasonOf } from './Calendar';
 import { DayCycle } from './DayCycle';
 import { VisitSync } from './VisitSync';
 import { PlayerActions } from './PlayerActions';
@@ -49,7 +54,7 @@ import { MobCombat } from './MobCombat';
 import { Vehicles } from './Vehicles';
 import { Challenge } from './Challenge';
 import { Potions } from '../entities/Potions';
-import { BAG_GLASS, BLOCKS, Slots, WAISTBAG_SLOT } from '../world/Block';
+import { BAG_GLASS, BLOCKS, SNOW, Slots, WAISTBAG_SLOT } from '../world/Block';
 import { DIY_GOLD_PICKAXE } from '../world/GoldenItems';
 import { spawnDrop } from '../entities/drops';
 import { ZOMBIE_NAMES } from '../entities/Zombie';
@@ -111,14 +116,23 @@ export class Game {
   private touch: TouchControls | null = null;
   private pendingHall = false; private pendingHallT = 0; // 主菜单点「大厅」后等联机连上再进
   private visitSendTimer = 0; // 访岛申请"送达回执"的超时定时器（0=没在等）
+  /** 冬季降雪粒子（构造时场景一建好就挂上，平时看不见） */
+  private snow: Snowfall | null = null;
+  private snowTimer = 0;
+  /** 大厅留言板 / 信箱（B / V 打开，登录后才有内容） */
+  private boardPanel: BoardPanel | null = null;
+  /** 上一次生效的季节：只有换季才做换叶 / 清蘑菇这些重活 */
+  private lastSeason: Season | null = null;
   private day = new DayCycle(
     () => this.hud?.showMessage('天黑了！小心血尸和星空尸出没，对着床按 M 可以睡觉', 3),
     () => { this.survival!.wakeUp(this.body!, this.spawn); this.pickup!.dropStarShard(this.spawn.x, this.spawn.y, this.spawn.z); },
+    () => this.onNewDay(), // 跨天/睡醒：刷新日期，季节变了还要换叶
   );
 
   constructor(container: HTMLElement) {
     this.renderer = new Renderer(container);
     this.chunkMeshes = new ChunkMeshCache(this.renderer.scene, this.atlas, this.renderer.clock);
+    this.snow = new Snowfall(this.renderer.scene); // 雪花粒子平时隐藏，冬季站在雪地上才开
     const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002));
     this.highlight = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x111111 }));
     this.highlight.visible = false;
@@ -252,6 +266,7 @@ export class Game {
     this.hunger = new Hunger(mode); this.health = new Health(mode, () => this.hunger!.respawn());
     this.inventory = new Inventory(mode);
     this.hud = new Hud(this.health.showStats, this.atlas, this.inventory.infinite);
+    this.hud.setDate(dateLabel(this.day.date)); // 新档开局先显示 7 月 8 日；读档会在下面再刷一次
     // 手机上直接点快捷栏那一格就选中它（比 ◀▶ 一格格挪快，所以触屏不再放换格子键）
     const hudRef = this.hud;
     hudRef.onSlotPick = (i) => { this.slot = i; hudRef.selectSlot(i); };
@@ -303,6 +318,8 @@ export class Game {
     this.panels.register({ name: 'dye', isOpen: () => this.dyePanel!.visible, close: () => this.dyePanel!.close() });
     this.panels.register({ name: 'shop', isOpen: () => this.shopPanel!.visible, close: () => this.shopPanel!.close() });
     this.panels.register({ name: 'book', isOpen: () => this.book.visible, close: () => this.book.close(), closeKeys: ['book'] });
+    this.boardPanel = new BoardPanel();
+    this.panels.register({ name: 'board', isOpen: () => this.boardPanel!.visible, close: () => this.boardPanel!.close(), closeKeys: ['board', 'mail'] });
     this.panels.register({ name: 'sleep', isOpen: () => this.day.sleeping, close: () => {}, update: (dt) => this.day.update(dt, this.renderer) });
     this.survival = new Survival({
       controller: this.controller, inventory: this.inventory, health: this.health, hunger: this.hunger, hud: this.hud,
@@ -333,6 +350,8 @@ export class Game {
     if (save) {
       const r = this.restoreSaveState(save);
       this.paused = r.paused; this.day.time = r.dayTime;
+      this.day.setDate(r.date); // 存档里是哪天就从哪天接着过
+      this.hud.setDate(dateLabel(this.day.date));
     } else {
       this.islandType = randomIslandType();
       this.book.importLearned([]); this.book.importGoldenState([], [], 0);
@@ -350,6 +369,11 @@ export class Game {
     this.body = createBody(this.spawn.x, this.spawn.y, this.spawn.z);
     if (save) this.restoreBodyFromSave(save);
     this.body.flying = this.inventory.infinite;
+    // 先定好本季的树叶贴图与蘑菇规则，下面建网格直接用
+    const season = seasonOf(this.day.date);
+    this.lastSeason = season;
+    setActiveSeason(season);
+    applySeasonLeaves(season);
     this.streamChunks(Infinity);
     this.chunkMeshes.rebuildDirty(this.world);
     if (!save) this.mobs.spawnInitial(this.spawn.x, this.spawn.z);
@@ -374,6 +398,46 @@ export class Game {
     if (this.net?.getStatus() === 'connected') { this.enterHall(); return; }
     this.pendingHall = true; this.pendingHallT = 8;
     this.hud?.showMessage('正在连接服务器，连上就去大厅…', 3);
+  }
+
+  /** 翻到新的一天：刷新 HUD 日期；季节变了才做重活（换叶、清蘑菇），同一天内不重复搞 */
+  private onNewDay(): void {
+    this.hud?.setDate(dateLabel(this.day.date));
+    const season = seasonOf(this.day.date);
+    if (this.lastSeason === season) return;
+    this.lastSeason = season;
+    setActiveSeason(season);
+    // 入冬：全世界的蘑菇一次性清掉（设定：进入冬季后蘑菇全部消失）
+    if (season === 'winter') this.world.clearBlocks(MUSHROOM_IDS);
+    if (!applySeasonLeaves(season)) return;
+    this.world.markAllDirty();
+    this.chunkMeshes.rebuildDirty(this.world);
+  }
+
+  /** 降雪：冬季 + 脚下有雪才下，每隔 SNOWFALL.RECHECK 秒重新判断一次（别每帧都查方块） */
+  private snowTick(dt: number, body: PlayerBody): void {
+    this.snowTimer -= dt;
+    if (this.snowTimer <= 0) {
+      this.snowTimer = SNOWFALL.RECHECK;
+      const on = seasonOf(this.day.date) === 'winter'
+        && (this.scene === 'island' || this.scene === 'visit')
+        && this.nearSnow(body.x, body.y, body.z);
+      this.snow?.setActive(on, body.x, body.y, body.z);
+    }
+    this.snow?.update(dt, body.x, body.y, body.z);
+  }
+
+  /** 玩家周围 5×5、脚下 3 层里有没有雪块（判断这块地方算不算雪地） */
+  private nearSnow(x: number, y: number, z: number): boolean {
+    const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z);
+    for (let dy = 0; dy >= -3; dy--) {
+      for (let dx = -2; dx <= 2; dx++) {
+        for (let dz = -2; dz <= 2; dz++) {
+          if (this.world.getBlock(bx + dx, by + dy, bz + dz) === SNOW) return true;
+        }
+      }
+    }
+    return false;
   }
 
   private restoreSaveState(save: SaveData) {
@@ -506,7 +570,8 @@ export class Game {
       tanks: this.vehicles!.tanks, challenge: this.challenge, learned: this.book.learnedIds(),
       warriors: this.mobs.warriors,
       golden: { learned: this.book.goldenLearnedIds(), tasks: this.book.goldenTaskIds(), waterUses: this.book.goldenWaterUseCount() },
-      paused: this.paused, dayTime: this.day.time, zombieAttack: this.mobs.zombieAttack, zombieSpawn: this.mobs.zombieSpawn,
+      paused: this.paused, dayTime: this.day.time, date: this.day.date,
+      zombieAttack: this.mobs.zombieAttack, zombieSpawn: this.mobs.zombieSpawn,
     });
     this.islandSave = JSON.parse(JSON.stringify(data)) as SaveData;
     writeSave(this.saveSlot, data);
@@ -813,6 +878,8 @@ export class Game {
     if (this.paused && this.controller.take('quit')) this.quitToMenu();
     if (!this.paused && this.controller.take('inventory')) panel.open();
     if (!this.paused && this.controller.take('book')) this.book.open();
+    if (!this.paused && this.controller.take('board')) this.boardPanel?.toggle('board'); // B 大厅留言板
+    if (!this.paused && this.controller.take('mail')) this.boardPanel?.toggle('mail');   // V 我的信箱
     if (!this.paused) {
       if (this.controller.take('hall')) { if (this.scene === 'hall') this.leaveHall(); else this.enterHall(); }
       if (this.controller.take('give')) {
@@ -885,6 +952,7 @@ export class Game {
       this.survival!.eatKey(body); this.slot = this.survival!.hotbarKeys(this.slot);
       if (this.scene === 'island') this.mobs.update(dt, body.x, body.y, body.z, this.day.time >= DAY.NIGHT_FROM, this.day.time);
       this.potions.update(dt, this.world); this.fires.update(dt);
+      this.snowTick(dt, body);
       this.visitAvatar.update(dt, body.x, body.z);
       this.visitSync.update(dt, body, this.appearance.character, this.day.time);
       this.drops = this.pickup!.update(dt, body);

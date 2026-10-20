@@ -101,6 +101,7 @@ export const SHOP_PAINTERS: Record<string, Painter> = {
   juice_coconut: bottle('#f2efe2', '#e8e0c8'),
   juice_melon: bottle('#e8506a'),
   juice_carrot: bottle('#e8802a'),
+  juice_pear: bottle('#d8d060'),
 
   // —— 三档小战士召唤蛋 ——
   egg_warrior_normal: egg('#dfe4ea', '#ffffff', '#8fa8c0'),

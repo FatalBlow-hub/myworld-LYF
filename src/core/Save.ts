@@ -1,7 +1,7 @@
 /** 存档 — 把当前游戏打包成 JSON 存进浏览器，刷新/关掉页面后还能继续玩 */
 
 import * as THREE from 'three';
-import { HUNGER, ISLAND_TYPES, IslandType, SKATES } from '../config';
+import { HOME_ISLAND_TYPE_IDS, HUNGER, ISLAND_TYPES, IslandType, SKATES } from '../config';
 import { Animal, AnimalKind } from '../entities/Animal';
 import { CharacterKind } from '../entities/Character';
 import { ItemDrop } from '../entities/ItemDrop';
@@ -15,6 +15,7 @@ import { FurnaceState, World } from '../world/World';
 import { Zombie, ZombieKind } from '../entities/Zombie';
 import { Warrior, WarriorTier } from '../entities/Warrior';
 import { Tank } from '../entities/Tank';
+import { GameDate, normalizeDate } from './Calendar';
 import { Challenge, ChallengeSave } from './Challenge';
 
 /** 最多 3 个账号存档：blockworld-save-1 / -2 / -3 */
@@ -35,9 +36,9 @@ export function isSupportedSave(d: SaveData | null | undefined): d is SaveData {
   return !!d && typeof d.v === 'number' && d.v > 0 && d.v <= SAVE_VERSION;
 }
 
-/** 随机抽取一座专属岛屿类型 */
+/** 随机抽取一座自家的专属岛屿类型（不含香蕉岛：香蕉岛只能外出探索时随机到） */
 export function randomIslandType(): IslandType {
-  const keys = Object.keys(ISLAND_TYPES) as IslandType[];
+  const keys = HOME_ISLAND_TYPE_IDS;
   return keys[Math.floor(Math.random() * keys.length)];
 }
 
@@ -108,6 +109,8 @@ export interface SaveData {
   golden?: { learned?: number[]; tasks?: number[]; waterUses?: number };
   /** 今天是第几秒（0~120，80 以后是黑夜）；旧存档没有就从头一天的早上开始 */
   dayTime?: number;
+  /** 游戏内日期（几月几号）；旧存档没有就当开局的 7 月 8 日 */
+  date?: { month: number; day: number };
   /** 存的时候是不是暂停着 */
   paused?: boolean;
   /** 僵尸攻击开关（旧存档没有就默认开着） */
@@ -264,6 +267,7 @@ export function buildSave(g: {
   golden: { learned: number[]; tasks: number[]; waterUses: number };
   paused: boolean;
   dayTime: number;
+  date: GameDate;
   zombieAttack: boolean;
   zombieSpawn: boolean;
 }): SaveData {
@@ -306,6 +310,7 @@ export function buildSave(g: {
     golden: g.golden,
     paused: g.paused,
     dayTime: g.dayTime,
+    date: { ...g.date },
     zombieAttack: g.zombieAttack,
     zombieSpawn: g.zombieSpawn,
   };
@@ -315,7 +320,7 @@ export function buildSave(g: {
 export function applySave(
   d: SaveData,
   into: { inv: Inventory; health: Health; hunger: Hunger; world: World; scene: THREE.Scene; animals: Animal[]; zombies: Zombie[]; drops: ItemDrop[]; tanks: Tank[]; challenge: Challenge; warriors: Warrior[] },
-): { spawn: { x: number; y: number; z: number }; slot: number; learned: number[]; golden?: SaveData['golden']; paused: boolean; dayTime: number; zombieAttack: boolean; zombieSpawn: boolean; islandType: IslandType; everCreative: boolean; coins: number } {
+): { spawn: { x: number; y: number; z: number }; slot: number; learned: number[]; golden?: SaveData['golden']; paused: boolean; dayTime: number; date: GameDate; zombieAttack: boolean; zombieSpawn: boolean; islandType: IslandType; everCreative: boolean; coins: number } {
   const { inv, health, hunger, world, scene, animals, zombies, drops, tanks, challenge, warriors } = into;
   const copy = (dst: Slots, src: Slots) => src.forEach((s, i) => { dst[i] = s; });
   copy(inv.hotbar, d.inv.hotbar);
@@ -382,7 +387,7 @@ export function applySave(
   }
   return {
     spawn: { ...d.spawn }, slot: d.slot, learned: d.learned ?? [], golden: d.golden,
-    paused: d.paused ?? false, dayTime: d.dayTime ?? 0, zombieAttack: d.zombieAttack ?? true, zombieSpawn: d.zombieSpawn ?? true,
+    paused: d.paused ?? false, dayTime: d.dayTime ?? 0, date: normalizeDate(d.date), zombieAttack: d.zombieAttack ?? true, zombieSpawn: d.zombieSpawn ?? true,
     islandType: d.islandType && d.islandType in ISLAND_TYPES ? d.islandType : randomIslandType(),
     everCreative: Boolean(d.everCreative || d.mode === 'creative'),
     coins: d.coins ?? 0,

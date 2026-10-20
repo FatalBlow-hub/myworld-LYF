@@ -10,7 +10,7 @@ import { PlayerBody, collidesAABB } from '../player/Physics';
 import { hurtPlayer } from '../player/damage';
 import { Hud } from '../ui/Hud';
 import {
-  DANDELION, GLASS_BOTTLE, PICKLE_BARREL,
+  DANDELION, GLASS_BOTTLE, MUSHROOM_RED, PICKLE_BARREL,
   POTION_BREATH, POTION_DEADLY, POTION_IDS, POTION_PHANTOM, POTION_POISON,
 } from '../world/Block';
 import { POTION_ICE } from '../world/GoldenItems';
@@ -87,6 +87,13 @@ export class Survival {
         applySpeedBoost(body, fx.boostSeconds, fx.boostMult);
       }
       if (health.hp <= 0) this.d.respawn();
+      // 红伞伞：设定是「每秒 4 血持续 10 秒」，但满血只有 20（10 颗心），照原样吃下去必死；
+      // 这里按「10 秒里一共掉 4 血（2 颗心）」处理，仍然很吓人但不至于一口送命
+      if (s.id === MUSHROOM_RED) {
+        health.poison(1, 2.5, 10);
+        hud.showMessage('红伞伞有毒！接下来 10 秒会一直掉血', 3);
+        return;
+      }
       if (s.id === PICKLE_BARREL) {
         body.speedBoostT = BOOST.SECONDS; // 腌菜桶吃完跑得快
         hud.showMessage(`真香！+${fx.hp} 血，脚底生风 ${BOOST.SECONDS} 秒！`);

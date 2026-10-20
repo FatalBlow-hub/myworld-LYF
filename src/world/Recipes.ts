@@ -8,10 +8,11 @@ import {
   DYE_BLACK, DYE_BLOOD, DYE_BLUE, DYE_GRAY, DYE_GREEN, DYE_ORANGE, DYE_PINK, DYE_RED, DYE_TABLE, DYE_YELLOW,
   DYE_WHITE, DYE_PURPLE, DYE_SWAN, DYE_LIGHTGREEN, DYE_STAR, DYE_DEEPGREEN,
   GLASS_BOTTLE, GLASS_BUCKET, GLASS_CONE, GLASS_SHARD,
-  ICE, JUICE_APPLE, JUICE_CARROT, JUICE_COCONUT, JUICE_MELON, JUICE_ORANGE, JUICE_PEACH, WINE,
-  MELON, MELON_SEED, MELON_SLICE, ORANGE, PEACH,
-  APPLE_LEAVES, APPLE_SAP1, COCONUT_SAP1, ORANGE_LEAVES, ORANGE_SAP1, PALM_LEAVES,
+  ICE, JUICE_APPLE, JUICE_CARROT, JUICE_COCONUT, JUICE_MELON, JUICE_ORANGE, JUICE_PEACH, JUICE_PEAR, WINE,
+  MELON, MELON_SEED, MELON_SLICE, ORANGE, PEACH, PEAR, PERSIMMON, PERSIMMON_CAKE, RICE_GRAIN,
+  APPLE_LEAVES, APPLE_SAP1, BANANA_LEAVES, BANANA_SAP1, COCONUT_SAP1, ORANGE_LEAVES, ORANGE_SAP1, PALM_LEAVES,
   PEACH_LEAVES, PEACH_SAP1, PEAR_LEAVES, PEAR_SAP1, PERSIMMON_LEAVES, PERSIMMON_SAP1,
+  MUSHROOM_ENOKI, MUSHROOM_OYSTER, MUSHROOM_RED, MUSHROOM_SHIITAKE, MUSHROOM_SPORE,
   POTION_BREATH, POTION_DEADLY, POTION_PHANTOM, POTION_POISON,
   PUMPKIN, PUMPKIN_SEED, PUMPKIN_SLICE,
   SWAMP_DEEP, SWAMP_DROWN, SWAMP_FILL, SWAMP_LIGHT, SWAMP_MID, SWAMP_PHANTOM, WATER,
@@ -134,9 +135,12 @@ export const RECIPES: Recipe[] = [
   // —— 深绿颜料：黑 + 绿融出来的 ——
   { out: DYE_DEEPGREEN, outCount: 1, needs: [[DYE_BLACK, 1], [DYE_GREEN, 1]] },
   // —— 7 种饮料：水果/材料 + 一个玻璃瓶榨出来（喝完不还瓶子，跟别的食物一样）——
-  { out: JUICE_APPLE, outCount: 1, needs: [[APPLE, 2], [GLASS_BOTTLE, 1]] },
-  { out: JUICE_ORANGE, outCount: 1, needs: [[ORANGE, 2], [GLASS_BOTTLE, 1]] },
-  { out: JUICE_PEACH, outCount: 1, needs: [[PEACH, 2], [GLASS_BOTTLE, 1]] },
+  { out: JUICE_APPLE, outCount: 1, needs: [[APPLE, 1], [GLASS_BOTTLE, 1]] },
+  { out: JUICE_ORANGE, outCount: 1, needs: [[ORANGE, 1], [GLASS_BOTTLE, 1]] },
+  { out: JUICE_PEACH, outCount: 1, needs: [[PEACH, 1], [GLASS_BOTTLE, 1]] },
+  { out: JUICE_PEAR, outCount: 1, needs: [[PEAR, 1], [GLASS_BOTTLE, 1]] },
+  // —— 柿子饼：10 份粮食摊一个饼，柿子的回血再往上加 3 点 ——
+  { out: PERSIMMON_CAKE, outCount: 1, needs: [[RICE_GRAIN, 10], [PERSIMMON, 1]] },
   { out: WINE, outCount: 1, needs: [[RAW_MEAT, 2], [ICE, 1], [SWAMP_DEEP, 1]] },  // 生肉×2 + 冰×1 + 深泽液×1
   { out: JUICE_COCONUT, outCount: 1, needs: [[COCONUT, 1], [GLASS_BOTTLE, 1]] },
   { out: JUICE_MELON, outCount: 1, needs: [[MELON_SLICE, 2], [GLASS_BOTTLE, 1]] },
@@ -164,6 +168,7 @@ export const RECIPES: Recipe[] = [
   { out: ORANGE_SAP1, outCount: 1, needs: [[ORANGE_LEAVES, 4]] },
   { out: PEAR_SAP1, outCount: 1, needs: [[PEAR_LEAVES, 4]] },
   { out: PERSIMMON_SAP1, outCount: 1, needs: [[PERSIMMON_LEAVES, 4]] },
+  { out: BANANA_SAP1, outCount: 1, needs: [[BANANA_LEAVES, 4]] },
   { out: COCONUT_SAP1, outCount: 1, needs: [[PALM_LEAVES, 4]] },
   // —— 南瓜与西瓜 1:3 转化（支持批量按比例合成与拆解） ——
   { out: PUMPKIN_SLICE, outCount: CROP.SPLIT_COUNT, needs: [[PUMPKIN, 1]], scale: true, quiet: true },
@@ -221,6 +226,11 @@ const UNCRAFT: Record<number, [number, number][]> = {
   [SWAMP_DEEP]: [[DYE_DEEPGREEN, 1]],             // 深泽液熬出深绿颜料
   // 沼泽液就是沼泽液，没得拆；溺泽液留着做防溺瓶
   // —— 南瓜与西瓜 1:3 拆解表（果→片→籽） ——
+  // —— 蘑菇拆成孢子（香菇/金针菇/平菇各 3 个，红伞伞 2 个） ——
+  [MUSHROOM_SHIITAKE]: [[MUSHROOM_SPORE, 3]],
+  [MUSHROOM_ENOKI]: [[MUSHROOM_SPORE, 3]],
+  [MUSHROOM_OYSTER]: [[MUSHROOM_SPORE, 3]],
+  [MUSHROOM_RED]: [[MUSHROOM_SPORE, 2]],
   [PUMPKIN]: [[PUMPKIN_SLICE, CROP.SPLIT_COUNT]],
   [PUMPKIN_SLICE]: [[PUMPKIN_SEED, CROP.SPLIT_COUNT]],
   [MELON]: [[MELON_SLICE, CROP.SPLIT_COUNT]],

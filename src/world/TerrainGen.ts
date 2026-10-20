@@ -5,6 +5,7 @@ import { BLUE_ORE, CACTUS, CARROT_MATURE, COAL_ORE, DANDELION, DIRT, GOLD_ORE, G
 import { Chunk } from './Chunk';
 import { swampAt } from './Swamp';
 import { treeBlocks } from './Trees';
+import { MUSHROOM_GROW_CHANCE, pickMushroom } from './mushrooms';
 import type { TreeSpecies } from './blocks.trees';
 
 const sampleTerrain = (x: number, z: number) => ({ height: heightAt(x, z), biome: biomeAt(x, z) });
@@ -15,12 +16,19 @@ let activeSeed = WORLD_SEED;
 let grassOnlyMode = false;
 /** 岛上果树的树叶方块 ID（0 = 这座岛不长果树）；每座岛的树里约两成是本岛品种的果树 */
 let activeFruitLeaf = 0;
+/** 当前季节：蘑菇只在秋季长，别的季节生成的新区块不长蘑菇 */
+let activeSeason: 'spring' | 'summer' | 'autumn' | 'winter' = 'summer';
 
 /** 切换地形生成参数：不传或传默认参数即恢复玩家自己的岛配置；fruitLeaf 是本岛果树的树叶 ID */
 export function setTerrainConfig(seed = WORLD_SEED, grassOnly = false, fruitLeaf = 0): void {
   activeSeed = seed;
   grassOnlyMode = grassOnly;
   activeFruitLeaf = fruitLeaf;
+}
+
+/** 换季：地形生成按季节决定要不要长蘑菇（入冬后已长出来的由 World.clearMushrooms 清掉） */
+export function setActiveSeason(season: 'spring' | 'summer' | 'autumn' | 'winter'): void {
+  activeSeason = season;
 }
 
 /** 确定性伪随机：同一个 (x,z) 永远算出同一个 0~1 的数 */
@@ -159,6 +167,14 @@ export function generateChunk(chunk: Chunk, opts?: { grassOnly?: boolean }): voi
         } else if (lx >= 2 && lx <= CHUNK.SIZE - 3 && lz >= 2 && lz <= CHUNK.SIZE - 3) {
           plantTree(chunk, lx, h, lz);
         }
+      }
+
+      // 蘑菇：只有秋天才有，草地上 0.2% 概率冒一朵（入冬时已长出来的会被清掉）
+      if (activeSeason === 'autumn' && !swamp && !nearSea && biome !== 'desert'
+          && chunk.data[Chunk.index(lx, h - 1, lz)] === GRASS
+          && chunk.data[Chunk.index(lx, h, lz)] === 0
+          && hash(wx * 31 + 7, wz * 31 + 17) < MUSHROOM_GROW_CHANCE) {
+        chunk.data[Chunk.index(lx, h, lz)] = pickMushroom(() => hash(wx * 41 + 3, wz * 41 + 9));
       }
 
       // 仙人掌：只长在沙漠的沙滩上，2~3 格高一小根
