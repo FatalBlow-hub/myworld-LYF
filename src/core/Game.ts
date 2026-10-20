@@ -41,7 +41,8 @@ import { GivePanel, GiveGift } from '../ui/GivePanel';
 import { ChatPanel } from '../ui/ChatPanel';
 import { ShopPanel } from '../ui/ShopPanel';
 import { BoardPanel } from '../ui/BoardPanel';
-import { DRINK_GOODS, SPECIAL_GOODS, ShopGood, fmtCoins, rollGood } from '../world/Shop';
+import { DRINK_GOODS, SPECIAL_GOODS, STORE_GOODS, ShopGood, fmtCoins, rollGood } from '../world/Shop';
+import { consumeQuota, remainingOf, ShopQuota } from '../world/shopLimits';
 import { Appearance } from './Appearance';
 import { SaveData, applySave, buildSave, isSupportedSave, migrateSave, randomIslandType, readSave, writeSave } from './Save';
 import { Season, dateLabel, seasonOf } from './Calendar';
@@ -121,6 +122,8 @@ export class Game {
   private snowTimer = 0;
   /** 大厅留言板 / 信箱（B / V 打开，登录后才有内容） */
   private boardPanel: BoardPanel | null = null;
+  /** 商店每日限量已购记录（杂货铺；按本地日期记，跨天清零，随档存取） */
+  private shopQuota: ShopQuota | undefined;
   /** 上一次生效的季节：只有换季才做换叶 / 清蘑菇这些重活 */
   private lastSeason: Season | null = null;
   /** 自家/访岛是不是冬季岛：冬季岛常年下雪，不受日历季节限制 */
@@ -485,11 +488,12 @@ export class Game {
     this.hud?.setCoins(this.coins);
   }
 
-  /** 对着售卖机按 M：打开对应货架 */
-  private openShop(kind: 'special' | 'drink'): void {
+  /** 对机器按 M：打开对应货架（杂货铺多带一个"今天还能买几个"的查询） */
+  private openShop(kind: 'special' | 'drink' | 'store'): void {
     this.shopPanel?.open(
-      kind === 'special' ? '特殊物品售卖机' : '饮料售卖机',
-      kind === 'special' ? SPECIAL_GOODS : DRINK_GOODS,
+      kind === 'special' ? '特殊物品售卖机' : kind === 'drink' ? '饮料售卖机' : '杂货铺',
+      kind === 'special' ? SPECIAL_GOODS : kind === 'drink' ? DRINK_GOODS : STORE_GOODS,
+      kind === 'store' ? (g) => remainingOf(this.shopQuota, g.id!, g.dailyLimit) : undefined,
     );
   }
 
@@ -520,10 +524,19 @@ export class Game {
       this.hud!.showMessage('背包满了，先腾个格子再来买', 2.5);
       return;
     }
+    // 每日限量（杂货铺）：买完今天这份就明天再来，记录随档存
+    if (good.dailyLimit !== undefined) {
+      if (remainingOf(this.shopQuota, id, good.dailyLimit) <= 0) {
+        this.hud!.showMessage(`${BLOCKS[id]?.cn ?? '这个'}今天买过了，明天再来吧`, 2.5);
+        return;
+      }
+      this.shopQuota = consumeQuota(this.shopQuota, id, 1);
+    }
     this.addCoins(-good.price);
     inv.add(id, 1);
     this.hud!.refreshHotbar(inv, this.slot);
-    this.shopPanel?.refreshCoins();
+    this.shopPanel?.refreshCoins();     // 余额
+    this.shopPanel?.refresh();          // 限量买点/按钮灰亮
     const name = BLOCKS[id]?.cn ?? '东西';
     this.hud!.showMessage(id === good.id ? `买到 ${name}！` : `叮——抽到了${name}！`, 2.5);
     this.saveNow();
@@ -587,6 +600,7 @@ export class Game {
       warriors: this.mobs.warriors,
       golden: { learned: this.book.goldenLearnedIds(), tasks: this.book.goldenTaskIds(), waterUses: this.book.goldenWaterUseCount() },
       paused: this.paused, dayTime: this.day.time, date: this.day.date,
+      shopQuota: this.shopQuota,
       zombieAttack: this.mobs.zombieAttack, zombieSpawn: this.mobs.zombieSpawn,
     });
     this.islandSave = JSON.parse(JSON.stringify(data)) as SaveData;

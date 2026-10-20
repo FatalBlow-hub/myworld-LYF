@@ -83,6 +83,7 @@ const TILE_NAMES = [
   'vend_special_top', 'vend_special_side', 'vend_special_front',
   'vend_drink_top', 'vend_drink_side', 'vend_drink_front',
   'buybox_top', 'buybox_side', 'buybox_front',
+  'store_top', 'store_side', 'store_front',
   // —— 椰子树 + 饮料 + 召唤蛋 ——
   'palm_wood', 'palm_wood_top', 'palm_leaves', 'coconut',
   'juice_apple', 'juice_orange', 'juice_peach', 'wine',
@@ -378,6 +379,19 @@ PAINTERS.buybox_front = (c, x, y) => {
   c.fillStyle = '#f8d848'; c.fillRect(x + 6, y + 5, 4, 4);           // 里面的金币
   c.fillStyle = '#d8a820'; c.fillRect(x + 6, y + 6, 4, 1);
   c.fillStyle = '#e8e8f0'; c.fillRect(x + 3, y + 12, 10, 1);
+};
+// —— 杂货铺：木头箱子 + 小价签，卖基础建材（每种每天限购 1 个）——
+PAINTERS.store_top = vendBody('#a8763e', '#7a5228');
+PAINTERS.store_side = vendBody('#95663a', '#7a5228');
+PAINTERS.store_front = (c, x, y) => {
+  PAINTERS.store_side(c, x, y);
+  c.fillStyle = '#6a4420'; c.fillRect(x + 3, y + 3, 10, 8);          // 木头橱窗
+  c.fillStyle = '#f0e0c0'; c.fillRect(x + 4, y + 6, 8, 4);           // 窗里堆的货
+  c.fillStyle = '#c08040'; c.fillRect(x + 5, y + 7, 2, 2);           // 木板
+  c.fillRect(x + 9, y + 7, 2, 2);                                    // 圆石
+  c.fillStyle = '#f8f0d8'; c.fillRect(x + 4, y + 4, 3, 2);           // 小价签
+  c.fillStyle = '#a08040'; c.fillRect(x + 4, y + 4, 3, 1);
+  c.fillStyle = '#e8e8f0'; c.fillRect(x + 3, y + 12, 10, 1);         // 取货口
 };
 
 // 庄稼/羽毛/煤贴图拆出去了（CropTextures / BirdTextures / CoalTextures），合并进大表

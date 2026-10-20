@@ -22,7 +22,7 @@ import {
   DIRT, DYE_TABLE, DYEABLE_CARPETS, FIRESTARTER_IDS, FRUIT_LEAF_IDS, FRUIT_OF_LEAF, GLASS_BUCKET, GRASS, HYDROGEN, ICE, IRON_NUGGET,
   LEAVES, MELON_SEED, MELON_STAGE1, MUSHROOM_SPORE, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT,
   RICE_GRAIN, RUBBER, SAND, SAPLING_IDS, SEAWEED, SNOW, SNOWFLAKE, SOUL_CHEST, SOUL_FIRESTARTER, SPECIES_BY_SAPLING, STAR_DYE_TABLE, STAR_TABLE, SWAMP_FILL,
-  TANK, VENDING_DRINK, VENDING_SPECIAL, VISIT_LIST_BLOCKS, WATER_BUCKET, WOOD,
+  TANK, VENDING_DRINK, VENDING_SPECIAL, VENDING_STORE, VISIT_LIST_BLOCKS, WATER_BUCKET, WOOD,
   dropCountOf, isBed, isChest, isDoor, isFurnace,
 } from '../world/Block';
 import { GOLD_CHEM_DECOMP, GOLD_DYE_TABLE, GOLD_PICKAXE, ICE_MOLECULE } from '../world/GoldenItems';
@@ -67,7 +67,7 @@ export interface PlayerActionDeps {
   /** 现在是不是站在大厅里（大厅是公共区域，方块禁挖禁放） */
   inHall: () => boolean;
   /** 对着售卖机按 M：打开对应货架（special = 特殊物品售卖机，drink = 饮料售卖机） */
-  openShop: (kind: 'special' | 'drink') => void;
+  openShop: (kind: 'special' | 'drink' | 'store') => void;
   /** 对着收购箱按 M：打开收购界面 */
   openBuyBox: () => void;
   /** 拿着小战士召唤蛋对地按 M：召唤保镖（扣蛋由外面负责） */
@@ -319,6 +319,10 @@ export class PlayerActions {
     }
     if (id === BUY_BOX) {
       this.d.openBuyBox();              // 收购箱：东西放进去自动换岛币
+      return;
+    }
+    if (id === VENDING_STORE) {
+      this.d.openShop('store');         // 杂货铺：基础建材，每种每天限购 1 个
       return;
     }
     if (id === CHALLENGE_DOOR) {

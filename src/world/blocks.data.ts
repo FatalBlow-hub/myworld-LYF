@@ -306,6 +306,7 @@ export const ORANGE = 238;             // 橙子（+1 饥饿 +1 血 + 3 秒移�
 export const VENDING_SPECIAL = 239;    // 特殊物品售卖机：卖小战士召唤蛋
 export const VENDING_DRINK = 240;      // 饮料售卖机：卖各种果汁饮料
 export const BUY_BOX = 241;            // 收购箱：东西放进去自动换成岛币
+export const VENDING_STORE = 297;      // 杂货铺：大厅第四台机器，基础建材每天各限购 1 个
 // —— 椰子树（242~244）：沙滩上长的浅色木，四瓣叶子，叶下挂着椰子方块 ——
 export const PALM_WOOD = 242;
 export const PALM_LEAVES = 243;
@@ -669,6 +670,7 @@ export const BLOCKS: Record<number, BlockDef> = {
   [VENDING_SPECIAL]: { cn: '特殊物品售卖机', tex: { top: 'vend_special_top', side: 'vend_special_side', front: 'vend_special_front' }, solid: true, seeThrough: false, hardness: Infinity },
   [VENDING_DRINK]:   { cn: '饮料售卖机',   tex: { top: 'vend_drink_top', side: 'vend_drink_side', front: 'vend_drink_front' }, solid: true, seeThrough: false, hardness: Infinity },
   [BUY_BOX]:         { cn: '收购箱',       tex: { top: 'buybox_top', side: 'buybox_side', front: 'buybox_front' }, solid: true, seeThrough: false, hardness: Infinity },
+  [VENDING_STORE]:   { cn: '杂货铺',       tex: { top: 'store_top', side: 'store_side', front: 'store_front' }, solid: true, seeThrough: false, hardness: Infinity },
   // —— 椰子树：浅色木头 + 四瓣叶子 + 挂在叶下的椰子（挖椰子掉椰子，能榨汁也能卖） ——
   [PALM_WOOD]:   { cn: '椰子树干', tex: { top: 'palm_wood_top', side: 'palm_wood' }, solid: true, seeThrough: false, hardness: 1.2 },
   [PALM_LEAVES]: { cn: '椰子叶',   tex: { top: 'palm_leaves', side: 'palm_leaves' }, solid: true, seeThrough: false, hardness: 0.25 },

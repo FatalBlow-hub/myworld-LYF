@@ -9,6 +9,10 @@ import { isMobile } from './Platform';
 export class ShopPanel {
   private el: HTMLDivElement;
   private win: HTMLDivElement;
+  /** 上次打开的货架：限量买掉一件后按它重画，余额栏的刷新逻辑也复用 */
+  private lastTitle = '';
+  private lastGoods: ShopGood[] = [];
+  private remainingOf: ((g: ShopGood) => number) | undefined;
   visible = false;
 
   /** onBuy 负责扣钱发货（钱不够也在里面提示）；coins 只读当前余额用来显示 */
@@ -23,8 +27,9 @@ export class ShopPanel {
     document.body.appendChild(this.el);
   }
 
-  /** 打开一台售卖机：title = 机器名字，goods = 货架 */
-  open(title: string, goods: ShopGood[]): void {
+  /** 打开一台售卖机：title = 机器名字，goods = 货架，remainingOf = 每日限量查询（杂货铺用） */
+  open(title: string, goods: ShopGood[], remainingOf?: (g: ShopGood) => number): void {
+    this.lastTitle = title; this.lastGoods = goods; this.remainingOf = remainingOf;
     this.win.innerHTML = '';
     const t = document.createElement('p');
     t.className = 'inv-sub';
@@ -58,13 +63,22 @@ export class ShopPanel {
 
     const name = document.createElement('span');
     name.style.cssText = 'flex:1;text-align:left;font-size:14px;';
-    name.textContent = (g.label ?? BLOCKS[g.id!].cn) + (g.note ? `（${g.note}）` : '');
+    const left = this.remainingOf?.(g);
+    // 限量商品：名字后面挂"今天还能买 N 个"，买完了按钮直接灰掉
+    const limitNote = left === undefined ? '' : (left > 0 ? `（今天还能买 ${left} 个）` : '（今天买过了）');
+    name.textContent = (g.label ?? BLOCKS[g.id!].cn) + (g.note ? `（${g.note}）` : '') + limitNote;
     row.appendChild(name);
 
     const btn = document.createElement('button');
     btn.textContent = `${fmtCoins(g.price)} 岛币 购买`;
     btn.style.cssText = 'padding:6px 10px;font-size:13px;cursor:pointer;border-radius:6px;border:1px solid #888;background:#3e8a46;color:#fff;';
-    btn.addEventListener('click', () => this.onBuy(g));
+    if (left !== undefined && left <= 0) {
+      btn.textContent = '今天买过了';
+      btn.style.background = '#5a5a5a';
+      btn.style.cursor = 'default';
+    } else {
+      btn.addEventListener('click', () => this.onBuy(g));
+    }
     row.appendChild(btn);
     return row;
   }
@@ -73,6 +87,12 @@ export class ShopPanel {
   refreshCoins(): void {
     const t = this.win.querySelector('.inv-sub');
     if (t) t.textContent = t.textContent?.replace(/余额 .*$/, `余额 ${fmtCoins(this.coins())} 岛币`) ?? '';
+  }
+
+  /** 限量商品买掉一件后整面板重画一次：余额、剩余次数、按钮的灰/亮都一起更新 */
+  refresh(): void {
+    if (!this.visible) return;
+    this.open(this.lastTitle, this.lastGoods, this.remainingOf);
   }
 
   close(): void {

@@ -468,11 +468,12 @@ export const HALL = {
   VISIT_TIMEOUT_MS: 60_000,         // 访岛申请 60 秒无响应超时
   VISIT_ACK_MS: 8_000,              // 访岛申请发出后 8 秒没等到服务器回执 = 申请多半丢在死管里，自动重连
   TICKET_TTL_MS: 5 * 60_000,        // 访问票据 5 分钟有效
-  /** 大厅角落三台机器：沿北墙（z=1）从角上摆开，y = FLOOR_Y + 1 */
+  /** 大厅角落的机器：沿北墙（z=1）从角上摆开，y = FLOOR_Y + 1 */
   MACHINES: [
     { id: 239, x: 1, z: 1 },        // 特殊物品售卖机
     { id: 240, x: 2, z: 1 },        // 饮料售卖机
     { id: 241, x: 3, z: 1 },        // 收购箱
+    { id: 297, x: 4, z: 1 },        // 杂货铺
   ],
 };
 
@@ -495,6 +496,8 @@ export const SHOP = {
   EGG_SELL: 10,         // 收购箱：还没孵化的蛋（三档同价）
   EGG_ROLL: [0.8, 0.19, 0.01] as const, // 买蛋抽品质概率：普通 / 高级 / 绝世
   DRINK_SELL_MULT: 0.5, // 收购箱收饮料 = 买价 × 0.5
+  /** 杂货铺限量：每个账号每天对每种基础货只能买 1 个（独立模块见 world/shopLimits.ts） */
+  STORE_STOCK: 1,
   SKIN_PRISMARINE_PRICE: 70, // 特殊物品售卖机：海晶史蒂夫皮肤（买一次永久解锁）
   SKIN_ENDER_PRICE: 85,      // 特殊物品售卖机：末影史蒂夫皮肤（买一次永久解锁）
   SKIN_BLOODMOON_PRICE: 56,  // 特殊物品售卖机：血月史蒂夫皮肤（买一次永久解锁）

@@ -7,6 +7,7 @@ import { CharacterKind } from '../entities/Character';
 import { ItemDrop } from '../entities/ItemDrop';
 import { spawnDrop } from '../entities/drops';
 import { GameMode, Health } from '../player/Health';
+import type { ShopQuota } from '../world/shopLimits';
 import { Hunger } from '../player/Hunger';
 import { Inventory } from '../player/Inventory';
 import { PlayerBody } from '../player/Physics';
@@ -119,6 +120,8 @@ export interface SaveData {
   dayTime?: number;
   /** 游戏内日期（几月几号）；旧存档没有就当开局的 7 月 8 日 */
   date?: { month: number; day: number };
+  /** 商店每日限量已购记录（杂货铺用）；旧存档没有就从零开始 */
+  shopQuota?: ShopQuota;
   /** 存的时候是不是暂停着 */
   paused?: boolean;
   /** 僵尸攻击开关（旧存档没有就默认开着） */
@@ -276,6 +279,8 @@ export function buildSave(g: {
   paused: boolean;
   dayTime: number;
   date: GameDate;
+  /** 商店每日限量已购记录；旧的调用方不传就当没有（todayQuota 会兜底） */
+  shopQuota?: ShopQuota;
   zombieAttack: boolean;
   zombieSpawn: boolean;
 }): SaveData {
@@ -319,6 +324,7 @@ export function buildSave(g: {
     paused: g.paused,
     dayTime: g.dayTime,
     date: { ...g.date },
+    shopQuota: g.shopQuota,
     zombieAttack: g.zombieAttack,
     zombieSpawn: g.zombieSpawn,
   };
@@ -328,7 +334,7 @@ export function buildSave(g: {
 export function applySave(
   d: SaveData,
   into: { inv: Inventory; health: Health; hunger: Hunger; world: World; scene: THREE.Scene; animals: Animal[]; zombies: Zombie[]; drops: ItemDrop[]; tanks: Tank[]; challenge: Challenge; warriors: Warrior[] },
-): { spawn: { x: number; y: number; z: number }; slot: number; learned: number[]; golden?: SaveData['golden']; paused: boolean; dayTime: number; date: GameDate; zombieAttack: boolean; zombieSpawn: boolean; islandType: IslandType; everCreative: boolean; coins: number } {
+): { spawn: { x: number; y: number; z: number }; slot: number; learned: number[]; golden?: SaveData['golden']; paused: boolean; dayTime: number; date: GameDate; shopQuota: ShopQuota | undefined; zombieAttack: boolean; zombieSpawn: boolean; islandType: IslandType; everCreative: boolean; coins: number } {
   const { inv, health, hunger, world, scene, animals, zombies, drops, tanks, challenge, warriors } = into;
   const copy = (dst: Slots, src: Slots) => src.forEach((s, i) => { dst[i] = s; });
   copy(inv.hotbar, d.inv.hotbar);
@@ -396,6 +402,7 @@ export function applySave(
   return {
     spawn: { ...d.spawn }, slot: d.slot, learned: d.learned ?? [], golden: d.golden,
     paused: d.paused ?? false, dayTime: d.dayTime ?? 0, date: normalizeDate(d.date), zombieAttack: d.zombieAttack ?? true, zombieSpawn: d.zombieSpawn ?? true,
+    shopQuota: d.shopQuota,
     islandType: normalizeIslandType(d.islandType) ?? randomIslandType(),
     everCreative: Boolean(d.everCreative || d.mode === 'creative'),
     coins: d.coins ?? 0,

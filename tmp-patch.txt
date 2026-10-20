@@ -1,0 +1,8 @@
+  /** 对机器按 M：打开对应货架（杂货铺多带一个"今天还能买几个"的查询） */
+  private openShop(kind: 'special' | 'drink' | 'store'): void {
+    this.shopPanel?.open(
+      kind === 'special' ? '特殊物品售卖机' : kind === 'drink' ? '饮料售卖机' : '杂货铺',
+      kind === 'special' ? SPECIAL_GOODS : kind === 'drink' ? DRINK_GOODS : STORE_GOODS,
+      kind === 'store' ? (g) => remainingOf(this.shopQuota, g.id!, g.dailyLimit) : undefined,
+    );
+  }
