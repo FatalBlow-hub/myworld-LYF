@@ -2,7 +2,8 @@
 
 import * as THREE from 'three';
 import { ANIMAL, BIRD, BLOODZOMBIE, CHUNK, CORRUPT, DAY, DEEPGREEN_DROP, FISH, MANUAL, RAT, STARZOMBIE, WARRIOR, ZOMBIE } from '../config';
-import { BLOOD_MEAT, COOKED_MEAT, DIY_MANUAL, DYE_DEEPGREEN, FEATHER_BLACK, IRON_NUGGET, RAW_MEAT, STAR_SHARD } from '../world/Block';
+import { BLOOD_MEAT, COOKED_MEAT, DIY_MANUAL, DYE_DEEPGREEN, FEATHER_BLACK, GLOW_SHROOM, IRON_NUGGET, RAW_MEAT, STAR_SHARD } from '../world/Block';
+import { STAR_ZOMBIE_GLOW_CHANCE } from '../world/mushrooms';
 import { DIY_GOLD_MANUAL as GOLD_MANUAL } from '../world/GoldenItems';
 import { World } from '../world/World';
 import { Animal, BIRD_KINDS, rayHitAnimal, spawnAnimals } from './Animal';
@@ -269,10 +270,11 @@ export class Mobs {
         this.onDrop(IRON_NUGGET, RAT.NUGGETS, mob.x, mob.y, mob.z);
         return;
       }
-      // 星空尸：必掉 1 颗星星碎片 + 1 个生肉
+      // 星空尸：必掉 1 颗星星碎片 + 1 个生肉，10% 概率再掉一朵夜光蓝菇
       if (mob.kind === 'star') {
         this.onDrop(STAR_SHARD, 1, mob.x, mob.y, mob.z);
         this.onDrop(RAW_MEAT, 1, mob.x, mob.y, mob.z);
+        if (Math.random() < STAR_ZOMBIE_GLOW_CHANCE) this.onDrop(GLOW_SHROOM, 1, mob.x, mob.y, mob.z);
         return;
       }
       // 血尸：掉 1~2 个血尸肉 + 必掉 1 本 DIY 手册

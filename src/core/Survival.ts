@@ -10,7 +10,7 @@ import { PlayerBody, collidesAABB } from '../player/Physics';
 import { hurtPlayer } from '../player/damage';
 import { Hud } from '../ui/Hud';
 import {
-  DANDELION, GLASS_BOTTLE, MUSHROOM_RED, PICKLE_BARREL,
+  DANDELION, GLASS_BOTTLE, GLOW_SHROOM, MUSHROOM_RED, PICKLE_BARREL,
   POTION_BREATH, POTION_DEADLY, POTION_IDS, POTION_PHANTOM, POTION_POISON,
 } from '../world/Block';
 import { POTION_ICE } from '../world/GoldenItems';
@@ -92,6 +92,12 @@ export class Survival {
       if (s.id === MUSHROOM_RED) {
         health.poison(1, 2.5, 10);
         hud.showMessage('红伞伞有毒！接下来 10 秒会一直掉血', 3);
+        return;
+      }
+      // 夜光蓝菇：给 5 秒夜视，黑夜里也能看清路
+      if (s.id === GLOW_SHROOM) {
+        health.nightVision(5);
+        hud.showMessage('眼前亮起来了！5 秒夜视', 3);
         return;
       }
       if (s.id === PICKLE_BARREL) {

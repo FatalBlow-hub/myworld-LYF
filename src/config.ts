@@ -126,9 +126,10 @@ export const EAT_HP: Record<number, FoodEffect> = {
   287: { hunger: 2, hp: 1 },   // 香蕉 +2 饥饿 +1 血（香蕉岛专属）
   // —— 四种蘑菇（秋季限定；红伞伞的毒在 Survival 里特判）——
   292: { hunger: 1, hp: 0 },   // 香菇：+1 饥饿
-  293: { hunger: 0, hp: 2 },   // 金针菇：回 1 颗心
+  293: { hunger: 1, hp: 0 },   // 金针菇：+1 饥饿（旧版回血，按 2026-10-22 设定改）
   294: { hunger: 0, hp: 1, boostSeconds: 3, boostMult: 1.25 }, // 平菇：半颗心 + 3 秒 ×1.25 移速
   295: { hunger: 1, hp: 0 },   // 红伞伞：先回 1 饥饿，随后中毒
+  298: { hunger: 1, hp: 0 },   // 夜光蓝菇：+1 饥饿 + 5 秒夜视（夜视在 Survival 里特判）
   // —— 7 种饮料：水果榨的 = 原水果效果再 +1 饥饿；酒是"更饱但掉血"；椰子汁直接回满饥饿 ——
   245: { hunger: 2, hp: 1.5 },  // 苹果汁：苹果(1,1.5) +1 饥饿
   246: { hunger: 2, hp: 1, boostSeconds: HUNGER.ORANGE_BOOST_SECONDS, boostMult: HUNGER.ORANGE_BOOST_MULT }, // 橘子汁：橙子 +1 饥饿
@@ -422,15 +423,13 @@ export const ISLAND_RULES: Record<FruitIslandId, {
   bamboo: boolean;
   /** 全岛按雪地生成（地表盖雪、湖面结冰） */
   snowOnly?: boolean;
-  /** 岛上年年长蘑菇（与季节联动，不随玩家日期开关） */
-  mushrooms?: boolean;
 }> = {
   peach:     { season: 'spring', bamboo: false },
   apple:     { season: 'summer', bamboo: true },
   pear:      { season: 'summer', bamboo: true },
   banana:    { season: 'summer', bamboo: true },
-  orange:    { season: 'autumn', bamboo: true, mushrooms: true },
-  persimmon: { season: 'autumn', bamboo: true, mushrooms: true },
+  orange:    { season: 'autumn', bamboo: true },
+  persimmon: { season: 'autumn', bamboo: true },
   winter:    { season: 'winter', bamboo: true, snowOnly: true },
 };
 
@@ -557,6 +556,7 @@ export const SELL_PRICE: Record<number, { coins: number; per: number }> = {
   294: { coins: 1, per: 1 },     // 平菇
   295: { coins: 2, per: 1 },     // 红伞伞（有毒但更值钱）
   296: { coins: 1, per: 1 },     // 雪花（冬季岛雪地里挖到的收藏品）
+  298: { coins: 4, per: 1 },     // 夜光蓝菇（会发光还能给夜视，最贵）
   7:   { coins: 0.01, per: 1 },  // 树叶
   243: { coins: 0.01, per: 1 },  // 椰子叶
   261: { coins: 0.01, per: 1 },  // 苹果树叶

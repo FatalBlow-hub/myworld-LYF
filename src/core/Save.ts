@@ -13,6 +13,7 @@ import { Inventory } from '../player/Inventory';
 import { PlayerBody } from '../player/Physics';
 import { ROLLER_SKATES, Slots, Stack } from '../world/Block';
 import { FurnaceState, World } from '../world/World';
+import { SPORE_GROW_SECONDS, SPORE_PLANT_IDS } from '../world/mushrooms';
 import { Zombie, ZombieKind } from '../entities/Zombie';
 import { Warrior, WarriorTier } from '../entities/Warrior';
 import { Tank } from '../entities/Tank';
@@ -105,6 +106,8 @@ export interface SaveData {
   chunks: Record<string, [number, number][]>;
   /** 方块朝向表 "x,y,z" → 朝向 */
   meta: Record<string, number>;
+  /** 玩家亲手种下的蘑菇位置（"x,y,z"）：入冬清场时这些要留下；老档没有就当没有 */
+  playerMushrooms?: string[];
   chests: Record<string, Slots>;
   furnaces: Record<string, FurnaceState>;
   animals: { kind: AnimalKind; x: number; y: number; z: number; woolId: number; hp: number; grow?: number; tamed?: boolean; waiting?: boolean; feather?: number }[];
@@ -308,6 +311,7 @@ export function buildSave(g: {
     },
     chunks: g.world.exportDiffs(),
     meta: g.world.exportMeta(),
+    playerMushrooms: g.world.exportPlayerMushrooms(),
     chests: Object.fromEntries(g.world.chests),
     furnaces: Object.fromEntries(g.world.furnaces),
     animals: g.animals.map((a) => ({ kind: a.kind, x: a.x, y: a.y, z: a.z, woolId: a.woolId, hp: a.hp, grow: a.growT, tamed: a.tamed, waiting: a.waiting, feather: a.feather })),
@@ -358,6 +362,9 @@ export function applySave(
   hunger.enabled = d.hungerOn ?? false;
   world.applyDiffs(d.chunks);
   world.applyMeta(d.meta);
+  // 玩家亲手种的蘑菇：位置认回来（入冬清场时留下）；还没长成的孢子苗重新计时，接着长
+  world.applyPlayerMushrooms(d.playerMushrooms ?? []);
+  world.resumeSpores(SPORE_PLANT_IDS, SPORE_GROW_SECONDS);
   for (const [k, v] of Object.entries(d.chests)) world.chests.set(k, v);
   for (const [k, v] of Object.entries(d.furnaces)) world.furnaces.set(k, v);
   for (const a of d.animals) {

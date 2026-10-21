@@ -4,7 +4,8 @@ import * as THREE from 'three';
 import { ISLAND_RULES, CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PVP, SAVE, SNOWFALL, VIEW_DISTANCE, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
 import { World } from '../world/World';
 import { buildHall } from '../world/HallMap';
-import { findGrassSpawn, heightAt, randomGrassSpawn, setIslandProfile, setTerrainConfig } from '../world/TerrainGen';
+import { findGrassSpawn, heightAt, randomGrassSpawn, setIslandProfile, setActiveSeason, setTerrainConfig } from '../world/TerrainGen';
+import { ALL_MUSHROOM_IDS, PLANT_TO_MUSHROOM } from '../world/mushrooms';
 import { createAtlas, Atlas } from '../render/Textures';
 import { ChunkMeshCache } from '../render/ChunkMeshCache';
 import { Renderer } from '../render/Renderer';
@@ -374,9 +375,10 @@ export class Game {
     this.body = createBody(this.spawn.x, this.spawn.y, this.spawn.z);
     if (save) this.restoreBodyFromSave(save);
     this.body.flying = this.inventory.infinite;
-    // 先定好本季的树叶贴图（蘑菇/雪地/果树由岛型定死，见 applyIslandTerrain）
+    // 先定好本季的树叶贴图与蘑菇季节（蘑菇只按日期季节长：秋季长、入冬全消）
     const season = seasonOf(this.day.date);
     this.lastSeason = season;
+    setActiveSeason(season);
     applySeasonLeaves(season);
     this.streamChunks(Infinity);
     this.chunkMeshes.rebuildDirty(this.world);
@@ -414,17 +416,18 @@ export class Game {
       trees: leaf ? [leaf] : [],
       bamboo: rules?.bamboo ?? false,
       snowOnly: rules?.snowOnly,
-      mushrooms: rules?.mushrooms,
     });
     this.winterIsland = type === 'winter'; // 冬季岛常年下雪，不受日历季节限制
   }
 
-  /** 翻到新的一天：刷新 HUD 日期；季节变了才换叶（蘑菇/雪/果树按岛型固定，不随日期动） */
+  /** 翻到新的一天：刷新 HUD 日期；季节变了才换叶；入冬把地图上的蘑菇全清掉（设定：冬季蘑菇全部消失） */
   private onNewDay(): void {
     this.hud?.setDate(dateLabel(this.day.date));
     const season = seasonOf(this.day.date);
     if (this.lastSeason === season) return;
     this.lastSeason = season;
+    setActiveSeason(season);
+    if (season === 'winter') this.world.clearBlocks(ALL_MUSHROOM_IDS);
     if (!applySeasonLeaves(season)) return;
     this.world.markAllDirty();
     this.chunkMeshes.rebuildDirty(this.world);
@@ -932,6 +935,12 @@ export class Game {
       }
       if (this.controller.take('respawn')) this.goHome();
       this.day.update(dt, this.renderer); this.worldCycles.update(dt, this.world);
+      // 夜视（吃夜光蓝菇）：把世界临时提到大白天亮度，效果过后自动回到昼夜
+      this.renderer.setDaylight(this.health!.isNightVision ? 1 : this.day.daylight());
+      this.world.tickSpores(dt, (x, y, z, plantId) => {
+        const mushroom = PLANT_TO_MUSHROOM[plantId];
+        if (mushroom) this.world.setBlock(x, y, z, mushroom);
+      });
       body.driving = this.vehicles!.riding !== null; body.skating = wearingSkates(this.inventory!.armor);
       body.glassBag = this.inventory!.armor[WAISTBAG_SLOT]?.id === BAG_GLASS;
       // 视角要在算物理前加进朝向，移动方向才跟视线一致：PC 走鼠标，手机走视角板

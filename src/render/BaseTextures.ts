@@ -166,9 +166,13 @@ export const BASE_PAINTERS: Record<string, Painter> = {
       c.fillStyle = greens[i % greens.length]; c.fillRect(x + bx, y + TILE - h, 1, h); c.fillRect(x + bx + 1, y + TILE - h + 2, 1, h - 2);
     });
   },
+  // 蒲公英：白绒球（用户 2026-10-22 要求改成白色，参考图是雪地里的白绒球）
   dandelion: (c, x, y) => {
     c.fillStyle = '#4a7a2a'; c.fillRect(x + 7, y + 7, 2, 9); c.fillRect(x + 5, y + 11, 2, 1); c.fillRect(x + 9, y + 12, 2, 1);
-    c.fillStyle = '#f2d338'; c.fillRect(x + 5, y + 2, 6, 5); c.fillStyle = '#d4b428'; c.fillRect(x + 6, y + 3, 4, 3);
+    c.fillStyle = '#f6f8f4'; c.fillRect(x + 5, y + 2, 6, 5); c.fillRect(x + 6, y + 1, 4, 7);
+    c.fillStyle = '#e2e8de'; c.fillRect(x + 6, y + 3, 4, 3);
+    c.fillStyle = '#ffffff'; c.fillRect(x + 7, y + 2, 2, 2); // 绒球高光
+    c.fillStyle = '#c8d2c4'; c.fillRect(x + 7, y + 7, 2, 1); // 花托
   },
   poppy: (c, x, y) => {
     c.fillStyle = '#4a7a2a'; c.fillRect(x + 7, y + 8, 2, 8); c.fillRect(x + 5, y + 12, 2, 1);

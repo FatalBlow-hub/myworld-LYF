@@ -6,6 +6,7 @@ import { solidBoxes } from './Shapes';
 import { tryGrowTree } from './Trees';
 import { SMELT } from './Recipes';
 import { Chunk } from './Chunk';
+import { MUSHROOM_LIKE_IDS } from './mushrooms';
 import { generateChunk } from './TerrainGen';
 
 export interface FurnaceState {
@@ -27,12 +28,17 @@ export class World {
   readonly dirtyChunks = new Set<string>();
   /** 悬空的水：下面是空气，排队等着往下流（key = "x,y,z"） */
   private wetQueue = new Set<string>();
+
+  /** 种下去的孢子还剩几秒长成蘑菇（key = "x,y,z" → 秒）；玩家亲手种的冬天也不消失 */
+  private sporeTimers = new Map<string, number>();
+  /** 玩家亲手种下的蘑菇位置（key = "x,y,z"）：入冬清场时这些格子要留下 */
+  private playerMushrooms = new Set<string>();
   /** 是否自动用噪声生成新区块地形（大厅等固定场景关闭） */
   terrainGen = true;
   /** 方块改动钩子：同屏访岛时挂上去收集本地改动广播给对端；平时为 null 零开销 */
   onBlockChange: ((wx: number, wy: number, wz: number, id: number) => void) | null = null;
 
-  /** 清空重置整个世界：区块、朝向表、箱子、熔炉、脏区块、流水队列全清 */
+  /** 清空重置整个世界：区块、朝向表、箱子、熔炉、脏区块、流水与孢子计时全清 */
   clear(): void {
     this.chunks.clear();
     this.meta.clear();
@@ -40,6 +46,8 @@ export class World {
     this.furnaces.clear();
     this.dirtyChunks.clear();
     this.wetQueue.clear();
+    this.sporeTimers.clear();
+    this.playerMushrooms.clear();
     this.terrainGen = true;
   }
 
@@ -135,14 +143,23 @@ export class World {
     this.onBlockChange?.(wx, wy, wz, id);
   }
 
-  /** 把世界里所有指定方块清掉（换成空气）：入冬清蘑菇用；返回清掉几格 */
+  /** 把世界里所有指定方块清掉（换成空气）：入冬清蘑菇用；
+   *  **玩家亲手种的不清**（设定：玩家种的蘑菇冬天不会消失）；返回清掉几格 */
   clearBlocks(ids: readonly number[]): number {
     const set = new Set(ids);
+    this.prunePlayerMushrooms();
     let count = 0;
     for (const [key, chunk] of this.chunks) {
       let touched = false;
+      const ox = chunk.cx * CHUNK.SIZE;
+      const oz = chunk.cz * CHUNK.SIZE;
       for (let i = 0; i < chunk.data.length; i++) {
         if (!set.has(chunk.data[i])) continue;
+        const lx = i % CHUNK.SIZE;
+        const lz = Math.floor(i / CHUNK.SIZE) % CHUNK.SIZE;
+        const y = Math.floor(i / (CHUNK.SIZE * CHUNK.SIZE));
+        // 玩家亲手种的跳过：入冬也留着
+        if (this.playerMushrooms.has(World.posKey(ox + lx, y, oz + lz))) continue;
         chunk.data[i] = AIR;
         touched = true;
         count++;
@@ -150,6 +167,69 @@ export class World {
       if (touched) this.dirtyChunks.add(key);
     }
     return count;
+  }
+
+  /** 玩家种下一颗孢子：放下"生长中的孢子"方块并登记 10 秒后长成蘑菇（这格受保护，冬天不消失） */
+  plantSpore(x: number, y: number, z: number, plantId: number, seconds: number): void {
+    this.setBlock(x, y, z, plantId);
+    this.sporeTimers.set(World.posKey(x, y, z), seconds);
+    this.playerMushrooms.add(World.posKey(x, y, z));
+  }
+
+  /** 存档：玩家亲手种下的蘑菇位置（读档后仍然冬天不消失） */
+  exportPlayerMushrooms(): string[] {
+    return [...this.playerMushrooms];
+  }
+
+  /** 读档：认回玩家亲手种下的蘑菇位置 */
+  applyPlayerMushrooms(keys: readonly string[]): void {
+    this.playerMushrooms.clear();
+    for (const k of keys) this.playerMushrooms.add(k);
+  }
+
+  /** 清掉已经不成立的"玩家种的蘑菇"记录（被挖掉了、或者被换成了别的东西） */
+  private prunePlayerMushrooms(): void {
+    for (const key of [...this.playerMushrooms]) {
+      const [x, y, z] = key.split(',').map(Number);
+      const cx = Math.floor(x / CHUNK.SIZE);
+      const cz = Math.floor(z / CHUNK.SIZE);
+      if (!this.chunks.has(World.key(cx, cz))) continue; // 区块还没加载，别急着判死
+      if (!MUSHROOM_LIKE_IDS.includes(this.getBlock(x, y, z))) this.playerMushrooms.delete(key);
+    }
+  }
+
+  /** 每帧推进孢子生长：到点就把"生长中的孢子"换成蘑菇（玩家种的不受季节影响） */
+  tickSpores(dt: number, grown: (x: number, y: number, z: number, plantId: number) => void): void {
+    if (this.sporeTimers.size === 0) return;
+    for (const [key, left] of this.sporeTimers) {
+      const rest = left - dt;
+      if (rest > 0) { this.sporeTimers.set(key, rest); continue; }
+      this.sporeTimers.delete(key);
+      const [x, y, z] = key.split(',').map(Number);
+      grown(x, y, z, this.getBlock(x, y, z));
+    }
+  }
+
+  /** 读档接力：存档里只存了"生长中的孢子"方块，没有计时，
+   *  这里重新登记 seconds 秒后长成蘑菇（不然孢子苗永远长不大）；同时登记为玩家亲手种的 */
+  resumeSpores(plantIds: readonly number[], seconds: number): number {
+    const set = new Set(plantIds);
+    let n = 0;
+    for (const chunk of this.chunks.values()) {
+      const ox = chunk.cx * CHUNK.SIZE;
+      const oz = chunk.cz * CHUNK.SIZE;
+      for (let i = 0; i < chunk.data.length; i++) {
+        if (!set.has(chunk.data[i])) continue;
+        const lx = i % CHUNK.SIZE;
+        const lz = Math.floor(i / CHUNK.SIZE) % CHUNK.SIZE;
+        const y = Math.floor(i / (CHUNK.SIZE * CHUNK.SIZE));
+        const pk = World.posKey(ox + lx, y, oz + lz);
+        this.sporeTimers.set(pk, seconds);
+        this.playerMushrooms.add(pk);
+        n++;
+      }
+    }
+    return n;
   }
 
   /** 把所有已生成的区块标脏：全局换贴图（比如秋天树叶变色）后要整片重建网格 */

@@ -30,6 +30,7 @@ export class Health {
   private regenT = 0; // 自动回血计时
   private swampT = 0; // 泡在泽液里的扣血计时
   private poisons = new TimedEffects(); // 中的毒（药水瓶砸的/喝的）
+  private nightT = 0;                   // 夜视剩余秒数（吃夜光蓝菇）
   private swampId = 0;
 
   constructor(private mode: GameMode, private onRespawn?: () => void) {}
@@ -70,6 +71,7 @@ export class Health {
 
     // 中毒效果发作：每种的毒自己数自己的秒
     this.poisons.update(dt, (amount) => { if (this.damage(amount)) ev.hurt = true; });
+    this.nightT = Math.max(0, this.nightT - dt); // 夜视倒计时
     body.swayPhase = body.swayT > 0 ? (body.swayPhase + dt) % SWAY.CYCLE : 0;
 
     // 氧气：头在水里慢慢耗，露出水面快速回满；喝了防溺瓶不耗氧
@@ -111,6 +113,16 @@ export class Health {
   /** 中一份毒：每 every 秒扣 dmg，持续 dur 秒（毒药用） */
   poison(dmg: number, every: number, dur: number): void {
     this.poisons.add(dmg, every, dur);
+  }
+
+  /** 夜视：接下来 dur 秒里看得见黑夜（吃夜光蓝菇给的） */
+  nightVision(dur: number): void {
+    this.nightT = Math.max(this.nightT, dur);
+  }
+
+  /** 现在是不是夜视生效中（Game 用来把世界调亮） */
+  get isNightVision(): boolean {
+    return this.nightT > 0;
   }
 
   /** 吃东西：按 EAT_HP 表回血/扣血，返回食物效果（不能吃返回 null） */

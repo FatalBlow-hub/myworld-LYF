@@ -1,9 +1,26 @@
-/** 蘑菇贴图 — 四种蘑菇（香菇/金针菇/平菇/红伞伞）+ 蘑菇孢子
- *  都是透明底的小图案：蘑菇是交叉薄片方块，孢子是物品图标。 */
+/** 蘑菇贴图 — 五种蘑菇（含夜光蓝菇）+ 五种孢子（透明底小图案）
+ *  蘑菇是交叉薄片方块，孢子是物品图标；颜色按品种区分：香菇褐、金针菇白、平菇灰、红伞伞红、夜光蓝菇蓝。 */
 
 import { Painter, speckle } from './TextureUtils';
 
-export const MUSHROOM_TILE_NAMES = ['mush_shiitake', 'mush_enoki', 'mush_oyster', 'mush_red', 'mushroom_spore'];
+export const MUSHROOM_TILE_NAMES = [
+  'mush_shiitake', 'mush_enoki', 'mush_oyster', 'mush_red', 'mush_glow',
+  'spore_shiitake', 'spore_enoki', 'spore_oyster', 'spore_red', 'spore_glow',
+];
+
+/** 一小撮孢子粉末：底色 + 3~4 颗亮点，按品种换色 */
+const spore = (base: string, light: string): Painter => (c, x, y) => {
+  c.fillStyle = base;
+  c.fillRect(x + 5, y + 6, 3, 3);
+  c.fillRect(x + 9, y + 8, 2, 2);
+  c.fillRect(x + 6, y + 10, 2, 2);
+  c.fillStyle = light;
+  c.fillRect(x + 5, y + 6, 1, 1);
+  c.fillRect(x + 9, y + 8, 1, 1);
+  c.fillRect(x + 6, y + 10, 1, 1);
+  c.fillStyle = base;
+  c.fillRect(x + 3, y + 12, 10, 1); // 落在地上的一层
+};
 
 export const MUSHROOM_PAINTERS: Record<string, Painter> = {
   // 香菇：厚实的褐色伞 + 米色柄
@@ -55,19 +72,24 @@ export const MUSHROOM_PAINTERS: Record<string, Painter> = {
     c.fillStyle = '#a82a20';
     c.fillRect(x + 2, y + 7, 12, 1);
   },
-  // 蘑菇孢子：一小撮淡紫孢子
-  mushroom_spore: (c, x, y) => {
-    c.fillStyle = '#8a6ad0';
-    c.fillRect(x + 4, y + 7, 2, 2);
-    c.fillRect(x + 9, y + 5, 2, 2);
-    c.fillRect(x + 7, y + 10, 2, 2);
-    c.fillRect(x + 11, y + 10, 1, 1);
-    c.fillStyle = '#bca8f0';
-    c.fillRect(x + 4, y + 7, 1, 1);
-    c.fillRect(x + 9, y + 5, 1, 1);
-    c.fillRect(x + 7, y + 10, 1, 1);
-    // 底下画一层淡淡的孢子雾，看起来像在飘
-    c.fillStyle = 'rgba(150,120,220,0.35)';
-    c.fillRect(x + 3, y + 13, 10, 1);
+  // 夜光蓝菇：蓝紫伞 + 白点，柄会发光（方块自带微光，夜里一眼能认）
+  mush_glow: (c, x, y) => {
+    c.fillStyle = '#dceff8';
+    c.fillRect(x + 6, y + 9, 4, 5);
+    c.fillStyle = '#3f7fd0';
+    c.fillRect(x + 2, y + 4, 12, 4);
+    c.fillRect(x + 4, y + 2, 8, 2);
+    c.fillStyle = '#7fd0f0';
+    c.fillRect(x + 4, y + 4, 8, 1);
+    c.fillStyle = '#eafaff';
+    for (const [dx, dy] of [[3, 5], [7, 3], [11, 5], [6, 6], [10, 6]] as const) c.fillRect(x + dx, y + dy, 2, 1);
+    c.fillStyle = '#8fe0ff';
+    c.fillRect(x + 7, y + 9, 2, 5); // 发光的柄
   },
+  // 五种孢子粉末：按品种换色
+  spore_shiitake: spore('#9a6634', '#e8dcc0'),
+  spore_enoki: spore('#e0d8b8', '#fffbe8'),
+  spore_oyster: spore('#c8c4b8', '#f4f2ec'),
+  spore_red: spore('#d05a4a', '#ffd8d0'),
+  spore_glow: spore('#4f9fd8', '#c8f0ff'),
 };

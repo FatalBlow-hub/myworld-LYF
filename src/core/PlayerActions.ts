@@ -20,13 +20,13 @@ import { RecipeBook } from '../ui/RecipeBook';
 import {
   AIR, BLOCKS, BUCKET, BUY_BOX, CARROT, CHALLENGE_DOOR, CHALLENGE_HOUSE, CHEM_DECOMP, CRAFTING_TABLE,
   DIRT, DYE_TABLE, DYEABLE_CARPETS, FIRESTARTER_IDS, FRUIT_LEAF_IDS, FRUIT_OF_LEAF, GLASS_BUCKET, GRASS, HYDROGEN, ICE, IRON_NUGGET,
-  LEAVES, MELON_SEED, MELON_STAGE1, MUSHROOM_SPORE, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT,
+  LEAVES, MELON_SEED, MELON_STAGE1, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT,
   RICE_GRAIN, RUBBER, SAND, SAPLING_IDS, SEAWEED, SNOW, SNOWFLAKE, SOUL_CHEST, SOUL_FIRESTARTER, SPECIES_BY_SAPLING, STAR_DYE_TABLE, STAR_TABLE, SWAMP_FILL,
   TANK, VENDING_DRINK, VENDING_SPECIAL, VENDING_STORE, VISIT_LIST_BLOCKS, WATER_BUCKET, WOOD,
   dropCountOf, isBed, isChest, isDoor, isFurnace,
 } from '../world/Block';
 import { GOLD_CHEM_DECOMP, GOLD_DYE_TABLE, GOLD_PICKAXE, ICE_MOLECULE } from '../world/GoldenItems';
-import { pickMushroom } from '../world/mushrooms';
+import { SPORE_GROW_SECONDS, SPORE_IDS, SPORE_TO_PLANT } from '../world/mushrooms';
 import { metaFromYaw } from '../world/Shapes';
 import { World } from '../world/World';
 import { seasonOf } from './Calendar';
@@ -94,8 +94,10 @@ export class PlayerActions {
     if (perm.mode === 'all') {
       return perm.fruitException ? isFruitRelated : true;
     }
-    // list 模式：树叶、南瓜、西瓜、小麦（RICE_MATURE 那一系列）、胡萝卜、岛主的水果
-    return VISIT_LIST_BLOCKS.has(blockId) || (ownerFruit !== null && blockId === ownerFruit);
+    // list 模式：树叶、果树树叶、南瓜、西瓜、小麦（RICE_MATURE 那一系列）、胡萝卜、岛主的水果
+    // （果树树叶也要能挖：外岛规则——果树树叶正常掉对应果实）
+    return VISIT_LIST_BLOCKS.has(blockId) || FRUIT_LEAF_IDS.includes(blockId)
+      || (ownerFruit !== null && blockId === ownerFruit);
   }
 
   /** 掉落物归宿（每次现取，列表可能被换掉） */
@@ -170,7 +172,7 @@ export class PlayerActions {
       }
       // 挖树叶掉水果：果树树叶按自己的品种掉（15%，果子本来就挂在叶子上）；
       // 普通树叶只在自己岛上 5% 掉本岛专属水果（兼容老岛上没有果树的存档）。
-      // 季节限定：只有到了这种果树自己的季节才会掉果（桃子春、苹果/梨夏、橘子/柿子秋）
+      // 外岛（随机岛/好友岛）同样生效：果树品种固定，只有到对应季节才掉（桃子春、苹果/梨夏、橘子/柿子秋）
       if (id === LEAVES || id in FRUIT_OF_LEAF) {
         const fruitId = id === LEAVES ? this.d.islandFruit() : FRUIT_OF_LEAF[id];
         const chance = id === LEAVES ? ISLAND.LEAF_FRUIT_CHANCE : ISLAND.FRUIT_LEAF_CHANCE;
@@ -224,14 +226,14 @@ export class PlayerActions {
       // 胡萝卜不是方块：种在草地或泥土上
       if (plantCarrot(world, hit)) spend();
       else hud.showMessage('胡萝卜要种在草地上或泥土上');
-    } else if (stack.id === MUSHROOM_SPORE) {
-      // 蘑菇孢子：种在草地或泥土上（上面得空着），按 30/30/30/10 长出四种蘑菇之一
+    } else if (SPORE_IDS.includes(stack.id)) {
+      // 蘑菇孢子（分五种）：种在草地或泥土上，10 秒后长出这一种蘑菇（玩家种的冬天也不消失）
       const x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz;
       const ground = world.getBlock(hit.x, hit.y, hit.z);
       if ((ground === GRASS || ground === DIRT) && world.getBlock(x, y, z) === AIR) {
-        world.setBlock(x, y, z, pickMushroom());
+        world.plantSpore(x, y, z, SPORE_TO_PLANT[stack.id], SPORE_GROW_SECONDS);
         spend();
-        hud.showMessage('孢子长出蘑菇了！');
+        hud.showMessage('孢子种下了，过 10 秒就会长出蘑菇');
       } else {
         hud.showMessage('孢子要种在草地或泥土上（上面得空着）');
       }
