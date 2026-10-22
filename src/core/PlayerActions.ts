@@ -18,7 +18,7 @@ import { Hud } from '../ui/Hud';
 import { Panel } from '../ui/Panel';
 import { RecipeBook } from '../ui/RecipeBook';
 import {
-  AIR, BLOCKS, BUCKET, BUY_BOX, CARROT, CHALLENGE_DOOR, CHALLENGE_HOUSE, CHEM_DECOMP, CRAFTING_TABLE,
+  AIR, BAMBOO, BLOCKS, BUCKET, BUY_BOX, CARROT, CHALLENGE_DOOR, CHALLENGE_HOUSE, CHEM_DECOMP, CRAFTING_TABLE,
   DIRT, DYE_TABLE, DYEABLE_CARPETS, FIRESTARTER_IDS, FRUIT_LEAF_IDS, FRUIT_OF_LEAF, GLASS_BUCKET, GRASS, HYDROGEN, ICE, IRON_NUGGET,
   LEAVES, MELON_SEED, MELON_STAGE1, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT,
   RICE_GRAIN, RUBBER, SAND, SAPLING_IDS, SEAWEED, SNOW, SNOWFLAKE, SOUL_CHEST, SOUL_FIRESTARTER, SPECIES_BY_SAPLING, STAR_DYE_TABLE, STAR_TABLE, SWAMP_FILL,
@@ -26,6 +26,7 @@ import {
   dropCountOf, isBed, isChest, isDoor, isFurnace,
 } from '../world/Block';
 import { GOLD_CHEM_DECOMP, GOLD_DYE_TABLE, GOLD_PICKAXE, ICE_MOLECULE } from '../world/GoldenItems';
+import { bambooAbove } from '../world/bamboo';
 import { SPORE_GROW_SECONDS, SPORE_IDS, SPORE_TO_PLANT } from '../world/mushrooms';
 import { metaFromYaw } from '../world/Shapes';
 import { World } from '../world/World';
@@ -162,8 +163,11 @@ export class PlayerActions {
     hud.setProgress(this.mineProgress / hardness);
     if (this.mineProgress >= hardness) {
       if (isChest(id) || isFurnace(id)) this.spillContainer(hitX!, hitY!, hitZ!);
+      // 竹子在挖断前先数一下上面还接着几节：断了下半截没支撑，整根会跟着倒，这些照数进包
+      const bambooFallen = id === BAMBOO ? bambooAbove(world, hitX!, hitY!, hitZ!) : 0;
       const drop = mine(world, { x: hitX!, y: hitY!, z: hitZ!, nx: 0, ny: 0, nz: 0 });
       if (drop !== AIR && !creative) inventory.add(drop, dropCountOf(id)); // 创造模式挖了不进包
+      if (bambooFallen > 0 && !creative) inventory.add(BAMBOO, bambooFallen);
       // 砍树额外掉橡胶：每挖掉一块木头掷一次骰子，中了掉 1~2 个
       if (id === WOOD && !creative && Math.random() < RUBBER_DROP.CHANCE) {
         const n = RUBBER_DROP.MIN + Math.floor(Math.random() * (RUBBER_DROP.MAX - RUBBER_DROP.MIN + 1));
@@ -296,6 +300,8 @@ export class PlayerActions {
       if (this.d.buildChallenge(hit)) spend();
     } else if (place(world, hit, stack.id, body, metaFromYaw(body.yaw))) {
       spend();
+    } else if (stack.id === BAMBOO) {
+      hud.showMessage('竹子要种在泥土或草地上（可以接在别的竹子上往上长）');
     } else if (isBed(stack.id)) {
       hud.showMessage('床要横着占两格：指的地方和你脸朝的前面那格都得是空的');
     }

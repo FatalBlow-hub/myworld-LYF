@@ -767,6 +767,12 @@ export const WIND_FX = {
   OFFSET_MAX: 0.1, HALF_SPAN: 0.38, HEIGHT_MIN: 0.82, HEIGHT_MAX: 1.0,
 } as const;
 
+/** 竹子的表现参数：竹叶探出格子外面才像一丛（MC 的竹叶模型也是超格的） */
+export const BAMBOO_FX = {
+  LEAF_SPAN: 0.62,        // 梢头大丛竹叶的半宽（1 格 = 0.5，0.62 即探出格子）
+  SMALL_LEAF_SPAN: 0.46,  // 顶下一节小丛竹叶的半宽
+} as const;
+
 /** 天空渐变球与地平线雾（三段昼夜色 + 雾距系数） */
 export const SKY = {
   RADIUS: 150, W_SEG: 32, H_SEG: 16, FOG_NEAR: 0.65, FOG_FAR: 1.1,

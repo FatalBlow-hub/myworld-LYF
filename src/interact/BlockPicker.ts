@@ -1,7 +1,8 @@
 /** 方块拾取 — 从眼睛沿视线发射线找方块，执行挖掘 / 放置 / 开关门 */
 
 import { CHUNK, PLAYER } from '../config';
-import { AIR, BLOCKS, CARROT_SEED, DIRT, DOOR_CLOSED, GRASS, RICE_SEED, SEAWEED, STAR_WOOL, WATER, dropOf, isBed, isDoor, isPlant, isSolid, isSwamp, toggleDoor } from '../world/Block';
+import { AIR, BAMBOO, BLOCKS, CARROT_SEED, DIRT, DOOR_CLOSED, GRASS, RICE_SEED, SEAWEED, STAR_WOOL, WATER, dropOf, isBed, isDoor, isPlant, isSolid, isSwamp, toggleDoor } from '../world/Block';
+import { bambooStandable } from '../world/bamboo';
 import { META_DIRS } from '../world/Shapes';
 import { World } from '../world/World';
 import { PlayerBody } from '../player/Physics';
@@ -157,6 +158,8 @@ export function place(world: World, hit: BlockHit, blockId: number, body: Player
   }
   // 星空羊毛不能离开地面悬空放：脚底下那格必须是实心方块
   if (blockId === STAR_WOOL && !isSolid(world.getBlock(x, y - 1, z))) return false;
+  // 竹子也一样不许悬空：脚下得是泥土/草方块，或者接着下面那节竹子（能往上接高）
+  if (blockId === BAMBOO && !bambooStandable(world, x, y, z)) return false;
   if (blockId === DOOR_CLOSED) {
     const up = world.getBlock(x, y + 1, z);
     if (up !== AIR && up !== WATER) return false; // 门的上半截没地方放

@@ -77,8 +77,8 @@ const TILE_NAMES = [
   'bucket_sw_light', 'bucket_sw_mid', 'bucket_sw_phantom', 'bucket_sw_deep', 'bucket_sw_drown',
   'gbucket_sw_light', 'gbucket_sw_mid', 'gbucket_sw_phantom', 'gbucket_sw_deep', 'gbucket_sw_drown',
   ...GOLDEN_TILE_NAMES,
-  // —— 竹子（方块要进图集，不然世界里的竹子没贴图）：杆侧面 / 杆顶截面 / 顶端竹叶 / 物品图标 ——
-  'bamboo', 'bamboo_side', 'bamboo_top', 'bamboo_leaves', 'bamboo_shoot',
+  // —— 竹子（方块要进图集，不然世界里的竹子没贴图）：杆侧面 / 竹节箍 / 杆顶截面 / 顶部竹叶大小两丛 / 物品图标 ——
+  'bamboo', 'bamboo_side', 'bamboo_node', 'bamboo_top', 'bamboo_leaves', 'bamboo_leaves_small', 'bamboo_shoot',
   ...ISLAND_TILE_NAMES,
   // —— 大厅三台机器（正面画在 front，背包图标也认 front）——
   'vend_special_top', 'vend_special_side', 'vend_special_front',

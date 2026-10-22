@@ -2,6 +2,7 @@
 
 import { BAMBOO_FOREST, CHUNK, CROP, ISLAND, ORE, PALM, SEA_LEVEL, SPAWN, WORLD_SEED } from '../config';
 import { BAMBOO, BLUE_ORE, CACTUS, CARROT_MATURE, COAL_ORE, DANDELION, DIRT, GOLD_ORE, GRASS, ICE, IRON_ORE, LEAVES, MELON, PALM_LEAVES, POPPY, PUMPKIN, RICE_MATURE, SAND, SANDSTONE, SEAWEED, SNOW, SOUL_GRASS, SPECIES_BY_LEAF, STONE, TALL_GRASS, WATER, WOOD } from './Block';
+import { canRootIn } from './bamboo';
 import { Chunk } from './Chunk';
 import { swampAt } from './Swamp';
 import { treeBlocks } from './Trees';
@@ -198,9 +199,10 @@ export function generateChunk(chunk: Chunk, opts?: { grassOnly?: boolean }): voi
 
       // 竹林：夏/秋/冬岛附带竹子——按 96 格的大网格掷一片竹林，林是半径 6 格的圆，圆里再按密度长竹丛
       const bambooGround = chunk.data[Chunk.index(lx, h - 1, lz)];
-      const onSnowGrass = activeSnowOnly && bambooGround === SNOW; // 冬季岛满岛是雪，雪地上也长竹子
+      // 竹根只认泥土/草方块；雪块只有冬季岛（满岛是雪）才算地面
+      const bambooSoil = canRootIn(bambooGround) && (bambooGround !== SNOW || activeSnowOnly);
       if (activeBamboo && !swamp && !nearSea && biome !== 'desert'
-          && (bambooGround === GRASS || onSnowGrass)
+          && bambooSoil
           && chunk.data[Chunk.index(lx, h, lz)] === 0) {
         const gx = Math.round(wx / BAMBOO_FOREST.CELL_SIZE) * BAMBOO_FOREST.CELL_SIZE;
         const gz = Math.round(wz / BAMBOO_FOREST.CELL_SIZE) * BAMBOO_FOREST.CELL_SIZE;

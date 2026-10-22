@@ -1,7 +1,8 @@
 /** 世界 — 区块 + 方块朝向 + 箱子/熔炉内容 + 按碰撞盒的碰撞查询 */
 
 import { CHUNK, SMELT_TIME, WATER_FLOW } from '../config';
-import { AIR, CROP_NEXT, SAPLING_MATURE, SAPLING_NEXT, SOUL_FURNACE, STONE, WATER, Slots } from './Block';
+import { AIR, BAMBOO, CROP_NEXT, SAPLING_MATURE, SAPLING_NEXT, SOUL_FURNACE, STONE, WATER, Slots } from './Block';
+import { bambooStandable } from './bamboo';
 import { solidBoxes } from './Shapes';
 import { tryGrowTree } from './Trees';
 import { SMELT } from './Recipes';
@@ -141,6 +142,17 @@ export class World {
     if (lz === CHUNK.SIZE - 1) this.markDirty(cx, cz + 1);
 
     this.onBlockChange?.(wx, wy, wz, id);
+
+    // 竹子不许悬空：脚下这格一换（挖土、放别的东西），上面站不住的竹竿整根跟着倒
+    if (id !== BAMBOO && this.getBlock(wx, wy + 1, wz) === BAMBOO) this.fellBamboo(wx, wy + 1, wz);
+  }
+
+  /** 从 (x,y,z) 往上一节一节拆掉站不住的竹竿，遇到还站得住的那节就停（塌方不留浮空竹子） */
+  private fellBamboo(x: number, y: number, z: number): void {
+    for (let yy = y; this.getBlock(x, yy, z) === BAMBOO; yy++) {
+      if (bambooStandable(this, x, yy, z)) return;
+      this.setBlock(x, yy, z, AIR); // 拆掉这节后上面那节自然也不成立，循环往上接着拆
+    }
   }
 
   /** 把世界里所有指定方块清掉（换成空气）：入冬清蘑菇用；

@@ -1,9 +1,9 @@
 /** 区块网格化 — 把方块数据变成三角形：普通方块只画看得见的面，异形方块按碰撞盒画 */
 
 import * as THREE from 'three';
-import { AO_CURVE, CHUNK, FACE_SHADE, WIND_FX } from '../config';
+import { AO_CURVE, BAMBOO_FX, CHUNK, FACE_SHADE, WIND_FX } from '../config';
 import { AIR, BLOCKS, BlockDef, DANDELION, POPPY, SEAWEED, TALL_GRASS, WATER, isSwamp } from '../world/Block';
-import { Box, FOUNTAIN_WATER, META_DIRS, renderBoxes } from '../world/Shapes';
+import { BAMBOO_NODE_RING, Box, FOUNTAIN_WATER, META_DIRS, renderBoxes } from '../world/Shapes';
 import { World } from '../world/World';
 import { Atlas } from './Textures';
 
@@ -214,9 +214,15 @@ export function meshChunk(world: World, cx: number, cz: number, atlas: Atlas): C
           if (def.shape === 'fence') emitFenceBars(shapeTarget, atlas, world, wx, y, wz, def, meta);
           // 喷泉水面画到半透明层，真·透明水，顶面打标参与波浪波光
           if (def.shape === 'fountain') for (const b of FOUNTAIN_WATER) emitPlainBox(water, atlas, wx, y, wz, b, 'water', true);
-          // 竹子：只有最顶上那一节长竹叶，下面接着竹子就还是光杆
-          if (def.shape === 'bamboo' && world.getBlock(wx, y + 1, wz) !== id) {
-            emitCross(solid, atlas, wx, y, wz, id, 'bamboo_leaves');
+          if (def.shape === 'bamboo') {
+            // 竹节箍：比杆子粗一圈的小盒子，一节套一节才看得出竹节
+            emitPlainBox(shapeTarget, atlas, wx, y, wz, BAMBOO_NODE_RING, 'bamboo_node');
+            // 竹叶只长在梢头：最顶上一大丛，顶下一节一小丛，再往下就是光杆
+            if (world.getBlock(wx, y + 1, wz) !== id) {
+              emitCross(solid, atlas, wx, y, wz, id, 'bamboo_leaves', true, BAMBOO_FX.LEAF_SPAN);
+            } else if (world.getBlock(wx, y + 2, wz) !== id) {
+              emitCross(solid, atlas, wx, y, wz, id, 'bamboo_leaves_small', true, BAMBOO_FX.SMALL_LEAF_SPAN);
+            }
           }
           continue;
         }
@@ -282,18 +288,21 @@ function hashCoord(wx: number, wz: number, salt: number): number {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
-/** 花草画成两张交叉的斜面薄片，带确定性随机角度/格内微移（野生植物带随机高度），底边钉死顶边随风摆 */
-function emitCross(g: GeoArrays, atlas: Atlas, wx: number, y: number, wz: number, id: number, tex: string): void {
+/** 花草画成两张交叉的斜面薄片，带确定性随机角度/格内微移（野生植物带随机高度），底边钉死顶边随风摆。
+ *  centered = 薄片钉在格子正中不偏移：竹叶要长在竹竿上，偏了就显得杆叶分家。
+ *  span = 薄片半宽（缺省 WIND_FX.HALF_SPAN；竹叶给大一点，探出格子才像一丛）。 */
+function emitCross(g: GeoArrays, atlas: Atlas, wx: number, y: number, wz: number, id: number, tex: string, centered = false, span?: number): void {
   const uvRect = atlas.uv(tex);
   const theta = hashCoord(wx, wz, 1) * Math.PI;
-  const ox = (hashCoord(wx, wz, 2) * 2 - 1) * WIND_FX.OFFSET_MAX;
-  const oz = (hashCoord(wx, wz, 3) * 2 - 1) * WIND_FX.OFFSET_MAX;
+  const jitter = centered ? 0 : WIND_FX.OFFSET_MAX;
+  const ox = (hashCoord(wx, wz, 2) * 2 - 1) * jitter;
+  const oz = (hashCoord(wx, wz, 3) * 2 - 1) * jitter;
   const h = WILD_PLANTS.has(id)
     ? WIND_FX.HEIGHT_MIN + hashCoord(wx, wz, 4) * (WIND_FX.HEIGHT_MAX - WIND_FX.HEIGHT_MIN)
     : 1;
   const cx = wx + 0.5 + ox;
   const cz = wz + 0.5 + oz;
-  const r = WIND_FX.HALF_SPAN;
+  const r = span ?? WIND_FX.HALF_SPAN;
   const c = Math.cos(theta);
   const s = Math.sin(theta);
   const dirs: [number, number][] = [[c, s], [-s, c]];
