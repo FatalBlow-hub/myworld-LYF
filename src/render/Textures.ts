@@ -79,6 +79,8 @@ const TILE_NAMES = [
   ...GOLDEN_TILE_NAMES,
   // —— 竹子（方块要进图集，不然世界里的竹子没贴图）：杆侧面 / 竹节箍 / 杆顶截面 / 顶部竹叶大小两丛 / 物品图标 ——
   'bamboo', 'bamboo_side', 'bamboo_node', 'bamboo_top', 'bamboo_leaves', 'bamboo_leaves_small', 'bamboo_shoot',
+  // —— 2026-10-23 新吃食（红花蜜茶/蒲公英凉茶/草饼/颠倒香蕉液/水果拼盘/蘑菇拼盘）——
+  'tea_red', 'tea_dandelion', 'grass_cake', 'banana_flip', 'fruit_platter', 'mushroom_platter',
   ...ISLAND_TILE_NAMES,
   // —— 大厅三台机器（正面画在 front，背包图标也认 front）——
   'vend_special_top', 'vend_special_side', 'vend_special_front',

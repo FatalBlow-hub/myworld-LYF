@@ -30,7 +30,10 @@ export class TimedEffects {
     this.effects = this.effects.filter((p) => p.left > 1e-9);
   }
 
-  clear(): void {
+  /** 清空全部中毒效果，返回清掉了几份（蒲公英凉茶解毒用） */
+  clear(): number {
+    const n = this.effects.length;
     this.effects = [];
+    return n;
   }
 }

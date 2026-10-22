@@ -23,6 +23,25 @@ const bottle = (liquid: string, cap = CAP): Painter => (c, x, y) => {
   px(6, 4, 1, 1, '#ffffff');               // 玻璃反光
 };
 
+/** 一瓶花茶：普通玻璃瓶 + 瓶身外飘两片花瓣（红花蜜茶 / 蒲公英凉茶共用） */
+const tea = (liquid: string, petal: string): Painter => (c, x, y) => {
+  bottle(liquid)(c, x, y);
+  c.fillStyle = petal;
+  c.fillRect(x + 2, y + 8, 2, 1);
+  c.fillRect(x + 3, y + 7, 1, 1);
+  c.fillRect(x + 12, y + 9, 1, 1);
+  c.fillRect(x + 12, y + 10, 2, 1);
+};
+
+/** 颠倒香蕉液：香蕉黄的一瓶，瓶身上画个反向箭头 */
+const flipBottle = (liquid: string): Painter => (c, x, y) => {
+  bottle(liquid)(c, x, y);
+  c.fillStyle = '#ffffff';
+  c.fillRect(x + 6, y + 10, 4, 1);   // 箭头横线
+  c.fillRect(x + 5, y + 9, 1, 3);    // 左端竖钩
+  c.fillRect(x + 9, y + 9, 1, 1);    // 右端尖
+};
+
 /** 一颗蛋：底宽顶尖的椭圆 + 高光 + 斑点，三档换色 */
 const egg = (base: string, light: string, spot: string): Painter => (c, x, y) => {
   const px = (dx: number, dy: number, w: number, h: number, col: string) => {
@@ -102,6 +121,59 @@ export const SHOP_PAINTERS: Record<string, Painter> = {
   juice_melon: bottle('#e8506a'),
   juice_carrot: bottle('#e8802a'),
   juice_pear: bottle('#d8d060'),
+
+  // —— 2026-10-23 新吃食：两种茶 + 颠倒香蕉液 + 草饼 + 水果拼盘 + 蘑菇拼盘 ——
+  tea_red: tea('#c8323a', '#e8606a'),
+  tea_dandelion: tea('#e8d070', '#f4f7f2'),
+  banana_flip: flipBottle('#f0d040'),
+  // 草饼：压扁的一块绿饼，表面撒着草屑
+  grass_cake: (c, x, y) => {
+    const px = (dx: number, dy: number, w: number, h: number, col: string) => {
+      c.fillStyle = col;
+      c.fillRect(x + dx, y + dy, w, h);
+    };
+    px(3, 4, 10, 8, '#4a7a2a');   // 饼身
+    px(4, 5, 8, 6, '#6ea83a');    // 饼面
+    px(5, 6, 6, 2, '#84c452');    // 受光
+    px(3, 11, 10, 1, '#3a5f20');  // 底边阴影
+    c.fillStyle = '#3f6b1e';
+    for (const [sx, sy] of [[5, 5], [8, 7], [10, 6], [6, 9], [9, 9]]) c.fillRect(x + sx, y + sy, 1, 1);
+  },
+  // 水果拼盘：一只浅色盘子，上面码着五种水果块
+  fruit_platter: (c, x, y) => {
+    const px = (dx: number, dy: number, w: number, h: number, col: string) => {
+      c.fillStyle = col;
+      c.fillRect(x + dx, y + dy, w, h);
+    };
+    px(2, 9, 12, 4, '#b08652');   // 盘沿
+    px(3, 10, 10, 2, '#e0bc84');  // 盘面
+    px(2, 12, 12, 1, '#8a6238');  // 盘底
+    px(3, 6, 3, 3, '#d8402a');    // 苹果
+    px(6, 5, 3, 4, '#f0a0a8');    // 桃子
+    px(9, 6, 3, 3, '#f0d040');    // 梨
+    px(4, 3, 3, 2, '#f08a20');    // 橘子
+    px(8, 3, 3, 2, '#a83a20');    // 柿子
+    px(4, 6, 1, 1, '#ff9a80');    // 高光
+    px(10, 6, 1, 1, '#fff0a0');
+  },
+  // 蘑菇拼盘：同样一只盘子，码四种好蘑菇（香菇/金针菇/平菇/夜光蓝菇）
+  mushroom_platter: (c, x, y) => {
+    const px = (dx: number, dy: number, w: number, h: number, col: string) => {
+      c.fillStyle = col;
+      c.fillRect(x + dx, y + dy, w, h);
+    };
+    px(2, 9, 12, 4, '#b08652');
+    px(3, 10, 10, 2, '#e0bc84');
+    px(2, 12, 12, 1, '#8a6238');
+    px(3, 6, 4, 2, '#8a5a3a');    // 香菇伞
+    px(4, 8, 2, 2, '#e8dcc0');    // 香菇柄
+    px(7, 5, 2, 3, '#f0e8c8');    // 金针菇（细长）
+    px(7, 8, 1, 1, '#e0d8b8');
+    px(10, 6, 4, 2, '#c8b8a0');   // 平菇伞
+    px(11, 8, 2, 1, '#b0a088');
+    px(9, 3, 3, 2, '#5ad0f0');    // 夜光蓝菇（发光蓝）
+    px(10, 5, 1, 1, '#9ae8ff');
+  },
 
   // —— 三档小战士召唤蛋 ——
   egg_warrior_normal: egg('#dfe4ea', '#ffffff', '#8fa8c0'),

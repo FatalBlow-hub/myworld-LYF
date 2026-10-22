@@ -5,10 +5,12 @@
 import { APPLE_LEAVES, APPLE_SAP1, BANANA, BANANA_LEAVES, BANANA_SAP1, COCONUT_SAP1, FRUIT_LEAF_IDS, ORANGE_LEAVES, ORANGE_SAP1, PEACH_LEAVES, PEACH_SAP1, PEAR, PEAR_LEAVES, PEAR_SAP1, PERSIMMON, PERSIMMON_LEAVES, PERSIMMON_SAP1, TREE_BLOCKS } from './blocks.trees';
 import { MUSHROOM_BLOCKS, GLOW_SHROOM, GLOW_SPORE, MUSHROOM_ENOKI, MUSHROOM_OYSTER, MUSHROOM_RED, MUSHROOM_SHIITAKE, MUSHROOM_SPORE, SPORE_ENOKI, SPORE_OYSTER, SPORE_RED, SPORE_SHIITAKE } from './blocks.mushrooms';
 import { SNOWFLAKE, SNOW_BLOCKS } from './blocks.season';
+import { FOOD_BLOCKS, FOOD_IDS } from './blocks.food';
 
 export * from './blocks.trees'; // 果树一族（梨/柿子/果树叶/树苗）的 ID 与物种表也走这里转发，外部照旧只认 './Block'
 export * from './blocks.mushrooms'; // 蘑菇一族（四种蘑菇 + 孢子）同样转发
 export * from './blocks.season'; // 季节小物（雪花）同样转发
+export * from './blocks.food'; // 新食物与饮品（红花蜜茶/凉茶/草饼/香蕉液/两种拼盘）同样转发
 
 export const AIR = 0;
 export const GRASS = 1;
@@ -320,9 +322,9 @@ export const JUICE_COCONUT = 249;
 export const JUICE_MELON = 250;
 export const JUICE_CARROT = 251;
 // —— 小战士召唤蛋（252~254）：拿着对地按 M 召唤保镖，品质越高越能打 ——
-export const EGG_WARRIOR_NORMAL = 252;   // 普通：跟僵尸一样能打
-export const EGG_WARRIOR_ADVANCED = 253; // 高级：血量翻倍
-export const EGG_WARRIOR_EPIC = 254;     // 绝世：血×3 攻×2
+export const EGG_WARRIOR_NORMAL = 252;   // 普通：血 36（僵尸三倍），跟僵尸一样能打
+export const EGG_WARRIOR_ADVANCED = 253; // 高级：血 72，会自己回血
+export const EGG_WARRIOR_EPIC = 254;     // 绝世：血 108 攻×2，会秒杀
 export const WARRIOR_EGG_IDS = [EGG_WARRIOR_NORMAL, EGG_WARRIOR_ADVANCED, EGG_WARRIOR_EPIC];
 
 // —— 四种鱼（255~258）：海里游的小家伙，下水按 P 打，打死掉生鱼 ——
@@ -438,6 +440,7 @@ export const BLOCKS: Record<number, BlockDef> = {
   ...TREE_BLOCKS,   // 果树一族（blocks.trees.ts）：5 种果树叶 + 梨/柿子 + 6 种三阶段树苗
   ...MUSHROOM_BLOCKS, // 蘑菇一族（blocks.mushrooms.ts）：四种蘑菇 + 孢子
   ...SNOW_BLOCKS,     // 季节小物（blocks.season.ts）：雪花
+  ...FOOD_BLOCKS,     // 新食物与饮品（blocks.food.ts）：两种茶/草饼/香蕉液/两种拼盘
   [AIR]:         { cn: '空气',   tex: { top: '', side: '' }, solid: false, seeThrough: true, hardness: 0 },
   [GRASS]:       { cn: '草方块', tex: { top: 'grass_top', side: 'grass_side', bottom: 'dirt' }, solid: true, seeThrough: false, hardness: 0.6, drop: DIRT },
   [DIRT]:        { cn: '泥土',   tex: { top: 'dirt', side: 'dirt' }, solid: true, seeThrough: false, hardness: 0.5 },
@@ -754,6 +757,8 @@ export const ALL_ITEMS = [
   GLOW_SPORE, SPORE_SHIITAKE, SPORE_OYSTER, SPORE_ENOKI, SPORE_RED,
   // 雪花（冬季岛的雪地里偶尔能挖到）
   SNOWFLAKE,
+  // 新食物与饮品（blocks.food.ts）：两种茶、草饼、颠倒香蕉液、水果拼盘、蘑菇拼盘
+  ...FOOD_IDS,
 ];
 
 /** 庄稼生长链：每 60 秒走一级（水稻/胡萝卜/南瓜/西瓜共用）；最后一级不在表里 = 熟透了不再长 */

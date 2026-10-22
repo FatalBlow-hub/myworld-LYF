@@ -72,7 +72,8 @@ export class MouseLook {
       return;
     }
     // 鼠标右移 = 右转（和 turnRight 一样是 yaw 减小）；鼠标上移 = 抬头（pitch 增大）
-    body.yaw -= this.dx * MOUSE.SENS;
+    // 喝了颠倒香蕉液（flipT > 0）左右转也反着来
+    body.yaw -= (body.flipT > 0 ? -1 : 1) * this.dx * MOUSE.SENS;
     body.pitch += this.dy * (MOUSE.INVERT_Y ? 1 : -1) * MOUSE.SENS;
     body.pitch = Math.max(-PLAYER.LOOK_LIMIT, Math.min(PLAYER.LOOK_LIMIT, body.pitch));
     this.dx = 0;

@@ -30,7 +30,7 @@ import { Panel } from '../ui/Panel';
 import { Mobs } from '../entities/Mobs';
 import { ItemDrop } from '../entities/ItemDrop';
 import { CHARACTER_NAMES, CharacterKind, VisitAvatar, pickCharacter } from '../entities/Character';
-import { TIER_OF_EGG, WARRIOR_TIER_NAMES } from '../entities/Warrior';
+import { TIER_OF_EGG, WARRIOR_TIER_NAMES, WarriorTier } from '../entities/Warrior';
 import { ContainerPanel } from '../ui/Container';
 import { DyePanel } from '../ui/DyePanel';
 import { RecipeBook } from '../ui/RecipeBook';
@@ -346,6 +346,7 @@ export class Game {
       openShop: (kind) => this.openShop(kind),
       openBuyBox: () => this.openBuyBox(),
       summonWarrior: (eggId, x, y, z) => this.summonWarrior(eggId, x, y, z),
+      body: () => this.body!,
     });
     this.combat = new MobCombat(this.controller, this.inventory, () => this.slot, this.hud, this.mobs);
     // 读档会立刻按存档坐标生成区块，得先把本岛果树品种喂给地形生成器，不然家门口不长果树
@@ -565,7 +566,17 @@ export class Game {
       this.hud!.refreshHotbar(inv, this.slot);
     }
     this.hud!.showMessage(`${WARRIOR_TIER_NAMES[tier]}小战士参战！他会跟着你，优先打正在打你的怪`, 3);
-    this.saveNow();
+    // 本岛整档存；在大厅/副本岛召唤时整档会被拦掉，得单独把小战士记进本岛档，不然回岛就没了
+    if (this.scene === 'island') this.saveNow(); else this.persistWarrior(tier);
+  }
+
+  /** 在大厅/副本岛召唤的小战士：位置不属于本岛，打个 pending 标记存进本岛档，回岛时放到出生点旁 */
+  private persistWarrior(tier: WarriorTier): void {
+    const save = this.islandSave ?? readSave(this.saveSlot);
+    if (!save) return;
+    save.warriors = [...(save.warriors ?? []), { tier, x: 0, y: 0, z: 0, pending: true }];
+    this.islandSave = save;
+    writeSave(this.saveSlot, save);
   }
 
   /** 背包里点「人物」换一个形象：史蒂夫 ↔ 艾力克斯，换完马上写进档（在大厅/副本岛时也照写） */

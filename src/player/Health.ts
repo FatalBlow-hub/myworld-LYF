@@ -31,6 +31,9 @@ export class Health {
   private swampT = 0; // 泡在泽液里的扣血计时
   private poisons = new TimedEffects(); // 中的毒（药水瓶砸的/喝的）
   private nightT = 0;                   // 夜视剩余秒数（吃夜光蓝菇）
+  private slowT = 0;                    // 食物给的缓慢回血剩余秒数（红花蜜茶/水果拼盘）
+  private slowRate = 0;                 // 缓慢回血每秒回多少
+  private slowAcc = 0;                  // 攒够 1 点再回，别把血算成小数
   private swampId = 0;
 
   constructor(private mode: GameMode, private onRespawn?: () => void) {}
@@ -72,6 +75,18 @@ export class Health {
     // 中毒效果发作：每种的毒自己数自己的秒
     this.poisons.update(dt, (amount) => { if (this.damage(amount)) ev.hurt = true; });
     this.nightT = Math.max(0, this.nightT - dt); // 夜视倒计时
+
+    // 食物给的缓慢回血：按每秒速率攒，攒够 1 点回一次（红花蜜茶 6 秒回 2 点 = 每 3 秒 1 点）
+    if (this.slowT > 0) {
+      this.slowT = Math.max(0, this.slowT - dt);
+      this.slowAcc += dt * this.slowRate;
+      if (this.slowAcc >= 1) {
+        const gain = Math.floor(this.slowAcc);
+        this.slowAcc -= gain;
+        if (this.mode !== 'creative') this.hp = Math.min(HEALTH.MAX_HP, this.hp + gain);
+      }
+      if (this.slowT <= 0) this.slowAcc = 0;
+    }
     body.swayPhase = body.swayT > 0 ? (body.swayPhase + dt) % SWAY.CYCLE : 0;
 
     // 氧气：头在水里慢慢耗，露出水面快速回满；喝了防溺瓶不耗氧
@@ -115,9 +130,21 @@ export class Health {
     this.poisons.add(dmg, every, dur);
   }
 
-  /** 夜视：接下来 dur 秒里看得见黑夜（吃夜光蓝菇给的） */
+  /** 夜视：接下来 dur 秒里看得见黑夜（吃夜光蓝菇 / 蘑菇拼盘的柔光照明） */
   nightVision(dur: number): void {
     this.nightT = Math.max(this.nightT, dur);
+  }
+
+  /** 缓慢回血：接下来 seconds 秒里一共回 total 点（红花蜜茶 / 水果拼盘） */
+  slowHeal(seconds: number, total: number): void {
+    if (!(seconds > 0) || !(total > 0)) return;
+    this.slowT = Math.max(this.slowT, seconds);
+    this.slowRate = Math.max(this.slowRate, total / seconds);
+  }
+
+  /** 解毒：把身上中的毒一次清掉，返回清掉了几份（蒲公英凉茶） */
+  curePoison(): number {
+    return this.poisons.clear();
   }
 
   /** 现在是不是夜视生效中（Game 用来把世界调亮） */
@@ -144,6 +171,9 @@ export class Health {
     this.poisons.clear();
     this.swampId = 0;
     this.regenT = 0;
+    this.slowT = 0;
+    this.slowRate = 0;
+    this.slowAcc = 0;
     this.invincible = HEALTH.RESPAWN_INVINCIBLE;
     this.onRespawn?.();
   }

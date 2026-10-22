@@ -100,12 +100,23 @@ export const HUNGER = {
 
 export const SMELT_TIME = 3; // 熔炉烧一个东西要几秒
 
-/** 食物效果：饥饿变化 + 血量变化（为 A8 南瓜片/西瓜片、A11 三种水果预留） */
+/** 食物效果：饥饿变化 + 血量变化 + 可选的状态效果（2026-10-23 新增茶/拼盘/香蕉液） */
 export interface FoodEffect {
   hunger: number;
   hp: number;
+  /** 移速加成（秒）与倍率 */
   boostSeconds?: number;
   boostMult?: number;
+  /** 接下来 seconds 秒里缓慢回 hp 点血（红花蜜茶 / 水果拼盘） */
+  slowHeal?: { seconds: number; hp: number };
+  /** 挖掘加速秒数（水果拼盘） */
+  hasteSeconds?: number;
+  /** 方向反转秒数：前进变后退、左右转互换（颠倒香蕉液） */
+  flipSeconds?: number;
+  /** 柔光照明秒数（蘑菇拼盘）：和夜视同一套亮度提升 */
+  glowSeconds?: number;
+  /** 解毒（蒲公英凉茶）：把身上中的毒一次清掉 */
+  curePoison?: boolean;
 }
 
 /** 吃东西的效果：物品ID → { hunger: 回饥饿, hp: 回血（负数=扣血，生肉难吃！） } */
@@ -145,6 +156,13 @@ export const EAT_HP: Record<number, FoodEffect> = {
   258: { hunger: 1, hp: -2 },   // 生河豚：有毒！-2 血 +1 饥饿
   284: { hunger: 3, hp: 0 },    // 梨子汁：跟直接啃梨一个效果（只管饱，不回血）
   285: { hunger: 0, hp: 5.5 },  // 柿子饼：柿子本身的 2.5 血，再额外 +3 血
+  // —— 2026-10-23 新加的自制吃食（用户在聊天里下的设定）——
+  309: { hunger: 1, hp: 0, slowHeal: { seconds: 6, hp: 2 } },             // 红花蜜茶：+1 饥饿，6 秒里慢慢回 2 血
+  310: { hunger: 1, hp: 0, curePoison: true },                            // 蒲公英凉茶：+1 饥饿，解毒
+  311: { hunger: 2, hp: 0 },                                              // 草饼：新手口粮，+2 饥饿
+  312: { hunger: 1, hp: 0, flipSeconds: 8 },                              // 颠倒香蕉液：+1 饥饿，方向反 8 秒
+  313: { hunger: 5, hp: 0, boostSeconds: 6, boostMult: 1.3, hasteSeconds: 6, slowHeal: { seconds: 6, hp: 2 } }, // 水果拼盘
+  314: { hunger: 4, hp: 0, boostSeconds: 6, boostMult: 1.3, glowSeconds: 6 }, // 蘑菇拼盘
 };
 
 /** 鱼：四种都住在海里（水里游来游去），下水按 P 打，打死掉对应的鱼物品 */
@@ -185,6 +203,9 @@ export const SKATES = {
   FALL_ANGLE: Math.PI / 2, // 倒地时镜头侧倾角度
   MAX_FALLS: 3,      // 摔几次鞋就烂了
 };
+
+/** 挖掘加速（水果拼盘 6 秒）：挖掘速度倍率 */
+export const HASTE = { MULT: 1.5 } as const;
 
 /** 吃完腌菜桶/橙子等食物的加速效果 */
 export const BOOST = {
@@ -593,7 +614,7 @@ export const PALM = {
   COCONUT_MAX: 4,
 };
 
-/** 小战士（保镖）：数值基准就是普通僵尸，三档各自翻倍 + 各自的特技 */
+/** 小战士（保镖）：数值基准就是普通僵尸；血量三档再各放大三倍（12 → 36/72/108），外加各自的特技 */
 export const WARRIOR = {
   SPEED: 3.4,        // 跟着主人走的正常速度（比僵尸快一点才追得上）
   CHASE_MULT: 1.5,   // 离主人太远时加速追
@@ -604,12 +625,13 @@ export const WARRIOR = {
   ATTACK_EVERY: 0.9, // 攻击间隔（秒）
   TELEPORT_DIST: 32, // 离主人超过这么多格直接闪现回身边，别走丢
   MEMORY: 6,         // 「怪在打主人 / 主人在打怪」记几秒，用来排攻击优先级
-  /** 三档：血量与攻击是僵尸的倍数；其余是各自的特技（普通暴击 / 高级回血 / 绝世秒杀+回血） */
+  /** 三档：血量与攻击是僵尸的倍数（血量 3/6/9 = 36/72/108，每档都比原来硬三倍）；
+   *  其余是各自的特技（普通暴击 / 高级回血 / 绝世秒杀+回血） */
   TIERS: {
-    normal: { hpMult: 1, dmgMult: 1, critEvery: 8, critChance: 0.02 },
-    advanced: { hpMult: 2, dmgMult: 1, healEvery: 10, healChance: 0.04 },
+    normal: { hpMult: 3, dmgMult: 1, critEvery: 8, critChance: 0.02 },
+    advanced: { hpMult: 6, dmgMult: 1, healEvery: 10, healChance: 0.04 },
     epic: {
-      hpMult: 3, dmgMult: 2,
+      hpMult: 9, dmgMult: 2,
       killEvery: 3, killChance: 0.10,          // 每 3 秒 10% 秒杀正在打的怪
       regenEvery: 5, regenChance: 0.05,        // 每 5 秒 5% 回一口血（约等于挨僵尸打两次）
       regenAmount: ZOMBIE.DAMAGE * 2,

@@ -2,7 +2,7 @@
 
 import { SELL_PRICE, SHOP } from '../config';
 import type { CharacterKind } from '../entities/Character';
-import { BLOCKS, EGG_WARRIOR_ADVANCED, EGG_WARRIOR_EPIC, EGG_WARRIOR_NORMAL, JUICE_APPLE, JUICE_CARROT, JUICE_COCONUT, JUICE_MELON, JUICE_ORANGE, JUICE_PEACH, WARRIOR_EGG_IDS, WINE } from './Block';
+import { BANANA_FLIP, BLOCKS, EGG_WARRIOR_ADVANCED, EGG_WARRIOR_EPIC, EGG_WARRIOR_NORMAL, FRUIT_PLATTER, GRASS_CAKE, JUICE_APPLE, JUICE_CARROT, JUICE_COCONUT, JUICE_MELON, JUICE_ORANGE, JUICE_PEACH, MUSHROOM_PLATTER, TEA_DANDELION, TEA_RED, WARRIOR_EGG_IDS, WINE } from './Block';
 
 /** 售卖机货架上的一格商品 */
 export interface ShopGood {
@@ -28,6 +28,16 @@ export const DRINK_GOODS: ShopGood[] = [
   { id: JUICE_MELON, price: 3 },
   { id: JUICE_CARROT, price: 3 },
 ];
+
+/** 自制吃食（只能自己合成，售卖机不卖）：收购箱按这里的「名义价 × 半价」收，别让它们烂在背包里 */
+export const CRAFT_FOOD_PRICE: Record<number, number> = {
+  [TEA_RED]: 4,
+  [TEA_DANDELION]: 4,
+  [BANANA_FLIP]: 5,
+  [GRASS_CAKE]: 2,
+  [FRUIT_PLATTER]: 10,
+  [MUSHROOM_PLATTER]: 8,
+};
 
 /** 特殊物品售卖机货架：小战士召唤蛋（买的时候按 80/19/1 抽品质）+ 两款皮肤（买一次永久解锁） */
 export const SPECIAL_GOODS: ShopGood[] = [
@@ -118,6 +128,8 @@ export function sellPriceOf(id: number): { coins: number; per: number } | null {
   if (WARRIOR_EGG_IDS.includes(id)) return { coins: SHOP.EGG_SELL, per: 1 };
   const drink = DRINK_GOODS.find((g) => g.id === id);
   if (drink) return { coins: Math.round(drink.price * SHOP.DRINK_SELL_MULT * 100) / 100, per: 1 };
+  const craft = CRAFT_FOOD_PRICE[id];
+  if (craft !== undefined) return { coins: Math.round(craft * SHOP.DRINK_SELL_MULT * 100) / 100, per: 1 };
   return null;
 }
 
@@ -133,6 +145,6 @@ export function fmtCoins(n: number): string {
 export function sellListText(): string {
   const parts = Object.entries(SELL_PRICE).map(([id, p]) =>
     `${BLOCKS[+id]?.cn ?? id}${p.per > 1 ? `${p.per}个` : ''}=${p.coins}`);
-  parts.push(`召唤蛋=${SHOP.EGG_SELL}`, '饮料=半价');
+  parts.push(`召唤蛋=${SHOP.EGG_SELL}`, '饮料=半价', '自制吃食=半价');
   return parts.join('　');
 }

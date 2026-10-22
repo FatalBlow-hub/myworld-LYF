@@ -86,6 +86,28 @@ export class Survival {
       if (fx.boostSeconds) {
         applySpeedBoost(body, fx.boostSeconds, fx.boostMult);
       }
+      // 2026-10-23 新吃食的附加效果：缓慢回血 / 挖掘加速 / 方向反转 / 柔光照明 / 解毒
+      const notes: string[] = [];
+      if (fx.slowHeal) {
+        health.slowHeal(fx.slowHeal.seconds, fx.slowHeal.hp);
+        notes.push(`${fx.slowHeal.seconds} 秒里慢慢回 ${fx.slowHeal.hp} 血`);
+      }
+      if (fx.hasteSeconds) {
+        body.hasteT = Math.max(body.hasteT, fx.hasteSeconds);
+        notes.push(`${fx.hasteSeconds} 秒挖得更快`);
+      }
+      if (fx.flipSeconds) {
+        body.flipT = Math.max(body.flipT, fx.flipSeconds);
+        notes.push(`${fx.flipSeconds} 秒里方向是反的`);
+      }
+      if (fx.glowSeconds) {
+        health.nightVision(fx.glowSeconds);
+        notes.push(`${fx.glowSeconds} 秒柔光照明`);
+      }
+      if (fx.curePoison) {
+        const cured = health.curePoison();
+        notes.push(cured > 0 ? '毒解了' : '本来就没中毒');
+      }
       if (health.hp <= 0) this.d.respawn();
       // 红伞伞：设定是「每秒 4 血持续 10 秒」，但满血只有 20（10 颗心），照原样吃下去必死；
       // 这里按「10 秒里一共掉 4 血（2 颗心）」处理，仍然很吓人但不至于一口送命
@@ -104,9 +126,13 @@ export class Survival {
         body.speedBoostT = BOOST.SECONDS; // 腌菜桶吃完跑得快
         hud.showMessage(`真香！+${fx.hp} 血，脚底生风 ${BOOST.SECONDS} 秒！`);
       } else {
-        const hPart = fx.hunger > 0 ? `+${fx.hunger} 饥饿，` : '';
-        const hpPart = fx.hp >= 0 ? `+${fx.hp} 血` : `${fx.hp} 血`;
-        hud.showMessage(fx.hp < 0 ? `好难吃！${hPart}${hpPart}` : `真香！${hPart}${hpPart}`);
+        // 通用文案：饥饿/血量只报有变化的，附加效果接在后面
+        const parts = [
+          fx.hunger > 0 ? `+${fx.hunger} 饥饿` : '',
+          fx.hp > 0 ? `+${fx.hp} 血` : fx.hp < 0 ? `${fx.hp} 血` : '',
+          ...notes,
+        ].filter(Boolean);
+        hud.showMessage(`${fx.hp < 0 ? '好难吃！' : '真香！'}${parts.join('，')}`);
       }
     } else {
       hud.showMessage('这个不能吃');

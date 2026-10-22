@@ -179,7 +179,28 @@ export const BASE_PAINTERS: Record<string, Painter> = {
     c.fillStyle = '#d43a2a'; c.fillRect(x + 5, y + 3, 6, 4); c.fillRect(x + 6, y + 2, 4, 6);
     c.fillStyle = '#3a1a10'; c.fillRect(x + 7, y + 4, 2, 2);
   },
-  snow: (c, x, y) => { fill(c, x, y, '#eef4f6'); speckle(c, x, y, ['#dde8ec', '#f8fbfb', '#cfdde2'], 70); },
+  // 雪块：白底雪粒 + 正中一枚像素雪花 + 四角小方块（照用户给的参考图：雪块上带雪花浮雕感）
+  snow: (c, x, y) => {
+    fill(c, x, y, '#eef4f6');
+    speckle(c, x, y, ['#dde8ec', '#f8fbfb', '#cfdde2'], 70);
+    // 11×11 六芒雪花：六条臂 + 每条臂上两对分叉，颜色只比雪白深一点，远看是白雪、近看才看得出花
+    c.fillStyle = '#c3d6e2';
+    const cx0 = 7, cy0 = 7; // 雪花中心（16 格贴图的视觉中心）
+    const put = (px: number, py: number) => c.fillRect(x + px, y + py, 1, 1);
+    put(cx0, cy0);
+    for (let a = 0; a < 6; a++) {
+      const th = (a * 60) * Math.PI / 180;
+      for (let r = 1; r <= 5; r++) put(cx0 + Math.round(Math.cos(th) * r), cy0 + Math.round(Math.sin(th) * r));
+      for (const side of [-1, 1]) {
+        const tb = th + side * Math.PI / 6;
+        for (let r = 1; r <= 2; r++) {
+          put(cx0 + Math.round(Math.cos(th) * 3 + Math.cos(tb) * r), cy0 + Math.round(Math.sin(th) * 3 + Math.sin(tb) * r));
+        }
+      }
+    }
+    c.fillStyle = '#e6eff4';
+    for (const [cx, cy] of [[2, 2], [12, 2], [2, 12], [12, 12]]) c.fillRect(x + cx, y + cy, 2, 2);
+  },
   ice: (c, x, y) => {
     c.fillStyle = 'rgba(170,215,245,0.72)'; c.fillRect(x, y, TILE, TILE);
     c.fillStyle = 'rgba(230,245,255,0.8)';

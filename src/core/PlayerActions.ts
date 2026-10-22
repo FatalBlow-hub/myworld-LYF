@@ -2,7 +2,7 @@
  *  留在 core 层是因为这些动作会直接开 UI 面板（工作台、染色台），按依赖铁律下层不能反向依赖 ui。 */
 
 import * as THREE from 'three';
-import { GOLDEN, ISLAND, RUBBER_DROP, SNOWFLAKE_DROP, STACK_MAX, VisitPerm } from '../config';
+import { GOLDEN, HASTE, ISLAND, RUBBER_DROP, SNOWFLAKE_DROP, STACK_MAX, VisitPerm } from '../config';
 import { FireSystem } from '../entities/Fire';
 import { ItemDrop } from '../entities/ItemDrop';
 import { TIER_OF_EGG } from '../entities/Warrior';
@@ -65,6 +65,8 @@ export interface PlayerActionDeps {
   islandFruit: () => number | null;
   /** 当前好友岛的访客挖掘权限（在好友岛时返回 VisitPerm，自己岛或随机陌生岛返回 null） */
   visitPerm?: () => VisitPerm | null;
+  /** 玩家身体（读挖掘加速之类的临时状态用） */
+  body?: () => PlayerBody;
   /** 现在是不是站在大厅里（大厅是公共区域，方块禁挖禁放） */
   inHall: () => boolean;
   /** 对着售卖机按 M：打开对应货架（special = 特殊物品售卖机，drink = 饮料售卖机） */
@@ -158,7 +160,9 @@ export class PlayerActions {
     const creative = inventory.infinite;
     const goldPickaxe = held?.id === GOLD_PICKAXE;
     if (goldPickaxe && this.pickaxeCooldown > 0) return;
-    const speed = goldPickaxe ? GOLDEN.PICKAXE_SPEED : 1;
+    // 挖掘加速（水果拼盘那 6 秒）：倍率叠在金镐上
+    const haste = this.d.body && this.d.body().hasteT > 0 ? HASTE.MULT : 1;
+    const speed = (goldPickaxe ? GOLDEN.PICKAXE_SPEED : 1) * haste;
     this.mineProgress += creative ? hardness : dt * speed;
     hud.setProgress(this.mineProgress / hardness);
     if (this.mineProgress >= hardness) {

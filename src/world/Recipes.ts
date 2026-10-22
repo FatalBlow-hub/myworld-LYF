@@ -9,7 +9,9 @@ import {
   DYE_WHITE, DYE_PURPLE, DYE_SWAN, DYE_LIGHTGREEN, DYE_STAR, DYE_DEEPGREEN,
   GLASS_BOTTLE, GLASS_BUCKET, GLASS_CONE, GLASS_SHARD,
   ICE, JUICE_APPLE, JUICE_CARROT, JUICE_COCONUT, JUICE_MELON, JUICE_ORANGE, JUICE_PEACH, JUICE_PEAR, WINE,
+  TEA_RED, TEA_DANDELION, GRASS_CAKE, BANANA_FLIP, FRUIT_PLATTER, MUSHROOM_PLATTER,
   MELON, MELON_SEED, MELON_SLICE, ORANGE, PEACH, PEAR, PERSIMMON, PERSIMMON_CAKE, RICE_GRAIN,
+  BANANA, DANDELION, POPPY,
   APPLE_LEAVES, APPLE_SAP1, BANANA_LEAVES, BANANA_SAP1, COCONUT_SAP1, ORANGE_LEAVES, ORANGE_SAP1, PALM_LEAVES,
   PEACH_LEAVES, PEACH_SAP1, PEAR_LEAVES, PEAR_SAP1, PERSIMMON_LEAVES, PERSIMMON_SAP1,
   MUSHROOM_ENOKI, MUSHROOM_OYSTER, MUSHROOM_RED, MUSHROOM_SHIITAKE,
@@ -53,7 +55,9 @@ export const RECIPES: Recipe[] = [
   { out: CRAFTING_TABLE, outCount: 1, needs: [[PLANKS, 4]] },
   { out: CHEST, outCount: 1, needs: [[PLANKS, 8]] },
   { out: DOOR_CLOSED, outCount: 1, needs: [[PLANKS, 2]] }, // 2×2 每格 1 个，最多 4 材料，6 木板放不下
-  { out: WOOD_SLAB, outCount: 6, needs: [[PLANKS, 3]] },
+  // 木台阶原来也是「3 木板」，被前面的木棍（同样 3 木板）抢了匹配 → 手册里有、实际永远做不出来。
+  // 改成 1 木板出 2 台阶（和 MC 的 3 木板出 6 台阶一个比例），彻底避开撞车
+  { out: WOOD_SLAB, outCount: 2, needs: [[PLANKS, 1]] },
   { out: WOOD_STAIRS, outCount: 4, needs: [[PLANKS, 5]] },
   { out: FENCE, outCount: 2, needs: [[STICK, 4]] },
   { out: SIGN, outCount: 3, needs: [[PLANKS, 6], [STICK, 2]] },
@@ -176,6 +180,15 @@ export const RECIPES: Recipe[] = [
   { out: PUMPKIN_SEED, outCount: CROP.SPLIT_COUNT, needs: [[PUMPKIN_SLICE, 1]], scale: true, quiet: true },
   { out: MELON_SLICE, outCount: CROP.SPLIT_COUNT, needs: [[MELON, 1]], scale: true, quiet: true },
   { out: MELON_SEED, outCount: CROP.SPLIT_COUNT, needs: [[MELON_SLICE, 1]], scale: true, quiet: true },
+  // —— 2026-10-23 新吃食（只能自己做）：两种茶 / 草饼 / 颠倒香蕉液 / 两种拼盘 ——
+  // 手册下标会进存档，新配方一律追加在末尾，别插到中间去
+  { out: TEA_RED, outCount: 1, needs: [[POPPY, 1], [GLASS_BOTTLE, 1]] },            // 小红花 + 玻璃瓶
+  { out: TEA_DANDELION, outCount: 1, needs: [[DANDELION, 3], [GLASS_BOTTLE, 1]] },  // 蒲公英 ×3 + 玻璃瓶
+  { out: GRASS_CAKE, outCount: 1, needs: [[TALL_GRASS, 1], [RICE_GRAIN, 1]] },      // 杂草 + 稻粒（设定里的「麦子」就用稻粒）
+  { out: BANANA_FLIP, outCount: 1, needs: [[BANANA, 2], [GLASS_BOTTLE, 1]] },       // 香蕉 ×2 + 玻璃瓶
+  // 水果拼盘：五种水果各一个（红伞伞不进蘑菇拼盘，所以这里也只列四种好蘑菇）
+  { out: FRUIT_PLATTER, outCount: 1, needs: [[PEACH, 1], [APPLE, 1], [PEAR, 1], [ORANGE, 1], [PERSIMMON, 1]] },
+  { out: MUSHROOM_PLATTER, outCount: 1, needs: [[MUSHROOM_SHIITAKE, 1], [MUSHROOM_ENOKI, 1], [MUSHROOM_OYSTER, 1], [GLOW_SHROOM, 1]] },
 ];
 
 /** 星空染色台的颜料融合表：放进材料颜料 → 出新颜料（只有星空染色台能干这活） */

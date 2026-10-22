@@ -38,10 +38,14 @@ export interface PlayerBody {
   /** 防溺药水倒计时：>0 时水下不耗氧气 */
   breathT: number;
   frozenT: number;
+  /** 挖掘加速剩余秒数（水果拼盘）：>0 时挖得快 */
+  hasteT: number;
+  /** 方向反转剩余秒数（颠倒香蕉液）：>0 时前进变后退、左右转互换 */
+  flipT: number;
 }
 
 export function createBody(x: number, y: number, z: number): PlayerBody {
-  return { x, y, z, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0, onGround: false, inWater: false, headInWater: false, flying: false, fellFrom: y, speedBoostT: 0, speedBoostMult: 1, skating: false, skateFallT: 0, glassBag: false, driving: false, swampId: 0, swayT: 0, swayPhase: 0, breathT: 0, frozenT: 0 };
+  return { x, y, z, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0, onGround: false, inWater: false, headInWater: false, flying: false, fellFrom: y, speedBoostT: 0, speedBoostMult: 1, skating: false, skateFallT: 0, glassBag: false, driving: false, swampId: 0, swayT: 0, swayPhase: 0, breathT: 0, frozenT: 0, hasteT: 0, flipT: 0 };
 }
 
 export interface FrameEvents {
@@ -123,9 +127,13 @@ function moveAxis(body: PlayerBody, world: World, axis: 'x' | 'y' | 'z', delta: 
 
 /** 每帧更新：读按键意图 → 改速度 → 移动+碰撞 → 返回本帧事件 */
 export function stepPhysics(body: PlayerBody, world: World, input: Controller, dt: number): FrameEvents {
+  // 临时状态倒计时：挖掘加速 / 方向反转
+  body.hasteT = Math.max(0, body.hasteT - dt);
+  body.flipT = Math.max(0, body.flipT - dt);
+  const flipped = body.flipT > 0; // 颠倒香蕉液：往右转变成往左转
   // 转向与视线（键盘当摇杆用）
-  if (input.isDown('turnLeft')) body.yaw += PLAYER.TURN_SPEED * dt;
-  if (input.isDown('turnRight')) body.yaw -= PLAYER.TURN_SPEED * dt;
+  if (input.isDown('turnLeft')) body.yaw += (flipped ? -1 : 1) * PLAYER.TURN_SPEED * dt;
+  if (input.isDown('turnRight')) body.yaw -= (flipped ? -1 : 1) * PLAYER.TURN_SPEED * dt;
   if (input.isDown('lookUp')) body.pitch += PLAYER.LOOK_SPEED * dt;
   if (input.isDown('lookDown')) body.pitch -= PLAYER.LOOK_SPEED * dt;
   body.pitch = Math.max(-PLAYER.LOOK_LIMIT, Math.min(PLAYER.LOOK_LIMIT, body.pitch));
@@ -150,8 +158,9 @@ export function stepPhysics(body: PlayerBody, world: World, input: Controller, d
   body.swayT = Math.max(0, body.swayT - dt);   // 幻泽液头晕倒计时
   body.breathT = Math.max(0, body.breathT - dt); // 防溺药水倒计时
   body.frozenT = Math.max(0, body.frozenT - dt);
-  const fwd = body.frozenT > 0 ? 0 : (input.isDown('forward') ? 1 : 0) - (input.isDown('back') ? 1 : 0);
-  const strafe = body.frozenT > 0 ? 0 : (input.isDown('strafeRight') ? 1 : 0) - (input.isDown('strafeLeft') ? 1 : 0);
+  const flip = flipped ? -1 : 1; // 颠倒香蕉液：前进就是后退、往右就是往左
+  const fwd = body.frozenT > 0 ? 0 : flip * ((input.isDown('forward') ? 1 : 0) - (input.isDown('back') ? 1 : 0));
+  const strafe = body.frozenT > 0 ? 0 : flip * ((input.isDown('strafeRight') ? 1 : 0) - (input.isDown('strafeLeft') ? 1 : 0));
   const fx = -Math.sin(body.yaw);  // 前方（yaw=0 时朝 -z）
   const fz = -Math.cos(body.yaw);
   const rx = Math.cos(body.yaw);   // 右手边：前向量绕 Y 转 -90°

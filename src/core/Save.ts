@@ -11,7 +11,7 @@ import type { ShopQuota } from '../world/shopLimits';
 import { Hunger } from '../player/Hunger';
 import { Inventory } from '../player/Inventory';
 import { PlayerBody } from '../player/Physics';
-import { ROLLER_SKATES, Slots, Stack } from '../world/Block';
+import { AIR, ROLLER_SKATES, Slots, Stack } from '../world/Block';
 import { FurnaceState, World } from '../world/World';
 import { SPORE_GROW_SECONDS, SPORE_PLANT_IDS } from '../world/mushrooms';
 import { Zombie, ZombieKind } from '../entities/Zombie';
@@ -132,8 +132,9 @@ export interface SaveData {
   tanks?: { x: number; y: number; z: number; yaw: number; ammo?: number }[];
   /** 挑战房：盖过的房子 + 打到第几关（旧存档没有就没盖过） */
   challenge?: ChallengeSave;
-  /** 小战士（保镖）：只存品质和位置，血量每次进游戏满血；打死的就不存了 */
-  warriors?: { tier: WarriorTier; x: number; y: number; z: number }[];
+  /** 小战士（保镖）：只存品质和位置，血量每次进游戏满血；打死的就不存了。
+   *  pending = 在大厅/副本岛召唤的（那会儿的坐标不属于本岛），回岛时放到出生点旁边 */
+  warriors?: { tier: WarriorTier; x: number; y: number; z: number; pending?: boolean }[];
 }
 
 /** 列出所有存在的账号存档（顺手把旧版单存档搬成 1 号账号） */
@@ -332,6 +333,16 @@ export function buildSave(g: {
   };
 }
 
+/** 大厅/副本岛召唤的小战士没有本岛坐标：回岛时在出生点附近找两格空气把它放出来 */
+function pendingWarriorSpot(world: World, spawn: { x: number; y: number; z: number }): { x: number; y: number; z: number } {
+  const x = Math.floor(spawn.x), z = Math.floor(spawn.z);
+  for (let dy = 0; dy <= 4; dy++) {
+    const y = Math.floor(spawn.y) + dy;
+    if (world.getBlock(x, y, z) === AIR && world.getBlock(x, y + 1, z) === AIR) return { x: x + 0.5, y, z: z + 0.5 };
+  }
+  return { x: spawn.x, y: spawn.y, z: spawn.z };
+}
+
 /** 还原：把存档里的东西一件件摆回去；返回出生点和选中的格子由调用方接 */
 export function applySave(
   d: SaveData,
@@ -400,7 +411,8 @@ export function applySave(
   challenge.restore(d.challenge); // 挑战房：房子认回来，打到一半接着打
   // 小战士：只认品质和位置，血是满的（死掉的没存进来）
   for (const w of d.warriors ?? []) {
-    const warrior = new Warrior(w.tier, w.x, w.y, w.z);
+    const spot = w.pending ? pendingWarriorSpot(world, d.spawn) : { x: w.x, y: w.y, z: w.z };
+    const warrior = new Warrior(w.tier, spot.x, spot.y, spot.z);
     warriors.push(warrior);
     scene.add(warrior.group);
   }

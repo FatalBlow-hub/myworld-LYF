@@ -156,7 +156,7 @@ export class TouchControls {
   /** 把视角板上攒下的拖动加到玩家朝向上（每帧、在 stepPhysics 之前调一次） */
   applyLookTo(body: PlayerBody): void {
     if (this.lookDx === 0 && this.lookDy === 0) return;
-    body.yaw -= this.lookDx * TOUCH.LOOK_SENS;
+    body.yaw -= (body.flipT > 0 ? -1 : 1) * this.lookDx * TOUCH.LOOK_SENS; // 颠倒香蕉液：左右转反着来
     body.pitch += this.lookDy * (TOUCH.INVERT_Y ? 1 : -1) * TOUCH.LOOK_SENS;
     body.pitch = Math.max(-PLAYER.LOOK_LIMIT, Math.min(PLAYER.LOOK_LIMIT, body.pitch));
     this.lookDx = 0;
