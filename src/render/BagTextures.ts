@@ -1,6 +1,6 @@
-/** 腰包与竹子贴图 — 这两类以前漏画了：创造模式背包一打开就崩（iconFor 找不到 painter） */
+/** 腰包贴图 — 这两类以前漏画了：创造模式背包一打开就崩（iconFor 找不到 painter）；竹子贴图已拆到 BambooTextures.ts */
 
-import { Painter, TILE, shade } from './TextureUtils';
+import { Painter, shade } from './TextureUtils';
 
 /** 腰包通用画法：皮革底 + 布面 + 翻盖 + 铜扣，颜色由入参决定 */
 const bag = (cloth: string): Painter => (c, x, y) => {
@@ -27,18 +27,3 @@ const BAG_CLOTH: Record<string, string> = {
 export const BAG_PAINTERS: Record<string, Painter> = Object.fromEntries(
   Object.entries(BAG_CLOTH).map(([name, cloth]) => [name, bag(cloth)]),
 );
-
-/** 竹子（方块）与竹笋（植株/物品） */
-export const BAMBOO_PAINTERS: Record<string, Painter> = {
-  bamboo: (c, x, y) => {
-    c.fillStyle = '#6aa83c'; c.fillRect(x + 5, y, 6, TILE);        // 竹杆
-    c.fillStyle = '#8ec85a'; c.fillRect(x + 5, y, 2, TILE);        // 亮面
-    c.fillStyle = '#4a7c28';                                        // 竹节
-    for (let i = 3; i < TILE; i += 5) c.fillRect(x + 4, y + i, 8, 1);
-  },
-  bamboo_shoot: (c, x, y) => {
-    c.fillStyle = '#7ab04a'; c.fillRect(x + 6, y + 7, 4, 7);       // 笋身
-    c.fillStyle = '#96c766'; c.fillRect(x + 7, y + 4, 2, 6);       // 笋尖
-    c.fillStyle = '#5c8c34'; c.fillRect(x + 5, y + 12, 6, 2);      // 根部
-  },
-};

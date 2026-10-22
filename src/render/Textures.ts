@@ -11,7 +11,8 @@ import { BASE_PAINTERS } from './BaseTextures';
 import { addMetalPainters } from './MetalTextures';
 import { SEASONAL_PAINTERS } from './SeasonalTextures';
 import { GOLDEN_PAINTERS, GOLDEN_TILE_NAMES } from './GoldenTextures';
-import { BAG_PAINTERS, BAMBOO_PAINTERS } from './BagTextures';
+import { BAG_PAINTERS } from './BagTextures';
+import { BAMBOO_PAINTERS } from './BambooTextures';
 import { ISLAND_PAINTERS, ISLAND_TILE_NAMES } from './IslandTextures';
 import { MUSHROOM_PAINTERS, MUSHROOM_TILE_NAMES } from './MushroomTextures';
 import { SHOP_PAINTERS } from './ShopTextures';
@@ -76,8 +77,8 @@ const TILE_NAMES = [
   'bucket_sw_light', 'bucket_sw_mid', 'bucket_sw_phantom', 'bucket_sw_deep', 'bucket_sw_drown',
   'gbucket_sw_light', 'gbucket_sw_mid', 'gbucket_sw_phantom', 'gbucket_sw_deep', 'gbucket_sw_drown',
   ...GOLDEN_TILE_NAMES,
-  // —— 竹子（方块要进图集，不然世界里的竹子没贴图）——
-  'bamboo', 'bamboo_shoot',
+  // —— 竹子（方块要进图集，不然世界里的竹子没贴图）：杆侧面 / 杆顶截面 / 顶端竹叶 / 物品图标 ——
+  'bamboo', 'bamboo_side', 'bamboo_top', 'bamboo_leaves', 'bamboo_shoot',
   ...ISLAND_TILE_NAMES,
   // —— 大厅三台机器（正面画在 front，背包图标也认 front）——
   'vend_special_top', 'vend_special_side', 'vend_special_front',

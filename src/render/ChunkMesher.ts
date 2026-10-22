@@ -214,6 +214,10 @@ export function meshChunk(world: World, cx: number, cz: number, atlas: Atlas): C
           if (def.shape === 'fence') emitFenceBars(shapeTarget, atlas, world, wx, y, wz, def, meta);
           // 喷泉水面画到半透明层，真·透明水，顶面打标参与波浪波光
           if (def.shape === 'fountain') for (const b of FOUNTAIN_WATER) emitPlainBox(water, atlas, wx, y, wz, b, 'water', true);
+          // 竹子：只有最顶上那一节长竹叶，下面接着竹子就还是光杆
+          if (def.shape === 'bamboo' && world.getBlock(wx, y + 1, wz) !== id) {
+            emitCross(solid, atlas, wx, y, wz, id, 'bamboo_leaves');
+          }
           continue;
         }
 

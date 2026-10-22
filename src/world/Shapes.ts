@@ -10,6 +10,8 @@ const SLAB: Box[] = [[0, 0, 0, 1, 0.5, 1]];
 /** 楼梯 = 下半块 + 上半块（上半朝 -z，靠 meta 旋转到玩家朝向） */
 const STAIR: Box[] = [[0, 0, 0, 1, 0.5, 1], [0, 0.5, 0, 1, 1, 0.5]];
 const FENCE_POST: Box[] = [[0.375, 0, 0.375, 0.625, 1, 0.625]];
+/** 竹子：细杆只占格子中心 4/16，四周全是空气（顶上一节另由网格化器补竹叶） */
+const BAMBOO_COLUMN: Box[] = [[0.375, 0, 0.375, 0.625, 1, 0.625]];
 const FENCE_SOLID: Box[] = [[0.375, 0, 0.375, 0.625, 1.5, 0.625]]; // 碰撞 1.5 高，跳不过去
 const CHEST_BOX: Box[] = [[0.0625, 0, 0.0625, 0.9375, 0.875, 0.9375]];
 const SIGN_POLE: Box[] = [[0.4375, 0, 0.4375, 0.5625, 0.5, 0.5625]];
@@ -74,6 +76,7 @@ export function solidBoxes(id: number, meta: number): Box[] {
     case 'chest': return CHEST_BOX;
     case 'carpet': return CARPET_BOX;
     case 'bed': return BED_BOX;
+    case 'bamboo': return BAMBOO_COLUMN;
     default: return def.doorPanel ? [] : FULL;
   }
 }
@@ -92,6 +95,7 @@ export function renderBoxes(id: number, meta: number): Box[] {
     case 'fountain': return FOUNTAIN_STONE;
     case 'sign': return [...SIGN_POLE, rotateBox(SIGN_BOARD, meta)];
     case 'cross': return [];
+    case 'bamboo': return BAMBOO_COLUMN;
     default: return def?.doorPanel ? DOOR_PANEL : FULL;
   }
 }

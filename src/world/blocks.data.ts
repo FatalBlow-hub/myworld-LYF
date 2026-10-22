@@ -398,7 +398,7 @@ export const COLOR_CSS: Record<number, string> = {
 };
 
 /** 特殊形状（不是整个立方体的方块） */
-export type Shape = 'slab' | 'stairs' | 'fence' | 'sign' | 'chest' | 'cross' | 'carpet' | 'bed' | 'ladder' | 'fountain';
+export type Shape = 'slab' | 'stairs' | 'fence' | 'sign' | 'chest' | 'cross' | 'carpet' | 'bed' | 'ladder' | 'fountain' | 'bamboo';
 
 export interface BlockDef {
   /** 中文名，显示在物品栏和背包里 */
@@ -607,7 +607,7 @@ export const BLOCKS: Record<number, BlockDef> = {
   [BAG_FEATHER]:{ cn: '羽毛腰包', tex: { top: 'bag_feather', side: 'bag_feather' }, solid: false, seeThrough: true, hardness: 0, item: true },
   [BAG_RUBBER]: { cn: '橡胶腰包', tex: { top: 'bag_rubber', side: 'bag_rubber' }, solid: false, seeThrough: true, hardness: 0, item: true },
   ...Object.fromEntries(WOOL_BAG_DYES.map(({ id, color, texture }) => [id, { cn: `${color}羊毛腰包`, tex: { top: texture, side: texture }, solid: false, seeThrough: true, hardness: 0, item: true }])),
-  [BAMBOO]: { cn: '竹子', tex: { top: 'bamboo', side: 'bamboo' }, solid: true, seeThrough: false, hardness: 0.3, drop: BAMBOO },
+  [BAMBOO]: { cn: '竹子', tex: { top: 'bamboo_top', side: 'bamboo_side', front: 'bamboo' }, solid: true, seeThrough: false, hardness: 0.3, drop: BAMBOO, shape: 'bamboo' }, // 细杆形状；front 借给物品图标画细竹竿剪影
   [BAMBOO_SHOOT_PLANT]: { cn: '竹笋', tex: { top: 'bamboo_shoot', side: 'bamboo_shoot' }, solid: false, seeThrough: true, hardness: 0.05, shape: 'cross', targetable: true, drop: BAMBOO_SHOOT },
   [BAMBOO_SHOOT]: { cn: '竹笋', tex: { top: 'bamboo_shoot', side: 'bamboo_shoot' }, solid: false, seeThrough: true, hardness: 0, item: true },
   // —— 井盖和星空染色系列 ——
