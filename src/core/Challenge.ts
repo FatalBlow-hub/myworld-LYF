@@ -1,7 +1,8 @@
 /** 挑战房 — 5×5×5 石头壳 + 3×3×3 打怪房：
  *  盖：拿"挑战房"道具对 5×5 平地按 L，上面 7 层要全空、场内不能有活物；
  *  玩：对着门按 M 交 10 生肉门票进屋开打，4 关全清拿大奖；
- *  规矩：中途不许出来（死了门票白交、怪消失），读到一半的档接着打 */
+ *  规矩：中途开门＝放弃（门票白交、怪消失，人放到门外）；打死了也一样；
+ *        存档里记着打到第几关，半路退出游戏回来接着打 */
 
 import * as THREE from 'three';
 import { CHALLENGE } from '../config';
@@ -102,12 +103,18 @@ export class Challenge {
     const h = [...this.houses.values()].find((h) =>
       h.dx === hitX && h.dz === hitZ && (h.dy === hitY || h.dy + 1 === hitY));
     if (!h) return;
-    if (this.fight) {
-      hud.showMessage('里面打得正激烈，打完才能开门！');
-      return;
-    }
     const cx = h.x + 2.5, cz = h.z + 2.5;
     const inside = Math.abs(body.x - cx) < 2 && Math.abs(body.z - cz) < 2 && body.y >= h.y + 1 && body.y < h.y + 5;
+    if (this.fight) {
+      // 打架中开门 = 放弃这次挑战：怪清场、门票不退，人放到门外（门里门外都能按）
+      const atDoor = Math.abs(body.x - cx) < 2.6 && Math.abs(body.z - cz) < 2.6 && body.y >= h.y && body.y < h.y + 5;
+      if (!atDoor) { hud.showMessage('挑战还在进行，进屋打完才能再开'); return; }
+      this.endFight();
+      const out = this.outsideSpot(h);
+      body.x = out.x; body.y = out.y; body.z = out.z; body.vy = 0;
+      hud.showMessage('开门出来了：这次挑战算放弃，门票不退、怪都跑了');
+      return;
+    }
     if (inside) {
       // 屋里没打架：免费放你出来（门票只管进不管出）
       const out = this.outsideSpot(h);
@@ -122,7 +129,7 @@ export class Challenge {
     if (this.pendingKey !== keyOf(h) || this.pendingT <= 0) {
       this.pendingKey = keyOf(h);
       this.pendingT = CHALLENGE.CONFIRM_SECONDS;
-      hud.showMessage(`进去打 4 关怪！门票 ${CHALLENGE.MEAT_COST} 生肉，再按 M 确认（中途不许出来）`, 3.5);
+      hud.showMessage(`进去打 4 关怪！门票 ${CHALLENGE.MEAT_COST} 生肉，再按 M 确认（中途开门＝放弃，门票不退）`, 3.5);
       return;
     }
     // 确认：收门票、传送进屋、放第一关
@@ -152,12 +159,19 @@ export class Challenge {
   /** 玩家在挑战中死了：怪清场、门票没收、房变回闲的 */
   onPlayerDeath(hud: Hud): void {
     if (!this.fight) return;
-    for (const z of this.fight.mobs) {
+    this.endFight();
+    hud.showMessage('挑战失败！门票没了，怪也跑了');
+  }
+
+  /** 结束当前挑战：房里剩下的怪清场，房变回空闲（打输了 / 主动开门放弃共用） */
+  private endFight(): void {
+    const f = this.fight;
+    if (!f) return;
+    for (const z of f.mobs) {
       if (!z.dead) this.scene.remove(z.group);
       this.mobs.zombies = this.mobs.zombies.filter((x) => x !== z);
     }
     this.fight = null;
-    hud.showMessage('挑战失败！门票没了，怪也跑了');
   }
 
   /** 存：盖过的房 + 打到第几关 */
