@@ -43,6 +43,10 @@ import { ShopPanel } from '../ui/ShopPanel';
 import { BoardPanel } from '../ui/BoardPanel';
 import { DRINK_GOODS, SPECIAL_GOODS, STORE_GOODS, ShopGood, fmtCoins, rollGood } from '../world/Shop';
 import { consumeQuota, remainingOf, ShopQuota } from '../world/shopLimits';
+import { blackPriceOf, refreshBlackMarket, BlackMarketState } from '../world/blackMarket';
+import { BLACK_PICKAXE } from '../world/blocks.black';
+import { BLACK_PICK } from '../config';
+import { BOW_FORM_NAMES, BOW_FORM_OF } from '../entities/Archer';
 import { Appearance } from './Appearance';
 import { SaveData, applySave, buildSave, isSupportedSave, migrateSave, randomIslandType, readSave, writeSave } from './Save';
 import { Season, dateLabel, seasonOf } from './Calendar';
@@ -124,6 +128,8 @@ export class Game {
   private boardPanel: BoardPanel | null = null;
   /** 商店每日限量已购记录（杂货铺；按本地日期记，跨天清零，随档存取） */
   private shopQuota: ShopQuota | undefined;
+  /** 黑色售卖机今天的货架（按游戏内日期记，跨游戏日必换货；大厅里买也随档走） */
+  private blackMarket: BlackMarketState | undefined;
   /** 上一次生效的季节：只有换季才做换叶 / 清蘑菇这些重活 */
   private lastSeason: Season | null = null;
   /** 自家/访岛是不是冬季岛：冬季岛常年下雪，不受日历季节限制 */
@@ -353,6 +359,7 @@ export class Game {
       openShop: (kind) => this.openShop(kind),
       openBuyBox: () => this.openBuyBox(),
       summonWarrior: (eggId, x, y, z) => this.summonWarrior(eggId, x, y, z),
+      summonArcher: (bowId, x, y, z) => this.summonArcher(bowId, x, y, z),
       body: () => this.body!,
     });
     this.combat = new MobCombat(this.controller, this.inventory, () => this.slot, this.hud, this.mobs);
@@ -428,9 +435,10 @@ export class Game {
     this.winterIsland = type === 'winter'; // 冬季岛常年下雪，不受日历季节限制
   }
 
-  /** 翻到新的一天：刷新 HUD 日期；季节变了才换叶；入冬把地图上的蘑菇全清掉（设定：冬季蘑菇全部消失） */
+  /** 翻到新的一天：刷新 HUD 日期；黑色售卖机换货（昨天的清空）；季节变了才换叶；入冬把地图上的蘑菇全清掉（设定：冬季蘑菇全部消失） */
   private onNewDay(): void {
     this.hud?.setDate(dateLabel(this.day.date));
+    this.blackMarket = refreshBlackMarket(this.blackMarket, this.day.date);
     const season = seasonOf(this.day.date);
     if (this.lastSeason === season) return;
     this.lastSeason = season;
@@ -471,10 +479,12 @@ export class Game {
     const r = applySave(save, {
       inv: this.inventory!, health: this.health!, hunger: this.hunger!, world: this.world,
       scene: this.renderer.scene, animals: this.mobs.animals, zombies: this.mobs.zombies, drops: this.drops,
-      tanks: this.vehicles.tanks, challenge: this.challenge, warriors: this.mobs.warriors,
+      tanks: this.vehicles.tanks, challenge: this.challenge, warriors: this.mobs.warriors, archers: this.mobs.archers,
     });
     this.spawn = r.spawn; this.slot = r.slot; this.islandType = r.islandType;
     this.coins = r.coins;
+    this.shopQuota = r.shopQuota;
+    this.blackMarket = r.blackMarket;
     this.everCreative = this.everCreative || r.everCreative || this.inventory!.mode === 'creative';
     this.mobs.zombieSpawn = r.zombieSpawn && this.mobs.zombieAttack; // 攻击关着的存档不许带着僵尸生成回来
     this.book.importLearned(r.learned);
@@ -497,12 +507,39 @@ export class Game {
   }
 
   /** 对机器按 M：打开对应货架（杂货铺多带一个"今天还能买几个"的查询） */
-  private openShop(kind: 'special' | 'drink' | 'store'): void {
+  private openShop(kind: 'special' | 'drink' | 'store' | 'black'): void {
+    if (kind === 'black') {
+      // 黑色售卖机：每个游戏日只随机进一种货（1 件），卖完/跨日都清空，明天再来
+      this.blackMarket = refreshBlackMarket(this.blackMarket, this.day.date);
+      const item = this.blackMarket.item;
+      const goods: ShopGood[] = item === null ? [] : [{
+        id: item,
+        price: blackPriceOf(item),
+        label: this.blackLabelOf(item),
+        note: item === BLACK_PICKAXE ? '能挖 30 个方块，挖满就坏' : BOW_FORM_OF[item] ? '对地按 M 召唤弓箭手小战士（永久）' : undefined,
+        stock: () => (this.blackMarket?.item === item ? 1 : 0),
+        afterBuy: () => {
+          this.blackMarket = this.blackMarket ? { day: this.blackMarket.day, item: null } : undefined;
+          this.shopPanel?.refresh();
+        },
+        soldNote: '今天卖完了',
+      }];
+      this.shopPanel?.open('黑色售卖机', goods, (g) => g.stock?.() ?? 1,
+        '今天的货卖完了，明天再来碰碰运气吧');
+      return;
+    }
     this.shopPanel?.open(
       kind === 'special' ? '特殊物品售卖机' : kind === 'drink' ? '饮料售卖机' : '杂货铺',
       kind === 'special' ? SPECIAL_GOODS : kind === 'drink' ? DRINK_GOODS : STORE_GOODS,
       kind === 'store' ? (g) => remainingOf(this.shopQuota, g.id!, g.dailyLimit) : undefined,
     );
+  }
+
+  /** 黑色售卖机商品一行字：弓要标形态（普通/火/冰），别的直接用方块表名字 */
+  private blackLabelOf(item: number): string {
+    const form = BOW_FORM_OF[item];
+    if (!form) return BLOCKS[item]?.cn ?? '神秘商品';
+    return `小战士弓（${BOW_FORM_NAMES[form]}）：召唤一名弓箭手小战士守家`;
   }
 
   /** 买皮肤：扣岛币、永久解锁，走和售卖机一样的存档时机（大厅里要回岛才整档写入） */
@@ -519,7 +556,7 @@ export class Game {
     this.saveNow();
   }
 
-  /** 点「购买」：先看钱和背包够不够，够了扣钱发货（小战士蛋还要抽品质；皮肤走 buySkin） */
+  /** 点「购买」：先看钱、存量和背包够不够，够了扣钱发货（小战士蛋还要抽品质；皮肤走 buySkin） */
   private buyGood(good: ShopGood): void {
     if (good.unlock) { this.buySkin(good, good.unlock); return; }
     const inv = this.inventory!;
@@ -532,6 +569,11 @@ export class Game {
       this.hud!.showMessage('背包满了，先腾个格子再来买', 2.5);
       return;
     }
+    // 黑色售卖机这类"一天一件"的货：卖掉这一件今天就收摊
+    if (good.stock && good.stock() <= 0) {
+      this.hud!.showMessage('今天卖完了，明天再来吧', 2.5);
+      return;
+    }
     // 每日限量（杂货铺）：买完今天这份就明天再来，记录随档存
     if (good.dailyLimit !== undefined) {
       if (remainingOf(this.shopQuota, id, good.dailyLimit) <= 0) {
@@ -541,12 +583,14 @@ export class Game {
       this.shopQuota = consumeQuota(this.shopQuota, id, 1);
     }
     this.addCoins(-good.price);
-    inv.add(id, 1);
+    // 黑色木镐带 30 点耐久，别的商品照常
+    inv.add(id, 1, id === BLACK_PICKAXE ? BLACK_PICK.USES : undefined);
     this.hud!.refreshHotbar(inv, this.slot);
     this.shopPanel?.refreshCoins();     // 余额
     this.shopPanel?.refresh();          // 限量买点/按钮灰亮
     const name = BLOCKS[id]?.cn ?? '东西';
     this.hud!.showMessage(id === good.id ? `买到 ${name}！` : `叮——抽到了${name}！`, 2.5);
+    good.afterBuy?.();
     this.saveNow();
   }
 
@@ -575,6 +619,28 @@ export class Game {
     this.hud!.showMessage(`${WARRIOR_TIER_NAMES[tier]}小战士参战！他会跟着你，优先打正在打你的怪`, 3);
     // 本岛整档存；在大厅/副本岛召唤时整档会被拦掉，得单独把小战士记进本岛档，不然回岛就没了
     if (this.scene === 'island') this.saveNow(); else this.persistWarrior(tier);
+  }
+
+  /** 拿着小战士弓对地按 M：召唤一名弓箭手哨兵守在这块地上，弓消耗一个（只在自己岛上有效） */
+  private summonArcher(bowId: number, x: number, y: number, z: number): void {
+    const form = BOW_FORM_OF[bowId];
+    if (!form) return;
+    if (this.scene !== 'island') {
+      this.hud!.showMessage('弓召唤的小战士只认自己岛，回自己岛上再召唤', 3);
+      return;
+    }
+    const inv = this.inventory!;
+    const spot = this.survival!.freeSpot(x + 0.5, y + 1, z + 0.5);
+    this.mobs.summonArcher(form, spot.x, spot.y, spot.z);
+    const held = inv.hotbar[this.slot];
+    if (!inv.infinite && held?.id === bowId) {
+      held.count--;
+      if (held.count <= 0) inv.hotbar[this.slot] = null;
+      this.hud!.refreshHotbar(inv, this.slot);
+    }
+    const extra = form === 'fire' ? '，攻击 ×1.5' : form === 'ice' ? '，命中冰冻减速' : '';
+    this.hud!.showMessage(`${BOW_FORM_NAMES[form]}召唤了弓箭手小战士${extra}！他守在这儿打怪，不跟你走`, 3.5);
+    this.saveNow();
   }
 
   /** 在大厅/副本岛召唤的小战士：位置不属于本岛，打个 pending 标记存进本岛档，回岛时放到出生点旁 */
@@ -615,10 +681,11 @@ export class Game {
       health: this.health, hunger: this.hunger, slot: this.slot, inv: this.inventory,
       world: this.world, animals: this.mobs.animals, zombies: this.mobs.zombies, drops: this.drops,
       tanks: this.vehicles!.tanks, challenge: this.challenge, learned: this.book.learnedIds(),
-      warriors: this.mobs.warriors,
+      warriors: this.mobs.warriors, archers: this.mobs.archers,
       golden: { learned: this.book.goldenLearnedIds(), tasks: this.book.goldenTaskIds(), waterUses: this.book.goldenWaterUseCount() },
       paused: this.paused, dayTime: this.day.time, date: this.day.date,
       shopQuota: this.shopQuota,
+      blackMarket: this.blackMarket,
       zombieAttack: this.mobs.zombieAttack, zombieSpawn: this.mobs.zombieSpawn,
     });
     this.islandSave = JSON.parse(JSON.stringify(data)) as SaveData;
@@ -643,6 +710,9 @@ export class Game {
     save.slot = this.slot; save.mode = inv.mode;
     save.everCreative = this.everCreative || inv.mode === 'creative';
     save.character = this.appearance.character; save.skins = [...this.appearance.owned];
+    // 商店记账也跟着随身走：不然在大厅买的限量货/黑色售卖机买的货，一换场景记录就丢了（能重复买）
+    save.shopQuota = this.shopQuota;
+    save.blackMarket = this.blackMarket;
     this.islandSave = JSON.parse(JSON.stringify(save)) as SaveData;
     writeSave(this.saveSlot, save);
   }
@@ -663,6 +733,8 @@ export class Game {
     this.vehicles.tanks.length = 0; this.vehicles.riding = null;
     for (const w of this.mobs.warriors) this.renderer.scene.remove(w.group);
     this.mobs.warriors.length = 0;   // 小战士跟着存档走，回本岛时由 applySave 重新放出来
+    for (const a of this.mobs.archers) { a.dispose(); this.renderer.scene.remove(a.group); }
+    this.mobs.archers.length = 0;    // 弓箭手哨兵同样只认本岛档：换场景就收，回岛重新放出来
     for (const f of this.mobs.fish) this.renderer.scene.remove(f.group);
     this.mobs.fish.length = 0;       // 鱼不存档：回岛/串门之后海里重新刷
     this.fires.clear(); this.challenge = this.createChallenge();
@@ -896,6 +968,7 @@ export class Game {
     const body = this.body!;
     this.survival!.wakeUp(body, this.spawn); this.vehicles.riding?.setPose(body.x, body.y, body.z, body.yaw);
     body.fellFrom = body.y; this.hud!.showMessage('嗖——回到重生点！');
+    this.archersGoHome(); // 弓箭手哨兵不跟传送，但会把岗位挪到重生点，自己走过去
   }
   private respawn(): void {
     const body = this.body!; this.challenge.onPlayerDeath(this.hud!);
@@ -907,6 +980,11 @@ export class Game {
     body.swayT = body.swayPhase = body.breathT = body.swampId = 0;
     this.health!.respawn();
     this.hud!.showMessage(keptRiding ? '你死了！背包满了，坦克还驮着你' : wasRiding ? '你死了！坦克收回背包了' : '你死了！已重生');
+    this.archersGoHome();
+  }
+  /** 玩家回到重生点（3 键回家 / 死亡重生）：弓箭手哨兵把岗位挪过去，慢慢走过去集合 */
+  private archersGoHome(): void {
+    for (const a of this.mobs.archers) a.goTo(this.spawn.x, this.spawn.y, this.spawn.z);
   }
   private renderFrame(body: PlayerBody): void {
     this.renderer.updateCamera(body.x, body.y + PLAYER.EYE, body.z, body.yaw + cameraYawSway(body.swayT, body.swayPhase), body.pitch, cameraFallRoll(body.skateFallT));

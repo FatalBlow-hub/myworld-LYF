@@ -7,6 +7,7 @@ import { STAR_ZOMBIE_GLOW_CHANCE } from '../world/mushrooms';
 import { DIY_GOLD_MANUAL as GOLD_MANUAL } from '../world/GoldenItems';
 import { World } from '../world/World';
 import { Animal, BIRD_KINDS, rayHitAnimal, spawnAnimals } from './Animal';
+import { Archer, BowForm } from './Archer';
 import { FISH_ITEM, Fish, rayHitFish, spawnFish } from './Fish';
 import { Warrior, WarriorTier } from './Warrior';
 import { Zombie, ZombieKind, rayHitZombie, spawnZombies } from './Zombie';
@@ -21,6 +22,8 @@ export class Mobs {
   zombies: Zombie[] = [];
   /** 小战士（玩家买蛋召唤的保镖）：跟着玩家、优先打正在打玩家的怪 */
   warriors: Warrior[] = [];
+  /** 弓箭手小战士（小战士弓召唤的哨兵）：守在岗位上放箭，不跟主人跑 */
+  archers: Archer[] = [];
   /** 海里的鱼：下水按 P 打，打死掉生鱼 */
   fish: Fish[] = [];
   /** 僵尸攻击开关：关掉后僵尸只会瞎逛，不追人也不挠人 */
@@ -53,11 +56,19 @@ export class Mobs {
     return w;
   }
 
-  /** 身边几格内有没有小战士：僵尸优先打它（没有就还是打玩家） */
-  private nearestWarrior(x: number, z: number): Warrior | null {
-    let best: Warrior | null = null;
+  /** 召唤一名弓箭手哨兵（玩家拿小战士弓对地按 M）：站在落点守家 */
+  summonArcher(form: BowForm, x: number, y: number, z: number): Archer {
+    const a = new Archer(form, x, y, z);
+    this.archers.push(a);
+    this.scene.add(a.group);
+    return a;
+  }
+
+  /** 身边几格内有没有小战士或弓箭手：僵尸优先打他们（没有就还是打玩家） */
+  private nearestWarrior(x: number, z: number): Warrior | Archer | null {
+    let best: Warrior | Archer | null = null;
     let bestD = ZOMBIE.AGGRO;
-    for (const w of this.warriors) {
+    for (const w of [...this.warriors, ...this.archers]) {
       if (w.dead) continue;
       const d = Math.hypot(w.x - x, w.z - z);
       if (d < bestD) { best = w; bestD = d; }
@@ -116,6 +127,15 @@ export class Mobs {
     if (this.warriors.some((w) => w.dead)) {
       for (const w of this.warriors.filter((w) => w.dead)) this.scene.remove(w.group);
       this.warriors = this.warriors.filter((w) => !w.dead);
+    }
+    // 弓箭手哨兵：站位放风筝打怪（打死怪也走 killedByWarrior，战利品直接进主人背包）
+    for (const a of this.archers) a.update(dt, this.world, this.zombies);
+    if (this.archers.some((a) => a.dead)) {
+      for (const a of this.archers.filter((a) => a.dead)) {
+        this.scene.remove(a.group);
+        a.dispose();
+      }
+      this.archers = this.archers.filter((a) => !a.dead);
     }
     for (const z of this.zombies) {
       // 怪优先打小战士：身边有小战士就把目标换成它，没有才是玩家；挑战房的怪只认玩家

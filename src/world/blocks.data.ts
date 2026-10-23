@@ -6,11 +6,13 @@ import { APPLE_LEAVES, APPLE_SAP1, BANANA, BANANA_LEAVES, BANANA_SAP1, COCONUT_S
 import { MUSHROOM_BLOCKS, GLOW_SHROOM, GLOW_SPORE, MUSHROOM_ENOKI, MUSHROOM_OYSTER, MUSHROOM_RED, MUSHROOM_SHIITAKE, MUSHROOM_SPORE, SPORE_ENOKI, SPORE_OYSTER, SPORE_RED, SPORE_SHIITAKE } from './blocks.mushrooms';
 import { SNOWFLAKE, SNOW_BLOCKS } from './blocks.season';
 import { FOOD_BLOCKS, FOOD_IDS } from './blocks.food';
+import { BLACK_BLOCKS, BLACK_PICKAXE, WARRIOR_BOW, WARRIOR_BOW_FIRE, WARRIOR_BOW_ICE } from './blocks.black';
 
 export * from './blocks.trees'; // 果树一族（梨/柿子/果树叶/树苗）的 ID 与物种表也走这里转发，外部照旧只认 './Block'
 export * from './blocks.mushrooms'; // 蘑菇一族（四种蘑菇 + 孢子）同样转发
 export * from './blocks.season'; // 季节小物（雪花）同样转发
 export * from './blocks.food'; // 新食物与饮品（红花蜜茶/凉茶/草饼/香蕉液/两种拼盘）同样转发
+export * from './blocks.black'; // 黑色售卖机一族（机器 + 黑色木镐 + 小战士弓三形态）同样转发
 
 export const AIR = 0;
 export const GRASS = 1;
@@ -441,6 +443,7 @@ export const BLOCKS: Record<number, BlockDef> = {
   ...MUSHROOM_BLOCKS, // 蘑菇一族（blocks.mushrooms.ts）：四种蘑菇 + 孢子
   ...SNOW_BLOCKS,     // 季节小物（blocks.season.ts）：雪花
   ...FOOD_BLOCKS,     // 新食物与饮品（blocks.food.ts）：两种茶/草饼/香蕉液/两种拼盘
+  ...BLACK_BLOCKS,    // 黑色售卖机一族（blocks.black.ts）：机器 + 黑色木镐 + 三形态小战士弓
   [AIR]:         { cn: '空气',   tex: { top: '', side: '' }, solid: false, seeThrough: true, hardness: 0 },
   [GRASS]:       { cn: '草方块', tex: { top: 'grass_top', side: 'grass_side', bottom: 'dirt' }, solid: true, seeThrough: false, hardness: 0.6, drop: DIRT },
   [DIRT]:        { cn: '泥土',   tex: { top: 'dirt', side: 'dirt' }, solid: true, seeThrough: false, hardness: 0.5 },
@@ -759,6 +762,8 @@ export const ALL_ITEMS = [
   SNOWFLAKE,
   // 新食物与饮品（blocks.food.ts）：两种茶、草饼、颠倒香蕉液、水果拼盘、蘑菇拼盘
   ...FOOD_IDS,
+  // 黑色售卖机的货（blocks.black.ts）：黑色木镐 + 三形态小战士弓（机器本体不进面板，跟其他机器一个待遇）
+  BLACK_PICKAXE, WARRIOR_BOW, WARRIOR_BOW_FIRE, WARRIOR_BOW_ICE,
 ];
 
 /** 庄稼生长链：每 60 秒走一级（水稻/胡萝卜/南瓜/西瓜共用）；最后一级不在表里 = 熟透了不再长 */

@@ -17,6 +17,7 @@ import { ISLAND_PAINTERS, ISLAND_TILE_NAMES } from './IslandTextures';
 import { MUSHROOM_PAINTERS, MUSHROOM_TILE_NAMES } from './MushroomTextures';
 import { SHOP_PAINTERS } from './ShopTextures';
 import { FISH_PAINTERS, FISH_TILE_NAMES } from './FishTextures';
+import { BLACKMARKET_PAINTERS, BLACKMARKET_TILE_NAMES } from './BlackMarketTextures';
 import { Painter, TILE, fill, shade, speckle } from './TextureUtils';
 export type { Painter } from './TextureUtils';
 
@@ -92,6 +93,8 @@ const TILE_NAMES = [
   'juice_apple', 'juice_orange', 'juice_peach', 'wine',
   'juice_coconut', 'juice_melon', 'juice_carrot', 'juice_pear',
   'egg_warrior_normal', 'egg_warrior_advanced', 'egg_warrior_epic',
+  // —— 黑色售卖机一族（机器 + 黑色木镐 + 小战士弓三形态，2026-10-24）——
+  ...BLACKMARKET_TILE_NAMES,
   // —— 四种生鱼 ——
   ...FISH_TILE_NAMES,
   // —— 四种蘑菇 + 孢子（秋季限定）——
@@ -398,7 +401,7 @@ PAINTERS.store_front = (c, x, y) => {
 };
 
 // 庄稼/羽毛/煤贴图拆出去了（CropTextures / BirdTextures / CoalTextures），合并进大表
-Object.assign(PAINTERS, CROP_PAINTERS, FEATHER_PAINTERS, COAL_PAINTERS, LAMP_PAINTERS, FIRE_PAINTERS, GOLDEN_PAINTERS, BAG_PAINTERS, BAMBOO_PAINTERS, ISLAND_PAINTERS, SHOP_PAINTERS, FISH_PAINTERS, MUSHROOM_PAINTERS);
+Object.assign(PAINTERS, CROP_PAINTERS, FEATHER_PAINTERS, COAL_PAINTERS, LAMP_PAINTERS, FIRE_PAINTERS, GOLDEN_PAINTERS, BAG_PAINTERS, BAMBOO_PAINTERS, ISLAND_PAINTERS, SHOP_PAINTERS, FISH_PAINTERS, MUSHROOM_PAINTERS, BLACKMARKET_PAINTERS);
 
 export interface Atlas {
   texture: THREE.CanvasTexture;

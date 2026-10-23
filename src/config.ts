@@ -513,6 +513,7 @@ export const HALL = {
     { id: 240, x: 2, z: 1 },        // 饮料售卖机
     { id: 241, x: 3, z: 1 },        // 收购箱
     { id: 297, x: 4, z: 1 },        // 杂货铺
+    { id: 315, x: 5, z: 1 },        // 黑色售卖机（315 = VENDING_BLACK，每天只随机卖一种货）
   ],
 };
 
@@ -537,6 +538,10 @@ export const SHOP = {
   DRINK_SELL_MULT: 0.5, // 收购箱收饮料 = 买价 × 0.5
   /** 杂货铺限量：每个账号每天对每种基础货只能买 1 个（独立模块见 world/shopLimits.ts） */
   STORE_STOCK: 1,
+  /** 黑色售卖机（2026-10-24 设定）：每天三选一，黑色木镐 / 黑颜料(4) / 小战士弓(25) */
+  BLACK_PICKAXE_PRICE: 10, // 黑色木镐：挖 30 块 ×1.75 速（设定没给价，先定 10，要改动这里）
+  BLACK_DYE_PRICE: 4,      // 黑颜料
+  BLACK_BOW_PRICE: 25,     // 小战士弓三形态同价
   SKIN_PRISMARINE_PRICE: 70, // 特殊物品售卖机：海晶史蒂夫皮肤（买一次永久解锁）
   SKIN_ENDER_PRICE: 85,      // 特殊物品售卖机：末影史蒂夫皮肤（买一次永久解锁）
   SKIN_BLOODMOON_PRICE: 56,  // 特殊物品售卖机：血月史蒂夫皮肤（买一次永久解锁）
@@ -641,6 +646,27 @@ export const WARRIOR = {
       regenAmount: ZOMBIE.DAMAGE * 2,
     },
   },
+};
+
+/** 弓箭手小战士（小战士弓/火弓/冰弓召唤的哨兵，2026-10-24 设定）：
+ *  血量/攻击 = 普通僵尸，移速 = 僵尸一半；离怪约 4 格停下放箭，怪走远继续追 */
+export const ARCHER = {
+  SPEED: ZOMBIE.SPEED / 2,  // 移速 = 僵尸的一半（1.1）
+  KEEP_DIST: 4,            // 距离怪这么远就停下开射，不贴脸
+  SHOOT_RANGE: 5.5,        // 这个距离内才放箭（比停靠点略宽，怪贴上来也照射）
+  SHOOT_EVERY: 1.2,        // 射箭间隔（秒）
+  AGGRO: 12,               // 看到几格内的怪（和普通小战士同一只眼力）
+  ARROW_SPEED: 16,         // 箭速（格/秒），直线飞行
+  ARROW_RANGE: 14,         // 箭最远飞几格
+  FIRE_MULT: 1.5,          // 火弓攻击倍率（无燃烧附加，伤害不叠加）
+  ICE_FREEZE: 0.5,         // 冰弓：命中先冻结几秒
+  ICE_SLOW: 0.5,           // 冰弓：冻完再半速几秒（连续命中要等上一轮走完才开新一轮）
+};
+
+/** 黑色木镐：挖满 30 个方块就坏，挖速是徒手的 1.75 倍 */
+export const BLACK_PICK = {
+  USES: 30,
+  SPEED: 1.75,
 };
 
 export const WATER_FLOW = {

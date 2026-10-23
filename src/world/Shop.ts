@@ -2,7 +2,12 @@
 
 import { SELL_PRICE, SHOP } from '../config';
 import type { CharacterKind } from '../entities/Character';
-import { BANANA_FLIP, BLOCKS, EGG_WARRIOR_ADVANCED, EGG_WARRIOR_EPIC, EGG_WARRIOR_NORMAL, FRUIT_PLATTER, GRASS_CAKE, JUICE_APPLE, JUICE_CARROT, JUICE_COCONUT, JUICE_MELON, JUICE_ORANGE, JUICE_PEACH, MUSHROOM_PLATTER, TEA_DANDELION, TEA_RED, WARRIOR_EGG_IDS, WINE } from './Block';
+import {
+  BANANA_FLIP, BLOCKS, BRICK, CHEST, COAL_CHUNK, COBBLE, DIRT, EGG_WARRIOR_ADVANCED, EGG_WARRIOR_EPIC,
+  EGG_WARRIOR_NORMAL, FRUIT_PLATTER, GLASS, GRASS_CAKE, JUICE_APPLE, JUICE_CARROT, JUICE_COCONUT,
+  JUICE_MELON, JUICE_ORANGE, JUICE_PEACH, LADDER, MUSHROOM_PLATTER, PLANKS, SAND, SANDSTONE, STONE,
+  TEA_DANDELION, TEA_RED, WARRIOR_EGG_IDS, WINE, WOOD, WOOD_SLAB, WOOL_WHITE,
+} from './Block';
 
 /** 售卖机货架上的一格商品 */
 export interface ShopGood {
@@ -16,6 +21,12 @@ export interface ShopGood {
   pool?: { id: number; weight: number }[];
   /** 每天最多能买几个（杂货铺用；不填 = 不限量） */
   dailyLimit?: number;
+  /** 还剩几件（黑色售卖机用：一天只进一件，卖完即止；不填 = 不限件数） */
+  stock?: () => number;
+  /** 买掉一件后要做的记账（黑色售卖机用它把当天货架清空） */
+  afterBuy?: () => void;
+  /** 卖空后按钮旁边的提示语（默认「今天买过了」） */
+  soldNote?: string;
 }
 
 /** 饮料售卖机货架：果汁 4 岛币、酒 5、椰子汁/西瓜汁/胡萝卜汁 3 */
@@ -64,44 +75,26 @@ export const SPECIAL_GOODS: ShopGood[] = [
   { unlock: 'pumpkin', price: SHOP.SKIN_PUMPKIN_PRICE, label: '万圣节南瓜头皮肤', note: '买一次永久有' },
 ];
 
-/** 杂货铺货架：基础建材与常用材料，**每种每天限购 1 个**（限量见 world/shopLimits.ts）
- *  定价原则：材料类约等于收购价的 2~3 倍，半成品/工具按合成成本略抬一点。
- *  用户说"先定个最基础的，要改再讲"——改这张表就行：[物品ID, 售价][] */
+/** 杂货铺货架：**只卖方块本身，不再卖物品**（2026-10-24 设定）——工作台/熔炉/告示牌/床
+ *  这些功能方块也下了架（按 M 就能用，不用买），材料与食物去岛上自己挣。
+ *  新定价：圆石 2 / 木头 1 / 沙子 0.1 / 煤块 0.75；其余维持原价。每种每天限购 1 个（world/shopLimits.ts） */
 const STORE_RAW: [number, number][] = [
   // —— 泥土石头木头：造家最基本的料 ——
-  [2, 1],    // 泥土
-  [3, 2],    // 石头
-  [4, 1],    // 沙子
-  [12, 2],   // 圆石
-  [8, 1],    // 木板
-  [6, 2],    // 木头
-  [62, 1],   // 木梯
-  [22, 2],   // 砂岩
-  [13, 3],   // 红砖
-  [11, 2],   // 玻璃
-  // —— 功能方块：箱子熔炉工作台床，按 M 就能用 ——
-  [20, 3],   // 箱子
-  [21, 3],   // 熔炉
-  [14, 2],   // 工作台
-  [15, 1],   // 木台阶
-  [49, 6],   // 白床
-  [34, 3],   // 白羊毛
-  [19, 2],   // 告示牌
-  // —— 材料与食物：省得为一块铁跑遍矿洞 ——
-  [171, 3],  // 煤炭
-  [172, 1],  // 煤粉
-  [111, 2],  // 铁粒
-  [114, 8],  // 铁锭
-  [112, 4],  // 金粒
-  [115, 15], // 金锭
-  [116, 20], // 蓝钻石碎
-  [119, 5],  // 铁桶
-  [102, 1],  // 木棍
-  [120, 1],  // 稻粒
-  [100, 2],  // 生肉
-  [101, 4],  // 熟肉
-  [236, 2],  // 苹果
-  [237, 2],  // 桃子
+  [DIRT, 1],          // 泥土
+  [STONE, 2],         // 石头
+  [SAND, 0.1],        // 沙子
+  [COBBLE, 2],        // 圆石
+  [PLANKS, 1],        // 木板
+  [WOOD, 1],          // 木头
+  [LADDER, 2],        // 木梯
+  [SANDSTONE, 2],     // 砂岩
+  [BRICK, 3],         // 红砖
+  [GLASS, 2],         // 玻璃
+  [COAL_CHUNK, 0.75], // 煤块
+  // —— 能放进岛上的容器与装饰方块 ——
+  [CHEST, 3],         // 箱子
+  [WOOD_SLAB, 1],     // 木台阶
+  [WOOL_WHITE, 3],    // 白羊毛
 ];
 
 export const STORE_GOODS: ShopGood[] = STORE_RAW.map(([id, price]) => ({ id, price, dailyLimit: SHOP.STORE_STOCK }));

@@ -12,6 +12,7 @@ export class ShopPanel {
   /** 上次打开的货架：限量买掉一件后按它重画，余额栏的刷新逻辑也复用 */
   private lastTitle = '';
   private lastGoods: ShopGood[] = [];
+  private lastEmptyText: string | undefined;
   private remainingOf: ((g: ShopGood) => number) | undefined;
   visible = false;
 
@@ -27,9 +28,10 @@ export class ShopPanel {
     document.body.appendChild(this.el);
   }
 
-  /** 打开一台售卖机：title = 机器名字，goods = 货架，remainingOf = 每日限量查询（杂货铺用） */
-  open(title: string, goods: ShopGood[], remainingOf?: (g: ShopGood) => number): void {
-    this.lastTitle = title; this.lastGoods = goods; this.remainingOf = remainingOf;
+  /** 打开一台售卖机：title = 机器名字，goods = 货架，remainingOf = 每日限量查询（杂货铺用），
+   *  emptyText = 货架是空的时候显示的话（黑色售卖机卖空时说「明天再来」） */
+  open(title: string, goods: ShopGood[], remainingOf?: (g: ShopGood) => number, emptyText?: string): void {
+    this.lastTitle = title; this.lastGoods = goods; this.remainingOf = remainingOf; this.lastEmptyText = emptyText;
     this.win.innerHTML = '';
     const t = document.createElement('p');
     t.className = 'inv-sub';
@@ -39,7 +41,7 @@ export class ShopPanel {
     if (goods.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'inv-sub';
-      empty.textContent = '还没进货，下次再来看看吧';
+      empty.textContent = emptyText ?? '还没进货，下次再来看看吧';
       this.win.appendChild(empty);
     }
     for (const g of goods) this.win.appendChild(this.makeRow(g));
@@ -65,7 +67,7 @@ export class ShopPanel {
     name.style.cssText = 'flex:1;text-align:left;font-size:14px;';
     const left = this.remainingOf?.(g);
     // 限量商品：名字后面挂"今天还能买 N 个"，买完了按钮直接灰掉
-    const limitNote = left === undefined ? '' : (left > 0 ? `（今天还能买 ${left} 个）` : '（今天买过了）');
+    const limitNote = left === undefined ? '' : (left > 0 ? `（今天还能买 ${left} 个）` : `（${g.soldNote ?? '今天买过了'}）`);
     name.textContent = (g.label ?? BLOCKS[g.id!].cn) + (g.note ? `（${g.note}）` : '') + limitNote;
     row.appendChild(name);
 
@@ -73,7 +75,7 @@ export class ShopPanel {
     btn.textContent = `${fmtCoins(g.price)} 岛币 购买`;
     btn.style.cssText = 'padding:6px 10px;font-size:13px;cursor:pointer;border-radius:6px;border:1px solid #888;background:#3e8a46;color:#fff;';
     if (left !== undefined && left <= 0) {
-      btn.textContent = '今天买过了';
+      btn.textContent = g.soldNote ?? '今天买过了';
       btn.style.background = '#5a5a5a';
       btn.style.cursor = 'default';
     } else {
@@ -92,7 +94,7 @@ export class ShopPanel {
   /** 限量商品买掉一件后整面板重画一次：余额、剩余次数、按钮的灰/亮都一起更新 */
   refresh(): void {
     if (!this.visible) return;
-    this.open(this.lastTitle, this.lastGoods, this.remainingOf);
+    this.open(this.lastTitle, this.lastGoods, this.remainingOf, this.lastEmptyText);
   }
 
   close(): void {

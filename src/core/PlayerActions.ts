@@ -2,9 +2,10 @@
  *  留在 core 层是因为这些动作会直接开 UI 面板（工作台、染色台），按依赖铁律下层不能反向依赖 ui。 */
 
 import * as THREE from 'three';
-import { GOLDEN, HASTE, ISLAND, RUBBER_DROP, SNOWFLAKE_DROP, STACK_MAX, VisitPerm } from '../config';
+import { BLACK_PICK, GOLDEN, HASTE, ISLAND, RUBBER_DROP, SNOWFLAKE_DROP, STACK_MAX, VisitPerm } from '../config';
 import { FireSystem } from '../entities/Fire';
 import { ItemDrop } from '../entities/ItemDrop';
+import { BOW_FORM_OF } from '../entities/Archer';
 import { TIER_OF_EGG } from '../entities/Warrior';
 import { DropSink, spawnDrop } from '../entities/drops';
 import { BlockHit, mine, place, placeSeaweed, plantCarrot, plantSeed, pourWater, useDoor } from '../interact/BlockPicker';
@@ -18,11 +19,11 @@ import { Hud } from '../ui/Hud';
 import { Panel } from '../ui/Panel';
 import { RecipeBook } from '../ui/RecipeBook';
 import {
-  AIR, BAMBOO, BLOCKS, BUCKET, BUY_BOX, CARROT, CHALLENGE_DOOR, CHALLENGE_HOUSE, CHEM_DECOMP, CRAFTING_TABLE,
+  AIR, BAMBOO, BLACK_PICKAXE, BLOCKS, BUCKET, BUY_BOX, CARROT, CHALLENGE_DOOR, CHALLENGE_HOUSE, CHEM_DECOMP, CRAFTING_TABLE,
   DIRT, DYE_TABLE, DYEABLE_CARPETS, FIRESTARTER_IDS, FRUIT_LEAF_IDS, FRUIT_OF_LEAF, GLASS_BUCKET, GRASS, HYDROGEN, ICE, IRON_NUGGET,
   LEAVES, MELON_SEED, MELON_STAGE1, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT,
   RICE_GRAIN, RUBBER, SAND, SAPLING_IDS, SEAWEED, SNOW, SNOWFLAKE, SOUL_CHEST, SOUL_FIRESTARTER, SPECIES_BY_SAPLING, STAR_DYE_TABLE, STAR_TABLE, SWAMP_FILL,
-  TANK, VENDING_DRINK, VENDING_SPECIAL, VENDING_STORE, VISIT_LIST_BLOCKS, WATER_BUCKET, WOOD,
+  TANK, VENDING_BLACK, VENDING_DRINK, VENDING_SPECIAL, VENDING_STORE, VISIT_LIST_BLOCKS, WATER_BUCKET, WOOD,
   dropCountOf, isBed, isChest, isDoor, isFurnace,
 } from '../world/Block';
 import { GOLD_CHEM_DECOMP, GOLD_DYE_TABLE, GOLD_PICKAXE, ICE_MOLECULE } from '../world/GoldenItems';
@@ -70,11 +71,13 @@ export interface PlayerActionDeps {
   /** 现在是不是站在大厅里（大厅是公共区域，方块禁挖禁放） */
   inHall: () => boolean;
   /** 对着售卖机按 M：打开对应货架（special = 特殊物品售卖机，drink = 饮料售卖机） */
-  openShop: (kind: 'special' | 'drink' | 'store') => void;
+  openShop: (kind: 'special' | 'drink' | 'store' | 'black') => void;
   /** 对着收购箱按 M：打开收购界面 */
   openBuyBox: () => void;
   /** 拿着小战士召唤蛋对地按 M：召唤保镖（扣蛋由外面负责） */
   summonWarrior: (eggId: number, x: number, y: number, z: number) => void;
+  /** 拿着小战士弓对地按 M：召唤弓箭手哨兵（扣弓由外面负责） */
+  summonArcher: (bowId: number, x: number, y: number, z: number) => void;
 }
 
 export class PlayerActions {
@@ -160,9 +163,10 @@ export class PlayerActions {
     const creative = inventory.infinite;
     const goldPickaxe = held?.id === GOLD_PICKAXE;
     if (goldPickaxe && this.pickaxeCooldown > 0) return;
-    // 挖掘加速（水果拼盘那 6 秒）：倍率叠在金镐上
+    const blackPick = held?.id === BLACK_PICKAXE;
+    // 挖掘加速（水果拼盘那 6 秒）：倍率叠在镐子上
     const haste = this.d.body && this.d.body().hasteT > 0 ? HASTE.MULT : 1;
-    const speed = (goldPickaxe ? GOLDEN.PICKAXE_SPEED : 1) * haste;
+    const speed = (goldPickaxe ? GOLDEN.PICKAXE_SPEED : blackPick ? BLACK_PICK.SPEED : 1) * haste;
     this.mineProgress += creative ? hardness : dt * speed;
     hud.setProgress(this.mineProgress / hardness);
     if (this.mineProgress >= hardness) {
@@ -195,6 +199,17 @@ export class PlayerActions {
         hud.showMessage('雪地里挖到一朵雪花！', 3);
       }
       if (goldPickaxe) this.pickaxeCooldown = GOLDEN.PICKAXE_COOLDOWN;
+      // 黑色木镐：每挖掉一个方块记 1 点耐久，挖满 30 个就散架（创造模式不磨）
+      if (blackPick && !creative) {
+        const cur = inventory.hotbar[this.d.slot()];
+        if (cur?.id === BLACK_PICKAXE) {
+          cur.durability = (cur.durability ?? BLACK_PICK.USES) - 1;
+          if (cur.durability <= 0) {
+            inventory.hotbar[this.d.slot()] = null;
+            hud.showMessage('黑色木镐挖满 30 个方块，坏掉了', 3);
+          }
+        }
+      }
       this.cancelMining();
       hud.setProgress(0);
     }
@@ -320,6 +335,11 @@ export class PlayerActions {
       this.d.summonWarrior(heldEgg.id, hitX, hitY, hitZ);
       return;
     }
+    // 手里拿着小战士弓：同样对地按 M 召唤弓箭手哨兵（弓的消耗归外面管）
+    if (heldEgg && heldEgg.id in BOW_FORM_OF) {
+      this.d.summonArcher(heldEgg.id, hitX, hitY, hitZ);
+      return;
+    }
     const id = world.getBlock(hitX, hitY, hitZ);
     if (id === VENDING_SPECIAL) {
       this.d.openShop('special');       // 特殊物品售卖机：买小战士召唤蛋
@@ -335,6 +355,10 @@ export class PlayerActions {
     }
     if (id === VENDING_STORE) {
       this.d.openShop('store');         // 杂货铺：基础建材，每种每天限购 1 个
+      return;
+    }
+    if (id === VENDING_BLACK) {
+      this.d.openShop('black');         // 黑色售卖机：每天只随机卖一种货，卖完等明天
       return;
     }
     if (id === CHALLENGE_DOOR) {
