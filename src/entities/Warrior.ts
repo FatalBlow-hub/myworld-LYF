@@ -58,6 +58,8 @@ export class Warrior {
   private skillT = 0;      // 特技判定计时（普通=暴击、高级=回血、绝世=秒杀）
   private regenT = 0;      // 绝世回血计时
   private critReady = false; // 普通：攒好了，下一次攻击翻倍
+  /** 打不过了：血低就后退养伤，回血回够了再上（带上下两个阈值，免得来回抖） */
+  private fleeing = false;
   /** 刚才打的是谁（给 HUD 提示用） */
   lastHitTier = '';
 
@@ -92,8 +94,23 @@ export class Warrior {
     const ox = owner.x, oz = owner.z;
     const ownerDist = Math.hypot(ox - this.x, oz - this.z);
 
+    // —— 打不过就往后退：血少了先撤，撤离危险再回来（回血只在他退着的时候生效） ——
+    if (this.hp <= this.maxHp * WARRIOR.RETREAT_HP) this.fleeing = true;
+    else if (this.hp >= this.maxHp * WARRIOR.RECOVER_HP) this.fleeing = false;
+    if (this.fleeing) this.hp = Math.min(this.maxHp, this.hp + WARRIOR.RETREAT_HEAL * dt);
+
     let tx: number, tz: number, speed: number;
-    if (target) {
+    if (this.fleeing) {
+      // 朝背离那只怪的方向退三格；没有目标就往主人身边靠
+      const ax = target ? this.x - target.x : ox - this.x;
+      const az = target ? this.z - target.z : oz - this.z;
+      const len = Math.hypot(ax, az) || 1;
+      tx = this.x + (ax / len) * 3;
+      tz = this.z + (az / len) * 3;
+      // 别为了躲怪把主人丢了：离主人太远就直接退回主人身边
+      if (Math.hypot(tx - ox, tz - oz) > WARRIOR.RETREAT_RANGE) { tx = ox; tz = oz; }
+      speed = WARRIOR.SPEED * WARRIOR.CHASE_MULT;
+    } else if (target) {
       tx = target.x; tz = target.z;
       speed = WARRIOR.SPEED;
     } else {
@@ -122,8 +139,8 @@ export class Warrior {
     this.syncMesh();
 
     let killed = false;
-    // 贴到怪身上就砍
-    if (target && dist < WARRIOR.ATTACK_DIST && this.attackT <= 0) {
+    // 贴到怪身上就砍（正在后撤养伤的时候不出手）
+    if (!this.fleeing && target && dist < WARRIOR.ATTACK_DIST && this.attackT <= 0) {
       this.attackT = WARRIOR.ATTACK_EVERY;
       killed = this.strike(target, false);
     }
@@ -151,8 +168,8 @@ export class Warrior {
       this.skillT -= dt;
       if (this.skillT <= 0) {
         this.skillT = epic.killEvery;
-        // 10% 直接秒掉正在打的怪
-        if (target && Math.random() < epic.killChance) killed = this.strike(target, true) || killed;
+        // 10% 直接秒掉正在打的怪（后撤养伤的时候不触发）
+        if (!this.fleeing && target && Math.random() < epic.killChance) killed = this.strike(target, true) || killed;
       }
       this.regenT -= dt;
       if (this.regenT <= 0) {

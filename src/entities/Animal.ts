@@ -105,13 +105,9 @@ export class Animal {
     return this.feather !== 0;
   }
 
-  /** 挨打：扣血 + 被打退一点 */
-  hurt(dmg: number, fromYaw: number): void {
+  /** 挨打：只扣血，**不后退、不飞走**（不然一直打不中，追着跑很烦）；fromYaw 留着兼容调用方 */
+  hurt(dmg: number, _fromYaw?: number): void {
     this.hp -= dmg;
-    this.x -= Math.sin(fromYaw) * 0.4;
-    this.z -= Math.cos(fromYaw) * 0.4;
-    this.vy = 4; // 被打得跳起来
-    if (this.isBird) this.flyT = Math.max(this.flyT, 1.5); // 挨打的鸟扑腾着飞走
     if (this.hp <= 0) this.dead = true;
   }
 
