@@ -11,6 +11,11 @@ import type { Biome } from './TerrainGen';
 type TerrainSample = (x: number, z: number) => { height: number; biome: Biome };
 const centers = new Map<string, { x: number; z: number } | null>();
 
+/** 换岛/换种子/换岛型时必须清缓存：地皮坐标相同但不一定还是那片地形 */
+export function resetSwampCache(): void {
+  centers.clear();
+}
+
 /** 沼泽自己的伪随机（和地形噪声分开，互不影响） */
 function shash(x: number, z: number): number {
   let h = (x * 374761393 + z * 668265263 + WORLD_SEED * 413) | 0;
@@ -30,9 +35,12 @@ function centerOf(cx: number, cz: number): { x: number; z: number } | null {
   };
 }
 
-/** 这一格是什么泽液（0 = 不是沼泽）。只对草地上、高出海面的地方长沼泽 */
+/** 能长沼泽的群系：草地；雪地也算（冬季岛是「雪盖土」，底下照样是泥土/草方块，不该整岛没有沼泽） */
+const SWAMP_BIOMES: Biome[] = ['grass', 'snow'];
+
+/** 这一格是什么泽液（0 = 不是沼泽）。只对草地/雪地上、高出海面的地方长沼泽 */
 export function swampAt(wx: number, wz: number, h: number, biome: Biome, sample?: TerrainSample): number {
-  if (biome !== 'grass' || h <= SEA_LEVEL + 1) return 0;
+  if (!SWAMP_BIOMES.includes(biome) || h <= SEA_LEVEL + 1) return 0;
   const cx = Math.floor(wx / SWAMP.CELL);
   const cz = Math.floor(wz / SWAMP.CELL);
   const R = SWAMP.RADIUS;
@@ -43,11 +51,16 @@ export function swampAt(wx: number, wz: number, h: number, biome: Biome, sample?
       if (c === undefined) {
         c = centerOf(cx + dx, cz + dz);
         if (c && sample) {
-          const level = sample(c.x, c.z).height;
+          const center = sample(c.x, c.z);
+          const level = center.height;
           for (let x = -R; x <= R && c; x++) for (let z = -R; z <= R && c; z++) {
             if (Math.hypot(x + 0.5, z + 0.5) > R) continue;
             const ground = sample(c.x + x, c.z + z);
-            if (ground.biome !== 'grass' || ground.height !== level || level <= SEA_LEVEL + 1) c = null;
+            // 整圈要同一种地面（别横跨草地/雪地分界）、高低差不超过一格、且都高过海面，
+            // 否则水塘会挂到山坡上或者和海边混在一起
+            if (ground.biome !== center.biome
+              || Math.abs(ground.height - level) > SWAMP.FLAT
+              || ground.height <= SEA_LEVEL + 1) c = null;
           }
         }
         if (sample) centers.set(key, c);

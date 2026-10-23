@@ -4,7 +4,7 @@ import { BAMBOO_FOREST, CHUNK, CROP, ISLAND, ORE, PALM, SEA_LEVEL, SPAWN, WORLD_
 import { BAMBOO, BLUE_ORE, CACTUS, CARROT_MATURE, COAL_ORE, DANDELION, DIRT, GOLD_ORE, GRASS, ICE, IRON_ORE, LEAVES, MELON, PALM_LEAVES, POPPY, PUMPKIN, RICE_MATURE, SAND, SANDSTONE, SEAWEED, SNOW, SOUL_GRASS, SPECIES_BY_LEAF, STONE, TALL_GRASS, WATER, WOOD } from './Block';
 import { canRootIn } from './bamboo';
 import { Chunk } from './Chunk';
-import { swampAt } from './Swamp';
+import { resetSwampCache, swampAt } from './Swamp';
 import { treeBlocks } from './Trees';
 import { GLOW_SHROOM_CHANCE, MUSHROOM_GROW_CHANCE, pickMushroom } from './mushrooms';
 import { GLOW_SHROOM } from './blocks.mushrooms';
@@ -32,6 +32,7 @@ export function setTerrainConfig(seed = WORLD_SEED, grassOnly = false, fruitLeaf
   activeTreeLeaves = fruitLeaf ? [fruitLeaf] : [];
   activeBamboo = false;
   activeSnowOnly = false;
+  resetSwampCache(); // 种子/群系变了，沼泽中心的缓存作废
 }
 
 /** 换季：地形生成按季节决定要不要长蘑菇（入冬后已长出来的由 Game 清掉） */
@@ -44,6 +45,7 @@ export function setIslandProfile(profile: { trees: number[]; bamboo: boolean; sn
   activeTreeLeaves = [...profile.trees];
   activeBamboo = profile.bamboo;
   activeSnowOnly = profile.snowOnly === true;
+  resetSwampCache(); // 岛型换了（草地↔雪地），沼泽能不能长也跟着变
 }
 
 /** 确定性伪随机：同一个 (x,z) 永远算出同一个 0~1 的数 */
