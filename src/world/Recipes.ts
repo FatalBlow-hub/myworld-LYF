@@ -261,6 +261,30 @@ export interface CraftMatch {
   uncraft: boolean;
 }
 
+/**
+ * 兜底匹配：材料的「种类」和配方完全一致、数量也够（多放了几个），就按配方该扣多少扣多少，
+ * 多出来的留在合成格里不浪费。
+ * 只在材料组合唯一时兜底：像木板 1/2/3/4/5 块分别能出木台阶/门/木棍/工作台/楼梯，
+ * 这种有歧义的不猜，仍然要求玩家放准数量。
+ */
+function matchByEnough(counts: Map<number, number>): CraftMatch | null {
+  let only: Recipe | null = null;
+  for (const r of RECIPES) {
+    // 批量配方按倍数算（已有精确匹配）、pattern 配方要靠摆格子，都不走兜底
+    if (r.scale || r.pattern) continue;
+    const need = new Map(r.needs);
+    if (need.size !== counts.size) continue;
+    let ok = true;
+    need.forEach((c, id) => {
+      if ((counts.get(id) ?? 0) < c) ok = false;
+    });
+    if (!ok) continue;
+    if (only) return null; // 同一组合能出好几样东西：有歧义就不猜
+    only = r;
+  }
+  return only ? { consume: only.needs, gives: [[only.out, only.outCount]], uncraft: false } : null;
+}
+
 /** 2×2 格子里现在能合成/拆解什么？对不上返回 null */
 export function matchCraft(counts: Map<number, number>, grid?: Slots): CraftMatch | null {
   // 先对合成表：材料按种类和数量匹配（合成优先，避免"4木板"被当成拆解）
@@ -293,6 +317,9 @@ export function matchCraft(counts: Map<number, number>, grid?: Slots): CraftMatc
     }
     if (ok) return { consume: r.needs, gives: [[r.out, r.outCount]], uncraft: false };
   }
+  // 精确数量对不上，但材料种类对、数量还更多 → 按配方扣，多的留格子里
+  const loose = matchByEnough(counts);
+  if (loose) return loose;
   // 再判断拆解：格子里只有一种东西，且它正好是某个配方的产出
   if (counts.size === 1) {
     const [id, n] = [...counts.entries()][0];
