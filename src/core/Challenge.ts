@@ -185,6 +185,7 @@ export class Challenge {
       const [cx, cz] = SPAWN_CELLS[i % SPAWN_CELLS.length];
       const z = new Zombie(h.x + cx + 0.5, h.y + 2, h.z + cz + 0.5, kind);
       z.noLoot = true; // 挑战房的怪打死了什么都没有
+      z.inChallenge = true; // 只认玩家：不追小战士，也不被小战士砍
       spawned.push(z);
       this.mobs.zombies.push(z);
       this.scene.add(z.group);

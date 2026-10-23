@@ -118,8 +118,8 @@ export class Mobs {
       this.warriors = this.warriors.filter((w) => !w.dead);
     }
     for (const z of this.zombies) {
-      // 怪优先打小战士：身边有小战士就把目标换成它，没有才是玩家
-      const guard = this.zombieAttack ? this.nearestWarrior(z.x, z.z) : null;
+      // 怪优先打小战士：身边有小战士就把目标换成它，没有才是玩家；挑战房的怪只认玩家
+      const guard = this.zombieAttack && !z.inChallenge ? this.nearestWarrior(z.x, z.z) : null;
       if (z.update(dt, this.world, guard ? guard.x : px, guard ? guard.z : pz, this.zombieAttack)) {
         if (guard) guard.hurt(z.damage);
         else {

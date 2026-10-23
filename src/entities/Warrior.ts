@@ -191,7 +191,8 @@ export class Warrior {
     let bestRank = 9;
     let bestDist = Infinity;
     for (const z of zombies) {
-      if (z.dead || z.silent) continue;
+      // 挑战房的怪不归小战士管：那是玩家自己的 4 关
+      if (z.dead || z.silent || z.inChallenge) continue;
       const d = Math.hypot(z.x - this.x, z.z - this.z);
       if (d > WARRIOR.AGGRO) continue;
       const rank = z.hurtOwnerT > 0 ? 0 : z.hurtByPlayerT > 0 ? 1 : 2;

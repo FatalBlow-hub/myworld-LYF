@@ -73,6 +73,8 @@ export class Zombie {
   silent = false;
   /** 最后一下是小战士砍死的：战利品不落地，直接进主人背包（Mobs 判断用） */
   killedByWarrior = false;
+  /** 挑战房里刷出来的怪：只认玩家，不理小战士（小战士也不打它） */
+  inChallenge = false;
   /** 幻药瓶减速倒计时：>0 时速度减半 */
   slowT = 0;
   frozenT = 0;
