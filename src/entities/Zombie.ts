@@ -71,6 +71,8 @@ export class Zombie {
   noLoot = false;
   /** 寿终正寝（自己烂掉）：dead 了但不清掉落——毒死/打死才掉东西 */
   silent = false;
+  /** 最后一下是小战士砍死的：战利品不落地，直接进主人背包（Mobs 判断用） */
+  killedByWarrior = false;
   /** 幻药瓶减速倒计时：>0 时速度减半 */
   slowT = 0;
   frozenT = 0;

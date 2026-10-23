@@ -160,6 +160,13 @@ export class Game {
         if (r.hurt) this.hud!.showMessage('河豚扎到你啦！', 0.8);
         if (r.died) this.respawn();
       },
+      // 小战士打死的怪：战利品直接进主人背包（手册直接学会），装不下的掉在脚边
+      (loot) => {
+        const b = this.body;
+        if (!b) return;
+        const msg = this.pickup?.gainAll(loot, (id, rest) => this.dropAt(id, rest, b.x, b.y, b.z));
+        if (msg) this.hud?.showMessage(msg, 3);
+      },
     );
     this.vehicles = new Vehicles(this.renderer.scene, this.mobs);
     this.challenge = this.createChallenge();

@@ -41,6 +41,8 @@ export class Mobs {
     private onWarriorKill: (warrior: Warrior, tag: string) => void = () => {},
     /** 河豚扎到玩家了（扣血 + 提示归 Game 管） */
     private onPufferSting: (damage: number) => void = () => {},
+    /** 小战士打死的怪：战利品交给 Game 直接塞进主人背包（不落地） */
+    private onWarriorLoot: (loot: [number, number][]) => void = () => {},
   ) {}
 
   /** 召唤一个小战士（玩家拿蛋对地按 M）；刚出来站在主人脚边 */
@@ -239,71 +241,69 @@ export class Mobs {
     return best;
   }
 
-  private dropManuals(count: number, x: number, y: number, z: number): void {
-    for (let i = 0; i < count; i++) {
-      const id = Math.random() < MANUAL.GOLD_CHANCE ? GOLD_MANUAL : DIY_MANUAL;
-      this.onDrop(id, 1, x, y, z);
-    }
+  /** 掉哪本手册：金色还是普通按概率定 */
+  private manualId(): number {
+    return Math.random() < MANUAL.GOLD_CHANCE ? GOLD_MANUAL : DIY_MANUAL;
   }
 
-  /** 活物被打死：消失 + 掉东西（僵尸掉得多，还可能掉熟肉） */
-  kill(mob: Animal | Zombie | Fish): void {
-    this.scene.remove(mob.group);
+  /** 一只活物被打死掉什么：地上掉落和小战士捡走共用这一张表 */
+  private lootOf(mob: Animal | Zombie | Fish): [number, number][] {
+    const out: [number, number][] = [];
     // 鱼：掉自己那一种生鱼
     if (mob instanceof Fish) {
-      this.fish = this.fish.filter((x) => x !== mob);
-      this.onDrop(FISH_ITEM[mob.kind], 1, mob.x, mob.y, mob.z);
-      return;
+      out.push([FISH_ITEM[mob.kind], 1]);
+      return out;
     }
     if (mob instanceof Zombie) {
-      this.zombies = this.zombies.filter((x) => x !== mob);
-      // 挑战房的怪不掉东西
-      if (mob.noLoot) return;
+      if (mob.noLoot) return out;  // 挑战房的怪不掉东西
       // 所有僵尸都有 1/20 概率掉一颗深绿颜料（沼泽特产）
-      if (Math.random() < DEEPGREEN_DROP) this.onDrop(DYE_DEEPGREEN, 1, mob.x, mob.y, mob.z);
+      if (Math.random() < DEEPGREEN_DROP) out.push([DYE_DEEPGREEN, 1]);
       // 腐败人：掉 6 个铁粒；腐败老鼠：掉 1 个铁粒
-      if (mob.kind === 'corrupt') {
-        this.onDrop(IRON_NUGGET, CORRUPT.NUGGETS, mob.x, mob.y, mob.z);
-        return;
-      }
-      if (mob.kind === 'rat') {
-        this.onDrop(IRON_NUGGET, RAT.NUGGETS, mob.x, mob.y, mob.z);
-        return;
-      }
+      if (mob.kind === 'corrupt') { out.push([IRON_NUGGET, CORRUPT.NUGGETS]); return out; }
+      if (mob.kind === 'rat') { out.push([IRON_NUGGET, RAT.NUGGETS]); return out; }
       // 星空尸：必掉 1 颗星星碎片 + 1 个生肉，10% 概率再掉一朵夜光蓝菇
       if (mob.kind === 'star') {
-        this.onDrop(STAR_SHARD, 1, mob.x, mob.y, mob.z);
-        this.onDrop(RAW_MEAT, 1, mob.x, mob.y, mob.z);
-        if (Math.random() < STAR_ZOMBIE_GLOW_CHANCE) this.onDrop(GLOW_SHROOM, 1, mob.x, mob.y, mob.z);
-        return;
+        out.push([STAR_SHARD, 1], [RAW_MEAT, 1]);
+        if (Math.random() < STAR_ZOMBIE_GLOW_CHANCE) out.push([GLOW_SHROOM, 1]);
+        return out;
       }
       // 血尸：掉 1~2 个血尸肉 + 必掉 1 本 DIY 手册
       if (mob.kind === 'blood') {
-        this.onDrop(BLOOD_MEAT, 1 + (Math.random() < BLOODZOMBIE.MEAT_EXTRA ? 1 : 0), mob.x, mob.y, mob.z);
-        if (this.canDropManual()) this.dropManuals(1, mob.x, mob.y, mob.z);
-        return;
+        out.push([BLOOD_MEAT, 1 + (Math.random() < BLOODZOMBIE.MEAT_EXTRA ? 1 : 0)]);
+        if (this.canDropManual()) out.push([this.manualId(), 1]);
+        return out;
       }
-      const n = ZOMBIE.MEAT_MIN + (Math.random() < ZOMBIE.MEAT_EXTRA ? 1 : 0);
-      this.onDrop(RAW_MEAT, n, mob.x, mob.y, mob.z);
-      if (Math.random() < ZOMBIE.COOKED_CHANCE) this.onDrop(COOKED_MEAT, 1, mob.x, mob.y, mob.z);
+      out.push([RAW_MEAT, ZOMBIE.MEAT_MIN + (Math.random() < ZOMBIE.MEAT_EXTRA ? 1 : 0)]);
+      if (Math.random() < ZOMBIE.COOKED_CHANCE) out.push([COOKED_MEAT, 1]);
       // 僵尸 100% 掉 2 本 DIY 手册（方法学全了就不掉）
-      if (this.canDropManual()) this.dropManuals(2, mob.x, mob.y, mob.z);
-      return;
+      if (this.canDropManual()) out.push([this.manualId(), 1], [this.manualId(), 1]);
+      return out;
     }
-    this.animals = this.animals.filter((x) => x !== mob);
     // 鸟：普通鸟掉 1~2 生肉 + 一半概率掉自己的羽毛；虎皮鹦鹉必掉 2 生肉；乌鸦必掉 1 生肉 + 1 黑羽毛
     if (mob.isBird) {
       const meat = mob.kind === 'budgie' ? 2 : mob.kind === 'crow' ? 1 : 1 + (Math.random() < 0.5 ? 1 : 0);
-      this.onDrop(RAW_MEAT, meat, mob.x, mob.y, mob.z);
-      if (mob.kind === 'crow') this.onDrop(FEATHER_BLACK, 1, mob.x, mob.y, mob.z);
-      else if (Math.random() < BIRD.FEATHER_CHANCE) this.onDrop(mob.feather, 1, mob.x, mob.y, mob.z);
+      out.push([RAW_MEAT, meat]);
+      if (mob.kind === 'crow') out.push([FEATHER_BLACK, 1]);
+      else if (Math.random() < BIRD.FEATHER_CHANCE) out.push([mob.feather, 1]);
     } else {
-      this.onDrop(RAW_MEAT, 1 + Math.floor(Math.random() * 3), mob.x, mob.y, mob.z);
-      if (mob.kind === 'sheep') this.onDrop(mob.woolId, 1, mob.x, mob.y, mob.z);
+      out.push([RAW_MEAT, 1 + Math.floor(Math.random() * 3)]);
+      if (mob.kind === 'sheep') out.push([mob.woolId, 1]);
     }
     // 一半概率掉 DIY 手册：捡了能学会一个制作方法；方法学全了就不再掉
-    if (Math.random() < MANUAL.DROP_CHANCE && this.canDropManual()) {
-      this.dropManuals(1, mob.x, mob.y, mob.z);
-    }
+    if (Math.random() < MANUAL.DROP_CHANCE && this.canDropManual()) out.push([this.manualId(), 1]);
+    return out;
+  }
+
+  /** 活物被打死：消失 + 掉东西（僵尸掉得多，还可能掉熟肉）；小战士砍死的直接进主人背包 */
+  kill(mob: Animal | Zombie | Fish): void {
+    this.scene.remove(mob.group);
+    if (mob instanceof Fish) this.fish = this.fish.filter((x) => x !== mob);
+    else if (mob instanceof Zombie) this.zombies = this.zombies.filter((x) => x !== mob);
+    else this.animals = this.animals.filter((x) => x !== mob);
+    const loot = this.lootOf(mob);
+    if (!loot.length) return;
+    // 小战士砍死的：战利品不落地，直接送到主人背包
+    if (mob instanceof Zombie && mob.killedByWarrior) { this.onWarriorLoot(loot); return; }
+    for (const [id, n] of loot) this.onDrop(id, n, mob.x, mob.y, mob.z);
   }
 }

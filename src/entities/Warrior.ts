@@ -179,6 +179,8 @@ export class Warrior {
       tag = '暴击';
     }
     target.hurt(dmg, this.yaw);
+    // 这一下把它打死了：记一笔，战利品由 Mobs 直接送进主人背包
+    if (target.dead) target.killedByWarrior = true;
     this.lastHitTier = tag;
     return target.dead;
   }

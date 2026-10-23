@@ -78,6 +78,39 @@ export class Pickup {
     return drops().filter((d) => !d.dead);
   }
 
+  /**
+   * 小战士打死的怪掉的战利品：手册直接学会，其它直接进背包；背包装不下的交给 onOverflow 掉在地上。
+   * 返回给 HUD 的一句文案（没东西可捡返回空串）。
+   */
+  gainAll(loot: [number, number][], onOverflow: (id: number, rest: number) => void): string {
+    const { inventory, book } = this.d;
+    const got: string[] = [];
+    const spilled: string[] = [];
+    const papers: string[] = [];
+    let goldenPaper = false;
+    for (const [id, n] of loot) {
+      if (id === DIY_MANUAL) {
+        for (let i = 0; i < n; i++) papers.push(book.learn().text);
+        got.push(`${BLOCKS[id].cn}×${n}`);
+        continue;
+      }
+      if (id === DIY_GOLD_MANUAL) {
+        for (let i = 0; i < n; i++) papers.push(book.learnGolden().text);
+        goldenPaper = true;
+        got.push(`${BLOCKS[id].cn}×${n}`);
+        continue;
+      }
+      const take = Math.min(inventory.roomFor(id), n);
+      if (take > 0) { inventory.add(id, take); got.push(`${BLOCKS[id].cn}×${take}`); }
+      if (take < n) { onOverflow(id, n - take); spilled.push(`${BLOCKS[id].cn}×${n - take}`); }
+    }
+    if (papers.length) book.showPaper(papers.join('\n'), goldenPaper);
+    if (!got.length && !spilled.length) return '';
+    return spilled.length
+      ? `小战士捡到 ${got.length ? got.join('、') : '一点东西'}（背包满了，${spilled.join('、')}掉在地上）`
+      : `小战士捡到 ${got.join('、')}`;
+  }
+
   /** 睡醒福利：星星碎片和芒星碎片各半概率，只掉一颗（自己熬夜到天亮没有这个福利） */
   dropStarShard(sx: number, sy: number, sz: number): void {
     const itemId = Math.random() < DAY.MANG_CHANCE ? MANG_SHARD : STAR_SHARD;
