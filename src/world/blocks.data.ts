@@ -10,6 +10,7 @@ import { BLACK_BLOCKS, BLACK_PICKAXE, WARRIOR_BOW, WARRIOR_BOW_FIRE, WARRIOR_BOW
 import { SWORD_BLOCKS, SWORD_IDS } from './blocks.swords';
 import { PLANK_BLOCKS, DYED_PLANK_IDS } from './blocks.planks';
 import { BOTTLE_BLOCKS, BOTTLE_SW_DEEP, BOTTLE_SW_DROWN, BOTTLE_SW_LIGHT, BOTTLE_SW_MID, BOTTLE_SW_PHANTOM, BOTTLE_WATER } from './blocks.bottles';
+import { DECO_BLOCKS, VINE_LADDER } from './blocks.deco';
 import { BUCKET_WATER_MAX } from '../config';
 
 export * from './blocks.trees'; // 果树一族（梨/柿子/果树叶/树苗）的 ID 与物种表也走这里转发，外部照旧只认 './Block'
@@ -20,6 +21,7 @@ export * from './blocks.black'; // 黑色售卖机一族（机器 + 黑色木镐
 export * from './blocks.swords'; // 六把剑（blocks.swords.ts）同样转发
 export * from './blocks.planks'; // 染色木板一族（blocks.planks.ts）同样转发
 export * from './blocks.bottles'; // 玻璃瓶装液体一族（blocks.bottles.ts）同样转发
+export * from './blocks.deco'; // 装饰方块一族（blocks.deco.ts）同样转发
 
 export const AIR = 0;
 export const GRASS = 1;
@@ -231,6 +233,8 @@ export const liquidCapOf = (container: number): number => container === GLASS_BO
 export const isSwampBucket = (id: number): boolean => id === BUCKET || id === GLASS_BUCKET || id === GLASS_BOTTLE || id in SWAMP_FILL;
 /** 算液体的方块：清水 + 五种泽液（都会往下流，不会往旁边流） */
 export const isLiquid = (id: number): boolean => id === WATER || isSwamp(id);
+/** 算梯子的方块：木梯子 + 藤蔓梯子（藤蔓只是装饰，两种都能爬） */
+export const isLadder = (id: number): boolean => id === LADDER || id === VINE_LADDER;
 /** 四种药水瓶 ID 表 */
 // —— 黄金系列编号（211~223）：编号放在 ID 段里，避免和 GoldenItems.ts 互相 import 成环
 export const DYE_GOLD = 211;
@@ -473,6 +477,7 @@ export const BLOCKS: Record<number, BlockDef> = {
   ...SWORD_BLOCKS,    // 六把剑（blocks.swords.ts）：木/铁/金/钻石/雪花/血腥
   ...PLANK_BLOCKS,    // 染色木板一族（blocks.planks.ts）：深/浅/灵魂蓝
   ...BOTTLE_BLOCKS,   // 玻璃瓶装液体一族（blocks.bottles.ts）：一格一瓶
+  ...DECO_BLOCKS,     // 装饰方块一族（blocks.deco.ts）：藤蔓梯子等
   [AIR]:         { cn: '空气',   tex: { top: '', side: '' }, solid: false, seeThrough: true, hardness: 0 },
   [GRASS]:       { cn: '草方块', tex: { top: 'grass_top', side: 'grass_side', bottom: 'dirt' }, solid: true, seeThrough: false, hardness: 0.6, drop: DIRT },
   [DIRT]:        { cn: '泥土',   tex: { top: 'dirt', side: 'dirt' }, solid: true, seeThrough: false, hardness: 0.5 },
@@ -798,6 +803,8 @@ export const ALL_ITEMS = [
   ...SWORD_IDS,
   // 三种染色木板（blocks.planks.ts）：深色/浅色/灵魂蓝，能正常盖房子
   ...DYED_PLANK_IDS,
+  // 装饰方块（blocks.deco.ts）：藤蔓梯子，缠了藤的梯子照样能爬
+  VINE_LADDER,
 ];
 
 /** 庄稼生长链：每 60 秒走一级（水稻/胡萝卜/南瓜/西瓜共用）；最后一级不在表里 = 熟透了不再长 */

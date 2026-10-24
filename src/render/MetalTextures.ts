@@ -64,6 +64,17 @@ export function addMetalPainters(PAINTERS: Record<string, Painter>): void {
     c.fillStyle = '#8a5f30'; c.fillRect(x + 3, y, 2, TILE); c.fillRect(x + 11, y, 2, TILE);
     c.fillStyle = '#6b4423'; for (let i = 2; i < TILE; i += 4) c.fillRect(x + 3, y + i, 10, 1);
   };
+  // 藤蔓梯子：木梯子上缠着青藤垂下来——藤茎顺着两根竖杆绕，叶子一丛丛往外冒
+  PAINTERS.vine_ladder = (c, x, y) => {
+    PAINTERS.ladder(c, x, y);
+    // 藤茎：青绿色带子绕在两根竖杆上，一节一节往下缠
+    c.fillStyle = '#1e6a5a';
+    for (let i = 0; i < 5; i++) { c.fillRect(x + 2, y + 1 + i * 3, 4, 1); c.fillRect(x + 10, y + 3 + i * 3, 4, 1); }
+    // 叶丛：深浅绿的小叶子点在藤茎边上，探出梯子外面才像缠着一丛
+    const leaf = (lx: number, ly: number) => { c.fillStyle = '#3f9e4d'; c.fillRect(x + lx, y + ly, 2, 2); c.fillStyle = '#68c463'; c.fillRect(x + lx, y + ly, 1, 1); };
+    [[1, 0], [0, 2], [6, 1], [12, 0], [14, 2], [1, 5], [13, 6], [8, 4], [0, 8], [14, 9], [6, 8], [1, 11], [13, 12], [9, 13], [0, 14], [14, 14]]
+      .forEach(([lx, ly]) => leaf(lx, ly));
+  };
   PAINTERS.fountain_stone = (c, x, y) => {
     fill(c, x, y, '#9aa0a8'); c.fillStyle = '#7d848e';
     for (let i = 4; i < TILE; i += 5) c.fillRect(x, y + i, TILE, 1);

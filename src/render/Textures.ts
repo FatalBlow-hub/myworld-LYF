@@ -49,7 +49,7 @@ const TILE_NAMES = [
   'iron_nugget', 'gold_nugget', 'blue_shard',
   'iron_ingot', 'gold_ingot', 'blue_diamond', 'bucket',
   // —— 梯子 / 喷泉 ——
-  'ladder', 'fountain_stone', 'fountain_icon',
+  'ladder', 'vine_ladder', 'fountain_stone', 'fountain_icon',
   // —— 水稻四阶段 + 稻粒 + 水草 + 水桶 ——
   'rice_seed', 'rice_sprout', 'rice_green', 'rice_mature', 'rice_grain',
   'carrot_seed', 'carrot_sprout', 'carrot_green', 'carrot_mature', 'carrot',
