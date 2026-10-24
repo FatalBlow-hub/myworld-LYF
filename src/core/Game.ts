@@ -676,12 +676,14 @@ export class Game {
     this.hud?.showMessage(`换成了${CHARACTER_NAMES[this.appearance.character]}`, 1.5);
   }
 
-  /** 只改人物形象也要落盘：在自己岛上就整档存，在大厅/副本岛就只把人物字段写回本岛存档 */
+  /** 只改人物形象也要落盘：在自己岛上就整档存，在大厅/副本岛就只把人物字段写回本岛存档——
+   *  当前穿着的皮肤 + 包里拥有哪些皮肤一起写，两个字段永远不分开 */
   private persistCharacter(): void {
     if (this.scene === 'island') { this.saveNow(); return; }
     const save = this.islandSave ?? readSave(this.saveSlot);
     if (!save) return;
     save.character = this.appearance.character;
+    save.skins = [...this.appearance.owned];
     this.islandSave = save;
     writeSave(this.saveSlot, save);
   }
