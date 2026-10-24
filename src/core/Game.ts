@@ -59,7 +59,7 @@ import { MobCombat } from './MobCombat';
 import { Vehicles } from './Vehicles';
 import { Challenge } from './Challenge';
 import { Potions } from '../entities/Potions';
-import { BAG_GLASS, BLOCKS, SNOW, Slots, WAISTBAG_SLOT } from '../world/Block';
+import { AIR, BAG_GLASS, BLOCKS, isSolid, SNOW, SNOWFLAKE, Slots, WAISTBAG_SLOT } from '../world/Block';
 import { DIY_GOLD_PICKAXE } from '../world/GoldenItems';
 import { spawnDrop } from '../entities/drops';
 import { ZOMBIE_NAMES } from '../entities/Zombie';
@@ -143,7 +143,10 @@ export class Game {
   constructor(container: HTMLElement) {
     this.renderer = new Renderer(container);
     this.chunkMeshes = new ChunkMeshCache(this.renderer.scene, this.atlas, this.renderer.clock);
-    this.snow = new Snowfall(this.renderer.scene); // 雪花粒子平时隐藏，冬季站在雪地上才开
+    this.snow = new Snowfall(this.renderer.scene, {
+      landingAt: (x, z, fromY) => this.flakeLanding(x, z, fromY),
+      onFlakeLand: (x, y, z) => this.dropAt(SNOWFLAKE, 1, x, y, z), // 蓝雪花落地→变成一个能捡的雪花
+    }); // 雪花粒子平时隐藏，冬季站在雪地上才开
     const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002));
     this.highlight = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x111111 }));
     this.highlight.visible = false;
@@ -460,6 +463,17 @@ export class Game {
       this.snow?.setActive(on, body.x, body.y, body.z);
     }
     this.snow?.update(dt, body.x, body.y, body.z);
+  }
+
+  /** 蓝雪花的落点：从这格往下找第一个非空气方块；报出顶面高度和能不能落脚（落水里/花草上就化了，不留物品） */
+  private flakeLanding(x: number, z: number, fromY: number): { y: number; solid: boolean } | null {
+    const bx = Math.floor(x), bz = Math.floor(z);
+    for (let y = Math.min(CHUNK.HEIGHT - 1, Math.floor(fromY)); y >= 0; y--) {
+      const id = this.world.getBlock(bx, y, bz);
+      if (id === AIR) continue;
+      return { y: y + 1, solid: isSolid(id) };
+    }
+    return null;
   }
 
   /** 玩家周围 5×5、脚下 3 层里有没有雪块（判断这块地方算不算雪地） */
