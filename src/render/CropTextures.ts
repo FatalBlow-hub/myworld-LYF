@@ -62,4 +62,19 @@ export const CROP_PAINTERS: Record<string, Painter> = {
     c.fillStyle = '#f5a94a'; // 高光
     c.fillRect(x + 5, y + 6, 2, 1);
   },
+  white_radish: (c, x, y) => {
+    // 白萝卜（物品）：跟胡萝卜同一个斜三角画法，身子换成奶白色
+    c.fillStyle = '#4e9e46'; // 绿缨子
+    c.fillRect(x + 4, y + 2, 2, 4); c.fillRect(x + 7, y + 2, 2, 4); c.fillRect(x + 5, y + 3, 2, 3);
+    c.fillStyle = '#f0eee4'; // 萝卜身子（上粗下尖的斜三角）
+    c.fillRect(x + 4, y + 6, 7, 2);
+    c.fillRect(x + 5, y + 8, 6, 2);
+    c.fillRect(x + 6, y + 10, 5, 2);
+    c.fillRect(x + 7, y + 12, 3, 1);
+    c.fillRect(x + 8, y + 13, 2, 1);
+    c.fillStyle = '#cfcaba'; // 身上的横纹
+    c.fillRect(x + 5, y + 7, 3, 1); c.fillRect(x + 7, y + 10, 3, 1);
+    c.fillStyle = '#ffffff'; // 高光
+    c.fillRect(x + 5, y + 6, 2, 1);
+  },
 };

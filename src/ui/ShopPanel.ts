@@ -13,7 +13,7 @@ export class ShopPanel {
   private lastTitle = '';
   private lastGoods: ShopGood[] = [];
   private lastEmptyText: string | undefined;
-  private remainingOf: ((g: ShopGood) => number) | undefined;
+  private remainingOf: ((g: ShopGood) => number | undefined) | undefined;
   visible = false;
 
   /** onBuy 负责扣钱发货（钱不够也在里面提示）；coins 只读当前余额用来显示 */
@@ -30,7 +30,7 @@ export class ShopPanel {
 
   /** 打开一台售卖机：title = 机器名字，goods = 货架，remainingOf = 每日限量查询（杂货铺用），
    *  emptyText = 货架是空的时候显示的话（黑色售卖机卖空时说「明天再来」） */
-  open(title: string, goods: ShopGood[], remainingOf?: (g: ShopGood) => number, emptyText?: string): void {
+  open(title: string, goods: ShopGood[], remainingOf?: (g: ShopGood) => number | undefined, emptyText?: string): void {
     this.lastTitle = title; this.lastGoods = goods; this.remainingOf = remainingOf; this.lastEmptyText = emptyText;
     this.win.innerHTML = '';
     const t = document.createElement('p');
@@ -74,7 +74,14 @@ export class ShopPanel {
     const btn = document.createElement('button');
     btn.textContent = `${fmtCoins(g.price)} 岛币 购买`;
     btn.style.cssText = 'padding:6px 10px;font-size:13px;cursor:pointer;border-radius:6px;border:1px solid #888;background:#3e8a46;color:#fff;';
-    if (left !== undefined && left <= 0) {
+    if (g.sellPrice !== undefined) {
+      // 回收行（白萝卜）：按钮写清楚卖出几个、能拿多少钱；手里一个没有就灰掉
+      const have = g.have?.() ?? 0;
+      btn.textContent = have > 0 ? `卖出 ${have} 个 +${fmtCoins(have * g.sellPrice)} 岛币` : `回收价 ${fmtCoins(g.sellPrice)}（你一个没有）`;
+      btn.style.background = have > 0 ? '#a8641e' : '#5a5a5a';
+      btn.style.cursor = have > 0 ? 'pointer' : 'default';
+      if (have > 0) btn.addEventListener('click', () => this.onBuy(g));
+    } else if (left !== undefined && left <= 0) {
       btn.textContent = g.soldNote ?? '今天买过了';
       btn.style.background = '#5a5a5a';
       btn.style.cursor = 'default';

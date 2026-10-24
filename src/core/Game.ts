@@ -45,6 +45,8 @@ import { BoardPanel } from '../ui/BoardPanel';
 import { DRINK_GOODS, SPECIAL_GOODS, STORE_GOODS, ShopGood, fmtCoins, rollGood } from '../world/Shop';
 import { consumeQuota, remainingOf, ShopQuota } from '../world/shopLimits';
 import { blackPriceOf, refreshBlackMarket, BlackMarketState } from '../world/blackMarket';
+import { hashName, radishPrice, WHITE_RADISH } from '../world/radish';
+import { dayOfYear, isMonday, weekdayOf, WEEKDAY_CN } from './Calendar';
 import { BLACK_PICKAXE } from '../world/blocks.black';
 import { BLACK_PICK } from '../config';
 import { BOW_FORM_NAMES, BOW_FORM_OF } from '../entities/Archer';
@@ -98,6 +100,8 @@ export class Game {
   private visitSync: VisitSync;
   /** 岛币余额（大厅三台机器用；收购箱进账、售卖机扣钱） */
   private coins = 0;
+  /** 登录账号名：白萝卜价的个人种子（每个人每天的萝卜价都不一样） */
+  private playerName = '';
   private shopPanel: ShopPanel | null = null;
   /** 收购箱的 9 个格子：东西放进去立刻折算成岛币，不跨场景保存 */
   private buyBoxSlots: Slots = Array(9).fill(null);
@@ -221,6 +225,7 @@ export class Game {
   async start(): Promise<void> {
     await runMenuFlow((mode, save, zombieAttack, slot, toHall) => this.begin(mode, save, zombieAttack, slot, toHall));
     const who = await probeAuth();
+    this.playerName = (who !== 'off' && who.name) ? who.name : '';
     // 老档没记过形象就按账号名固定挑一个（同一个名字每次进来都是同一个样子），随即写进档
     if (who !== 'off' && who.name && !this.appearance.characterFromSave) {
       this.appearance.set(pickCharacter(who.name));
@@ -442,10 +447,18 @@ export class Game {
     this.winterIsland = type === 'winter'; // 冬季岛常年下雪，不受日历季节限制
   }
 
-  /** 翻到新的一天：刷新 HUD 日期；黑色售卖机换货（昨天的清空）；季节变了才换叶；入冬把地图上的蘑菇全清掉（设定：冬季蘑菇全部消失） */
+  /** 翻到新的一天：刷新 HUD 日期；黑色售卖机换货（昨天的清空）；周一没卖的白萝卜全烂；季节变了才换叶；入冬把地图上的蘑菇全清掉（设定：冬季蘑菇全部消失） */
   private onNewDay(): void {
     this.hud?.setDate(dateLabel(this.day.date));
     this.blackMarket = refreshBlackMarket(this.blackMarket, this.day.date);
+    // 翻到周一：上周没卖的白萝卜全烂掉（早上烂完，今天才能买新萝卜）
+    if (isMonday(this.day.date) && this.inventory) {
+      const rotten = this.inventory.removeAll(WHITE_RADISH);
+      if (rotten > 0) {
+        this.hud?.showMessage(`新的一周到了，${rotten} 个白萝卜全烂了！`, 3.5);
+        this.hud?.refreshHotbar(this.inventory, this.slot);
+      }
+    }
     const season = seasonOf(this.day.date);
     if (this.lastSeason === season) return;
     this.lastSeason = season;
@@ -542,7 +555,21 @@ export class Game {
         },
         soldNote: '今天卖完了',
       }];
-      this.shopPanel?.open('黑色售卖机', goods, (g) => g.stock?.() ?? 1,
+      // 白萝卜：每人每天一个价（50~666），周一进货价能买，平时只回收；下周一没卖全烂
+      const rPrice = radishPrice(hashName(this.playerName || '游客'), dayOfYear(this.day.date));
+      const wd = WEEKDAY_CN[weekdayOf(this.day.date)];
+      if (isMonday(this.day.date)) {
+        goods.push({
+          id: WHITE_RADISH, price: rPrice,
+          note: `${wd}进货价 · 下周一没卖会烂`,
+        });
+      }
+      goods.push({
+        id: WHITE_RADISH, price: rPrice, sellPrice: rPrice,
+        label: `白萝卜回收（今天 ${fmtCoins(rPrice)}/个）`,
+        have: () => this.inventory?.countOf(WHITE_RADISH) ?? 0,
+      });
+      this.shopPanel?.open('黑色售卖机', goods, (g) => g.stock?.(),
         '今天的货卖完了，明天再来碰碰运气吧');
       return;
     }
@@ -577,6 +604,7 @@ export class Game {
   /** 点「购买」：先看钱、存量和背包够不够，够了扣钱发货（小战士蛋还要抽品质；皮肤走 buySkin） */
   private buyGood(good: ShopGood): void {
     if (good.unlock) { this.buySkin(good, good.unlock); return; }
+    if (good.sellPrice !== undefined) { this.sellRadish(good); return; }
     const inv = this.inventory!;
     if (this.coins < good.price) {
       this.hud!.showMessage(`岛币不够，还差 ${fmtCoins(good.price - this.coins)} 岛币`, 2.5);
@@ -609,6 +637,19 @@ export class Game {
     const name = BLOCKS[id]?.cn ?? '东西';
     this.hud!.showMessage(id === good.id ? `买到 ${name}！` : `叮——抽到了${name}！`, 2.5);
     good.afterBuy?.();
+    this.saveNow();
+  }
+
+  /** 黑色售卖机的白萝卜回收行：手里有多少卖多少，按今天这台机器的回收价结账 */
+  private sellRadish(good: ShopGood): void {
+    const inv = this.inventory!;
+    const count = inv.countOf(WHITE_RADISH);
+    if (count <= 0) { this.hud!.showMessage('你手里一个白萝卜也没有', 2.5); return; }
+    inv.take(WHITE_RADISH, count);
+    this.addCoins(count * good.sellPrice!);
+    this.hud!.showMessage(`卖出 ${count} 个白萝卜，赚了 ${fmtCoins(count * good.sellPrice!)} 岛币！`, 3);
+    this.hud!.refreshHotbar(inv, this.slot);
+    this.shopPanel?.refresh();
     this.saveNow();
   }
 

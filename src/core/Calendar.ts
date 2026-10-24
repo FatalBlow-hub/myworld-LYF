@@ -59,6 +59,12 @@ export const dateLabel = (d: GameDate): string => {
 /** 一共过了多少天（以 1 月 1 日为第 0 天）：按天数算季节/成长时用得上 */
 export const dayOfYear = (d: GameDate): number => (d.month - 1) * CALENDAR.MONTH_DAYS + (d.day - 1);
 
+/** 星期几：7 天一轮，0 = 周一。白萝卜炒股就靠它——周一进货、下周一全烂 */
+export const weekdayOf = (d: GameDate): number => dayOfYear(d) % 7;
+export const isMonday = (d: GameDate): boolean => weekdayOf(d) === 0;
+/** 星期几中文名（HUD/商店提示用） */
+export const WEEKDAY_CN = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'] as const;
+
 /** 存档里读出来的日期：缺字段或数字不合法就当没存过，回到开局日期 */
 export function normalizeDate(raw: unknown): GameDate {
   const r = raw as Partial<GameDate> | null | undefined;

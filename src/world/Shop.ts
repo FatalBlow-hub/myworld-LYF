@@ -27,6 +27,10 @@ export interface ShopGood {
   afterBuy?: () => void;
   /** 卖空后按钮旁边的提示语（默认「今天买过了」） */
   soldNote?: string;
+  /** 回收价（白萝卜用）：这一行不是卖给你东西，是机器按这个价收你手里的东西 */
+  sellPrice?: number;
+  /** 回收行显示"你手里有几个"（点一下全卖掉） */
+  have?: () => number;
 }
 
 /** 饮料售卖机货架：果汁 4 岛币、酒 5、椰子汁/西瓜汁/胡萝卜汁 3 */

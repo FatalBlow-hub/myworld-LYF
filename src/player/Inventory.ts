@@ -249,6 +249,19 @@ export class Inventory {
     return null;
   }
 
+  /** 把背包里某种东西全清掉（白萝卜过周一烂光用），返回清掉的总数 */
+  removeAll(id: number): number {
+    let n = 0;
+    const bag = this.waistbagCapacity ? this.waistbag.slice(0, this.waistbagCapacity) : [];
+    for (const slots of [this.hotbar, this.storage, bag]) {
+      for (let i = 0; i < slots.length; i++) {
+        if (slots[i]?.id === id) { n += slots[i]!.count; slots[i] = null; }
+      }
+    }
+    if (this.held?.id === id) { n += this.held.count; this.held = null; }
+    return n;
+  }
+
   /** 关面板时手上还捏着东西 → 塞回包里 */
   returnHeld(): void {
     if (this.held) {

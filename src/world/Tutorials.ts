@@ -14,6 +14,7 @@ import {
   SWAMP_MID, SWAMP_PHANTOM, SWORD_WOOD, TANK, TANK_BULLET, WATER_BUCKET, WOOD,
   WOOL_IDS, WOOL_WHITE,
 } from './blocks.data';
+import { WHITE_RADISH } from './radish';
 import { RECIPES, SMELT, UNCRAFT } from './Recipes';
 import { catOf, festOf, TutorialCat, FestTag } from './manualCats';
 
@@ -99,6 +100,8 @@ export const TUTORIALS: Tutorial[] = (() => {
   list.push({ text: `战斗：剑都是「材料×2 + ${name(STICK)}×1」合成的——木剑1.5倍拳、铁/雪花/血剑2倍、金剑2.5倍、钻石剑3倍；砍一刀磨1点耐久，用完剑断。雪花剑能把怪冻慢1秒，血腥之剑偶尔砍出4倍暴击`, icon: SWORD_WOOD, cat: 'equip' });
   // 腰包做法追加在最后，别打乱以前学会的方法编号
   list.push({ text: `装备：${name(WOOL_WHITE)}×4 + ${name(STICK)}×1 → ${name(BAG_WOOL)}（8格，穿在装备栏第二格；光放羊毛会变成地毯，记得加根木棍当包带）；羊毛腰包 + 任意颜料×1 染成同颜色的腰包，+ 玻璃/杂草/树叶/竹子/白羽毛/橡胶/芒星碎片/星星碎片 包出对应材质的腰包`, icon: BAG_WOOL, needs: [[WOOL_WHITE, 4], [STICK, 1]], cat: 'equip' });
+  // 白萝卜炒股追加在最后，别打乱以前学会的方法编号
+  list.push({ text: `使用：黑色售卖机每周一卖白萝卜（每个人的价格不一样，50~666 随机）；买回来盯着每天的回收价，哪天高了全部卖出赚差价——到了下周一还没卖，萝卜会全烂掉`, icon: WHITE_RADISH, cat: 'misc' });
   // 兜底：说明文字一模一样的只留一条
   return [...new Map([...list, ...swampEntries].map((t) => [t.text, t])).values()];
 })();

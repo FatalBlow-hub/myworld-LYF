@@ -11,6 +11,7 @@ import { SWORD_BLOCKS, SWORD_IDS } from './blocks.swords';
 import { PLANK_BLOCKS, DYED_PLANK_IDS } from './blocks.planks';
 import { BOTTLE_BLOCKS, BOTTLE_SW_DEEP, BOTTLE_SW_DROWN, BOTTLE_SW_LIGHT, BOTTLE_SW_MID, BOTTLE_SW_PHANTOM, BOTTLE_WATER } from './blocks.bottles';
 import { DECO_BLOCKS, VINE_LADDER } from './blocks.deco';
+import { RADISH_BLOCKS, WHITE_RADISH } from './radish';
 import { BUCKET_WATER_MAX } from '../config';
 
 export * from './blocks.trees'; // 果树一族（梨/柿子/果树叶/树苗）的 ID 与物种表也走这里转发，外部照旧只认 './Block'
@@ -22,6 +23,7 @@ export * from './blocks.swords'; // 六把剑（blocks.swords.ts）同样转发
 export * from './blocks.planks'; // 染色木板一族（blocks.planks.ts）同样转发
 export * from './blocks.bottles'; // 玻璃瓶装液体一族（blocks.bottles.ts）同样转发
 export * from './blocks.deco'; // 装饰方块一族（blocks.deco.ts）同样转发
+export * from './radish'; // 白萝卜（radish.ts：物品 + 价格逻辑）同样转发
 
 export const AIR = 0;
 export const GRASS = 1;
@@ -478,6 +480,7 @@ export const BLOCKS: Record<number, BlockDef> = {
   ...PLANK_BLOCKS,    // 染色木板一族（blocks.planks.ts）：深/浅/灵魂蓝
   ...BOTTLE_BLOCKS,   // 玻璃瓶装液体一族（blocks.bottles.ts）：一格一瓶
   ...DECO_BLOCKS,     // 装饰方块一族（blocks.deco.ts）：藤蔓梯子等
+  ...RADISH_BLOCKS,   // 白萝卜（radish.ts）：黑色售卖机周一进货的炒股道具
   [AIR]:         { cn: '空气',   tex: { top: '', side: '' }, solid: false, seeThrough: true, hardness: 0 },
   [GRASS]:       { cn: '草方块', tex: { top: 'grass_top', side: 'grass_side', bottom: 'dirt' }, solid: true, seeThrough: false, hardness: 0.6, drop: DIRT },
   [DIRT]:        { cn: '泥土',   tex: { top: 'dirt', side: 'dirt' }, solid: true, seeThrough: false, hardness: 0.5 },
@@ -805,6 +808,8 @@ export const ALL_ITEMS = [
   ...DYED_PLANK_IDS,
   // 装饰方块（blocks.deco.ts）：藤蔓梯子，缠了藤的梯子照样能爬
   VINE_LADDER,
+  // 白萝卜（radish.ts）：周一黑市进货的炒股道具，下周一没卖会烂
+  WHITE_RADISH,
 ];
 
 /** 庄稼生长链：每 60 秒走一级（水稻/胡萝卜/南瓜/西瓜共用）；最后一级不在表里 = 熟透了不再长 */

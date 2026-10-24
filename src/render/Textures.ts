@@ -52,7 +52,7 @@ const TILE_NAMES = [
   'ladder', 'vine_ladder', 'fountain_stone', 'fountain_icon',
   // —— 水稻四阶段 + 稻粒 + 水草 + 水桶 ——
   'rice_seed', 'rice_sprout', 'rice_green', 'rice_mature', 'rice_grain',
-  'carrot_seed', 'carrot_sprout', 'carrot_green', 'carrot_mature', 'carrot',
+  'carrot_seed', 'carrot_sprout', 'carrot_green', 'carrot_mature', 'carrot', 'white_radish',
   'feather_white', 'feather_gray', 'feather_green', 'feather_blue', 'feather_yellow', 'feather_black',
   'coal_chunk', 'coal_bar', 'coal', 'coal_dust',
   ...Object.keys(FIRE_PAINTERS),

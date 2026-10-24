@@ -581,6 +581,12 @@ export const SHOP = {
   SKIN_PUMPKIN_PRICE: 32,    // 特殊物品售卖机：史蒂夫南瓜头版·万圣节（买一次永久解锁）
 };
 
+/** 白萝卜炒股（2026-10-24 设定）：每周一黑色售卖机进货，价格每人每天 50~666 随机，下周一没卖就烂 */
+export const RADISH = {
+  PRICE_MIN: 50,
+  PRICE_MAX: 666,
+};
+
 /** 收购箱价目表：物品ID → { coins: 一份换多少岛币, per: 几个算一份 }
  *  稻粒（麦子）特殊：64 个才算一份换 1 岛币，零头退回背包 */
 export const SELL_PRICE: Record<number, { coins: number; per: number }> = {
