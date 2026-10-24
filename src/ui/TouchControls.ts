@@ -52,6 +52,7 @@ export class TouchControls {
         <button class="tbtn sm" data-act="respawn">家</button>
         <button class="tbtn sm" data-act="hall">厅</button>
         <button class="tbtn sm" data-act="toggleZombieSpawn">尸</button>
+        <button class="tbtn sm" data-act="settings">设</button>
         <button class="tbtn sm" data-act="pause">停</button>
       </div>
       <div class="rotate-tip">横过来玩更舒服～</div>

@@ -15,7 +15,7 @@ export interface PanelEntry {
   update?(dt: number): void;
   /** 开着时的按键处理；关门键已被管理器吃掉，这里只管面板内部操作 */
   keys?(controller: Controller): void;
-  /** 除了 9 / ESC 之外还能关掉它的键（B 关收集册、M 关箱子） */
+  /** 除了 9 / ESC 之外还能关掉它的键（7 关收集册、M 关箱子、B 关设置） */
   closeKeys?: Action[];
 }
 

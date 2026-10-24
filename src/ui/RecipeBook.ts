@@ -3,7 +3,8 @@
  *  卡片上画物品图标、名字、材料小图标；季节配方贴雪花/南瓜小标记；
  *  材料凑齐了卡片角落亮绿色对勾；点卡片下面看完整说明 */
 
-import { GOLDEN, MANUAL } from '../config';
+import { GOLDEN } from '../config';
+import { getSettings } from './Settings';
 import { Atlas } from '../render/Textures';
 import { Inventory } from '../player/Inventory';
 import { Tutorial, TUTORIALS } from '../world/Tutorials';
@@ -141,8 +142,19 @@ export class RecipeBook {
     return texts;
   }
 
-  /** 弹一张白纸出来，黑字写着刚学会的方法；点它 = 打开收集册 */
+  /** 设置里选了"只显示一行字"时，手册通知走这里（由 Game 接到 HUD 上） */
+  onText: ((msg: string) => void) | null = null;
+
+  /** 弹一张白纸出来，黑字写着刚学会的方法；点它 = 打开收集册。
+   *  提示方式看设置：paper=弹卡片 / text=一行字 / off=不提示 */
   showPaper(text: string, golden = false): void {
+    const s = getSettings();
+    if (s.manual === 'off') return;
+    if (s.manual === 'text') {
+      const names = text.split('\n').map((l) => this.paperName(l)).join('、');
+      this.onText?.(`获得${golden ? '金色 ' : ''}DIY 手册：${names}`);
+      return;
+    }
     this.hidePaper();
     const el = document.createElement('div');
     el.className = 'paper';
@@ -162,7 +174,13 @@ export class RecipeBook {
     });
     document.body.appendChild(el);
     this.paper = el;
-    this.paperTimeout = window.setTimeout(() => this.hidePaper(), MANUAL.PAPER_SECONDS * 1000);
+    this.paperTimeout = window.setTimeout(() => this.hidePaper(), s.paperSeconds * 1000);
+  }
+
+  /** 从手册文字里抠出产物名字做一行字提示："…→ 木剑×1" 取"木剑"，没有箭头就取冒号前几个字 */
+  private paperName(line: string): string {
+    const m = line.match(/→\s*([^→（(]+?)×\d/);
+    return (m?.[1] ?? line.split(/[：:]/)[0]).trim().slice(0, 10);
   }
 
   private hidePaper(): void {

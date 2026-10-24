@@ -42,6 +42,7 @@ import { GivePanel, GiveGift } from '../ui/GivePanel';
 import { ChatPanel } from '../ui/ChatPanel';
 import { ShopPanel } from '../ui/ShopPanel';
 import { BoardPanel } from '../ui/BoardPanel';
+import { SettingsPanel } from '../ui/SettingsPanel';
 import { DRINK_GOODS, SPECIAL_GOODS, STORE_GOODS, ShopGood, fmtCoins, rollGood } from '../world/Shop';
 import { consumeQuota, remainingOf, ShopQuota } from '../world/shopLimits';
 import { blackPriceOf, refreshBlackMarket, BlackMarketState } from '../world/blackMarket';
@@ -133,6 +134,7 @@ export class Game {
   private snowTimer = 0;
   /** 大厅留言板 / 信箱（B / V 打开，登录后才有内容） */
   private boardPanel: BoardPanel | null = null;
+  private settingsPanel: SettingsPanel | null = null;
   /** 商店每日限量已购记录（杂货铺；按本地日期记，跨天清零，随档存取） */
   private shopQuota: ShopQuota | undefined;
   /** 黑色售卖机今天的货架（按游戏内日期记，跨游戏日必换货；大厅里买也随档走） */
@@ -295,6 +297,7 @@ export class Game {
     this.hunger = new Hunger(mode); this.health = new Health(mode, () => this.hunger!.respawn());
     this.inventory = new Inventory(mode);
     this.book.bindInventory(this.inventory);
+    this.book.onText = (m) => this.hud?.showMessage(m, 3, true); // 手册"只显示一行字"模式；玩家自己选的，force 过提示语开关
     this.hud = new Hud(this.health.showStats, this.atlas, this.inventory.infinite);
     this.hud.setDate(dateLabel(this.day.date)); // 新档开局先显示 7 月 8 日；读档会在下面再刷一次
     // 手机上直接点快捷栏那一格就选中它（比 ◀▶ 一格格挪快，所以触屏不再放换格子键）
@@ -350,6 +353,8 @@ export class Game {
     this.panels.register({ name: 'book', isOpen: () => this.book.visible, close: () => this.book.close(), closeKeys: ['book'] });
     this.boardPanel = new BoardPanel();
     this.panels.register({ name: 'board', isOpen: () => this.boardPanel!.visible, close: () => this.boardPanel!.close(), closeKeys: ['board', 'mail'] });
+    this.settingsPanel = new SettingsPanel();
+    this.panels.register({ name: 'settings', isOpen: () => this.settingsPanel!.visible, close: () => this.settingsPanel!.close(), closeKeys: ['settings'] });
     this.panels.register({ name: 'sleep', isOpen: () => this.day.sleeping, close: () => {}, update: (dt) => this.day.update(dt, this.renderer) });
     this.survival = new Survival({
       controller: this.controller, inventory: this.inventory, health: this.health, hunger: this.hunger, hud: this.hud,
@@ -1092,8 +1097,9 @@ export class Game {
     if (this.paused && this.controller.take('quit')) this.quitToMenu();
     if (!this.paused && this.controller.take('inventory')) panel.open();
     if (!this.paused && this.controller.take('book')) this.book.open();
-    if (!this.paused && this.controller.take('board')) this.boardPanel?.toggle('board'); // B 大厅留言板
+    if (!this.paused && this.controller.take('board')) this.boardPanel?.toggle('board'); // T 大厅留言板
     if (!this.paused && this.controller.take('mail')) this.boardPanel?.toggle('mail');   // V 我的信箱
+    if (!this.paused && this.controller.take('settings')) this.settingsPanel?.toggle();  // B 设置
     if (!this.paused) {
       if (this.controller.take('hall')) {
         if (this.scene === 'hall') this.leaveHall();

@@ -6,6 +6,7 @@ import { fmtCoins } from '../world/Shop';
 import { Atlas } from '../render/Textures';
 import { Inventory } from '../player/Inventory';
 import { NetStatus } from '../net/Protocol';
+import { isTipsOn } from './Settings';
 
 export class Hud {
   private root = document.getElementById('hud')!;
@@ -188,7 +189,9 @@ export class Hud {
     this.dateEl.textContent = text;
   }
 
-  showMessage(text: string, seconds = 2.5): void {
+  /** force=必须显示（玩家自己选的手册提示这种），普通提示语会被设置里的开关拦掉 */
+  showMessage(text: string, seconds = 2.5, force = false): void {
+    if (!force && !isTipsOn()) return;
     this.messageEl.textContent = text;
     this.msgTimer = seconds;
   }

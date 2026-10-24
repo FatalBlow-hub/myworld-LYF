@@ -356,7 +356,8 @@ export const KEYS = {
   book: ['Digit7', 'Numpad7'], // 打开制作方法收集册（DIY 手册学过的方法都在这）
   quit: ['KeyQ'], // 暂停时按它存档回菜单（原 0 键让给聊天了，暂停菜单里也有按钮）
   hall: ['KeyH'], // 在自己的岛与大厅之间来回切换
-  board: ['KeyB'], // 大厅留言板：看大家说什么，自己也能发一条
+  settings: ['KeyB'], // 设置：手册提示方式、提示语开关
+  board: ['KeyT'], // 大厅留言板：看大家说什么，自己也能发一条（B 让给设置了）
   mail: ['KeyV'], // 信箱：看别人写给自己的私信
   give: ['KeyC'], // 访岛同屏时打开「送礼物」面板，把岛币/物品给对面的人
   chat: ['Digit0', 'Numpad0'], // 访岛同屏时打开聊天框，跟对面说话
@@ -374,7 +375,7 @@ export const MOBILE = {
 export const MANUAL = {
   DROP_CHANCE: 0.5, // 打死动物掉 DIY 手册的概率
   GOLD_CHANCE: 0.01,
-  PAPER_SECONDS: 15, // 捡到时弹出的白纸停留几秒
+
 };
 
 /** 游戏日历：一个月 10 天、开局 7 月 8 日（四季划分与日期推进见 core/Calendar.ts） */
