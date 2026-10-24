@@ -1143,7 +1143,8 @@ export class Game {
           if (z.y < VOID_REALM.GHOST_FALL_Y) { z.dead = true; z.silent = true; }
         }
         this.voidGhostT -= dt;
-        if (this.voidGhostT <= 0 && this.mobs.zombieSpawn && this.mobs.zombies.filter((z) => z.kind === 'ghost').length < VOID_REALM.GHOST_MAX) {
+        // 幽灵鬼是虚空特产，不受僵尸生成开关管：就算关了「生成僵尸」，这里也照样刷
+        if (this.voidGhostT <= 0 && this.mobs.zombies.filter((z) => z.kind === 'ghost').length < VOID_REALM.GHOST_MAX) {
           this.voidGhostT = VOID_REALM.GHOST_EVERY;
           const s = voidPlatformSpot();
           const g = new Zombie(s.x, s.y, s.z, 'ghost');
