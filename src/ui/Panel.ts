@@ -1,6 +1,6 @@
 /** 背包面板 — 按 9 打开：装备栏+3D 小人 / 2×2 合成（含拆解）/ 3×9 储物 / 快捷栏；对着工作台按 M 变成 3×3 大合成台。鼠标左键拿放，键盘 4/6 选格子、K 分一个 */
 
-import { ALL_ITEMS, BLOCKS, ROLLER_SKATES, SWAMP_FILL, WAISTBAG_SLOT, WATER_BUCKET, isWaistbag } from '../world/Block';
+import { ALL_ITEMS, BLOCKS, LIQUID_FILL, ROLLER_SKATES, WAISTBAG_SLOT, isWaistbag } from '../world/Block';
 import { CraftMatch, matchCraft } from '../world/Recipes';
 import { Atlas } from '../render/Textures';
 import { Inventory, Slots, stackMaxFor } from '../player/Inventory';
@@ -267,7 +267,7 @@ export class Panel {
       if (s) counts.set(s.id, (counts.get(s.id) ?? 0) + s.count);
     });
     if (counts.size === 0) return null;
-    if (this.craftGrid().some((s) => s && s.id in SWAMP_FILL) && this.craftGrid().filter(Boolean).length !== 1) return null;
+    if (this.craftGrid().some((s) => s && s.id in LIQUID_FILL) && this.craftGrid().filter(Boolean).length !== 1) return null;
     return matchCraft(counts, this.craftGrid());
   }
 
@@ -329,7 +329,7 @@ export class Panel {
   splitBtn(): void {
     const h = this.inv.held;
     if (!h) return this.splitSel();
-    if (h.id === WATER_BUCKET || h.id in SWAMP_FILL) return; // 桶装液体整桶走，不拆
+    if (h.id in LIQUID_FILL) return; // 液体容器整个走，不拆
     const refs = this.selRefs();
     const order = [refs[this.sel], ...refs.filter((r) => r !== refs[this.sel])];
     for (const r of order) {
@@ -349,7 +349,7 @@ export class Panel {
     const refs = this.selRefs();
     const from = refs[this.sel];
     const s = from.slots[from.i];
-    if (!s || s.id === WATER_BUCKET || s.id in SWAMP_FILL) return;
+    if (!s || s.id in LIQUID_FILL) return;
     // 格子能接 = 空的，或者是同类且没堆满
     const canTake = (slots: Slots, j: number) => {
       const t = slots[j];

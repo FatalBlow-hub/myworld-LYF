@@ -1,11 +1,11 @@
 /** 背包 — 格子制：快捷栏 9 格 + 储物 27 格 + 装备 4 格 + 合成 2×2，鼠标捏着东西搬来搬去 */
 
-import { BLACK_PICK, BUCKET_WATER_MAX, SKATES, STACK_MAX } from '../config';
-import { BLACK_PICKAXE, ROLLER_SKATES, Slots, Stack, SWORD_OF, SWAMP_FILL, WAISTBAG_CAPACITY, WAISTBAG_SLOT, WATER_BUCKET, isWaistbag } from '../world/Block';
+import { BLACK_PICK, SKATES, STACK_MAX } from '../config';
+import { BLACK_PICKAXE, LIQUID_FILL, ROLLER_SKATES, Slots, Stack, SWORD_OF, WAISTBAG_CAPACITY, WAISTBAG_SLOT, isWaistbag, liquidCapOf } from '../world/Block';
 
-/** 一格最多叠几个：液体桶最多 3 格水；轮滑鞋/黑色木镐/剑独占一格，耐久另外记录 */
+/** 一格最多叠几个：液体容器装的是"格数"（瓶 1 格、桶 3 格）；轮滑鞋/黑色木镐/剑独占一格，耐久另外记录 */
 export function stackMaxFor(id: number): number {
-  if (id === WATER_BUCKET || id in SWAMP_FILL) return BUCKET_WATER_MAX;
+  if (id in LIQUID_FILL) return liquidCapOf(LIQUID_FILL[id].bucket);
   if (id === ROLLER_SKATES || id === BLACK_PICKAXE || id in SWORD_OF || isWaistbag(id)) return 1;
   return STACK_MAX;
 }
@@ -63,7 +63,7 @@ export class Inventory {
     for (const slots of groups) {
       for (const s of slots) {
         if (!s) room += stackMaxFor(id);
-        else if (id !== WATER_BUCKET && !(id in SWAMP_FILL) && s.id === id && s.count < stackMaxFor(id)) room += stackMaxFor(id) - s.count;
+        else if (!(id in LIQUID_FILL) && s.id === id && s.count < stackMaxFor(id)) room += stackMaxFor(id) - s.count;
       }
     }
     return room;
@@ -75,7 +75,7 @@ export class Inventory {
   }
 
   private mergeInto(slots: Slots, id: number, n: number, limit = slots.length): number {
-    if (id === WATER_BUCKET || id in SWAMP_FILL || isWaistbag(id)) return n;
+    if (id in LIQUID_FILL || isWaistbag(id)) return n;
     for (let i = 0; i < limit && n > 0; i++) {
       const s = slots[i];
       if (s && s.id === id && s.count < stackMaxFor(id)) {
@@ -110,7 +110,7 @@ export class Inventory {
       return;
     }
     if (fits && !fits(h.id)) return; // 这格只收指定的东西（比如靴子格只收轮滑鞋）
-    const filled = h.id === WATER_BUCKET || h.id in SWAMP_FILL;
+    const filled = h.id in LIQUID_FILL;
     if (filled && h.count > max) return;
     if (filled && cur?.id === h.id) {
       slots[i] = h; this.held = cur;
@@ -144,7 +144,7 @@ export class Inventory {
     const h = this.held;
     if (!h) {
       if (!cur) return;
-      if (cur.count <= 1 || cur.id === WATER_BUCKET || cur.id in SWAMP_FILL) {
+      if (cur.count <= 1 || cur.id in LIQUID_FILL) {
         slots[i] = null;
         this.held = cur;
         return;
@@ -154,8 +154,8 @@ export class Inventory {
       cur.count -= half;
       return;
     }
-    // 桶装液体的 count 是液位不是数量，不能拆，按整桶处理
-    if (h.id === WATER_BUCKET || h.id in SWAMP_FILL) { this.click(slots, i, max, fits); return; }
+    // 液体容器的 count 是液位不是数量，不能拆，按整个处理
+    if (h.id in LIQUID_FILL) { this.click(slots, i, max, fits); return; }
     if (fits && !fits(h.id)) return;
     if (!cur) {
       slots[i] = { ...h, count: 1 };
@@ -172,7 +172,7 @@ export class Inventory {
   /** 点合成结果：材料从合成格里扣掉（背包 2×2 或工作台 3×3），产物到鼠标上；拆解的产物直接进背包 */
   craft(match: CraftMatch, from: Slots): boolean {
     if (match.consume.some(([id, n]) => n <= 0 || from.reduce((sum, s) => sum + (s?.id === id ? s.count : 0), 0) < n)) return false;
-    if (from.some((s) => s && s.id in SWAMP_FILL) && from.filter(Boolean).length !== 1) return false;
+    if (from.some((s) => s && s.id in LIQUID_FILL) && from.filter(Boolean).length !== 1) return false;
     if (match.uncraft) {
       const check = new Inventory(this.mode);
       for (const key of ['hotbar', 'storage'] as const) {

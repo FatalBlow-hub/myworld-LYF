@@ -19,10 +19,10 @@ import { Hud } from '../ui/Hud';
 import { Panel } from '../ui/Panel';
 import { RecipeBook } from '../ui/RecipeBook';
 import {
-  AIR, BAMBOO, BLACK_PICKAXE, BLOCKS, BUCKET, BUY_BOX, CARROT, CHALLENGE_DOOR, CHALLENGE_HOUSE, CHEM_DECOMP, CRAFTING_TABLE,
-  DIRT, DYE_TABLE, DYEABLE_CARPETS, FIRESTARTER_IDS, FRUIT_LEAF_IDS, FRUIT_OF_LEAF, GLASS_BUCKET, GRASS, HYDROGEN, ICE, IRON_NUGGET,
+  AIR, BAMBOO, BLACK_PICKAXE, BLOCKS, BOTTLE_WATER, BUCKET, BUY_BOX, CARROT, CHALLENGE_DOOR, CHALLENGE_HOUSE, CHEM_DECOMP, CRAFTING_TABLE,
+  DIRT, DYE_TABLE, DYEABLE_CARPETS, FIRESTARTER_IDS, FRUIT_LEAF_IDS, FRUIT_OF_LEAF, GLASS_BOTTLE, GLASS_BUCKET, GRASS, HYDROGEN, ICE, IRON_NUGGET,
   LEAVES, MELON_SEED, MELON_STAGE1, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT,
-  RICE_GRAIN, RUBBER, SAND, SAPLING_IDS, SEAWEED, SNOW, SNOWFLAKE, SOUL_CHEST, SOUL_FIRESTARTER, SPECIES_BY_SAPLING, STAR_DYE_TABLE, STAR_TABLE, SWAMP_FILL,
+  RICE_GRAIN, RUBBER, SAND, SAPLING_IDS, SEAWEED, SNOW, SNOWFLAKE, SOUL_CHEST, SOUL_FIRESTARTER, SPECIES_BY_SAPLING, STAR_DYE_TABLE, STAR_TABLE, LIQUID_FILL,
   TANK, VENDING_BLACK, VENDING_DRINK, VENDING_SPECIAL, VENDING_STORE, VISIT_LIST_BLOCKS, WATER_BUCKET, WOOD,
   dropCountOf, isBed, isChest, isDoor, isFurnace,
 } from '../world/Block';
@@ -133,9 +133,9 @@ export class PlayerActions {
       hud.showMessage('大厅是公共区域，不能挖方块', 1.5);
       return;
     }
-    // 拿着桶，指线上碰到液体 = 盛起来：水只用铁桶；泽液铁桶/玻璃桶都行，同种最多 3 格不混装
+    // 拿着液体容器，指线上碰到液体 = 盛起来：水用铁桶或玻璃瓶；泽液铁桶/玻璃桶/玻璃瓶都行，同种最多装满不混装
     const held = inventory.hotbar[this.d.slot()];
-    const wantsLiquid = held && (held.id === BUCKET || held.id === WATER_BUCKET || held.id === GLASS_BUCKET || held.id in SWAMP_FILL);
+    const wantsLiquid = held && (held.id === BUCKET || held.id === GLASS_BUCKET || held.id === GLASS_BOTTLE || held.id in LIQUID_FILL);
     if (wantsLiquid && waterHit) {
       if (controller.take('mine')) scoopBucket(world, inventory, this.d.slot(), waterHit, (text) => hud.showMessage(text));
       this.cancelMining();
@@ -289,25 +289,15 @@ export class PlayerActions {
       } else {
         hud.showMessage(`${BLOCKS[stack.id].cn}要种在草地上或泥土上`);
       }
-    } else if (stack.id === WATER_BUCKET) {
-      // 水桶 = 倒出一格水；一桶最多装 3 格，倒空了变回空桶；创造模式的桶一直有水
-      if (pourWater(world, hit)) {
-        if (!inventory.infinite) {
-          stack.count--;
-          if (stack.count <= 0) { stack.id = BUCKET; stack.count = 1; }
-          else hud.showMessage(`倒出一格水，桶里还剩 ${stack.count} 格`);
-        }
-      } else {
-        hud.showMessage('这里倒不了水');
-      }
-    } else if (stack.id in SWAMP_FILL) {
-      // 泽液桶 = 倒出一格泽液；倒空了变回它本来的空桶（铁桶/玻璃桶）
-      const fill = SWAMP_FILL[stack.id];
+    } else if (stack.id in LIQUID_FILL) {
+      // 装满的液体容器 = 倒出一格液体；倒空了变回它本来的空容器（铁桶/玻璃桶/玻璃瓶）
+      // 创造模式的容器一直倒不完；玻璃瓶只能装 1 格，倒完就变回空瓶
+      const fill = LIQUID_FILL[stack.id];
       if (pourWater(world, hit, fill.liquid)) {
         if (!inventory.infinite) {
           stack.count--;
           if (stack.count <= 0) { stack.id = fill.bucket; stack.count = 1; }
-          else hud.showMessage(`倒出一格${BLOCKS[fill.liquid].cn}，桶里还剩 ${stack.count} 格`);
+          else hud.showMessage(`倒出一格${BLOCKS[fill.liquid].cn}，容器里还剩 ${stack.count} 格`);
         }
       } else {
         hud.showMessage('这里倒不了');
@@ -377,10 +367,10 @@ export class PlayerActions {
       container.openFurnace(world.furnaceAt(hitX, hitY, hitZ));
     } else if (id === CHEM_DECOMP || id === GOLD_CHEM_DECOMP) {
       const held = inventory.hotbar[this.d.slot()];
-      if (held?.id === WATER_BUCKET) {
+      if (held?.id === WATER_BUCKET || held?.id === BOTTLE_WATER) {
         if (!inventory.infinite) {
           held.count--;
-          if (held.count <= 0) { held.id = BUCKET; held.count = 1; }
+          if (held.count <= 0) { held.id = LIQUID_FILL[held.id].bucket; held.count = 1; }
         }
         inventory.add(HYDROGEN, 1);
         const manual = book.recordWaterUse();

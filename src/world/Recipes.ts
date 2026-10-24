@@ -1,7 +1,7 @@
 /** 合成配方 — 把材料放进 2×2 格子，种类和数量对上就出成品（不看摆放位置）
  *  还支持拆解：只放一个成品进格子 → 吐出原材料 */
 
-import { BUCKET_WATER_MAX, CROP } from '../config';
+import { CROP } from '../config';
 import {
   APPLE, BAG_WOOL, BED_IDS, BED_STAR, BLOCKS, BLOOD_MEAT, BLUE_BLOCK, BLUE_DIAMOND, BLUE_SHARD, BRICK, BUCKET, CARPET_BLOOD, CARPET_IDS, CARPET_STAR, CARPET_WHITE, CHEST, COBBLE,
   COCONUT, COOKED_MEAT, CRAFTING_TABLE, DOOR_CLOSED, CARROT,
@@ -22,7 +22,7 @@ import {
   BAMBOO, LEAVES, WOOL_BAG_DYES,
   POTION_BREATH, POTION_DEADLY, POTION_PHANTOM, POTION_POISON,
   PUMPKIN, PUMPKIN_SEED, PUMPKIN_SLICE,
-  SWAMP_DEEP, SWAMP_DROWN, SWAMP_FILL, SWAMP_LIGHT, SWAMP_MID, SWAMP_PHANTOM, WATER,
+  SWAMP_DEEP, SWAMP_DROWN, SWAMP_LIGHT, SWAMP_MID, SWAMP_PHANTOM, WATER, LIQUID_FILL, liquidCapOf,
   FEATHER_BLACK, FEATHER_GRAY, FEATHER_WHITE,
   MANHOLE, STAR_DYE_TABLE,
   FENCE, FOUNTAIN, FURNACE, GLASS, GOLD_BLOCK, GOLD_INGOT, GOLD_NUGGET, GRASS,
@@ -352,9 +352,9 @@ export function matchCraft(counts: Map<number, number>, grid?: Slots): CraftMatc
   // 再判断拆解：格子里只有一种东西，且它正好是某个配方的产出
   if (counts.size === 1) {
     const [id, n] = [...counts.entries()][0];
-    // 装了泽液的桶：拆回空桶 + 桶里那几格泽液（count 就是装了几格）
-    if (id in SWAMP_FILL && Number.isInteger(n) && n >= 1 && n <= BUCKET_WATER_MAX) {
-      const f = SWAMP_FILL[id];
+    // 装了液体的容器：拆回空容器 + 里面那几格液体（count 就是装了几格；瓶 1 格、桶最多 3 格）
+    if (id in LIQUID_FILL && Number.isInteger(n) && n >= 1 && n <= liquidCapOf(LIQUID_FILL[id].bucket)) {
+      const f = LIQUID_FILL[id];
       return { consume: [[id, n]], gives: [[f.bucket, 1], [f.liquid, n]], uncraft: true };
     }
     // 特殊拆解（灵魂草 → 草方块 + 颜料；南瓜/西瓜/片支持按比例批量拆解）
@@ -429,13 +429,13 @@ export const TUTORIALS: Tutorial[] = (() => {
   list.push({ text: `使用：拿着稻粒对水按 L 种水稻，半天长一截；黄了挖掉收 5~10 粒，吃一粒回半颗心` });
   list.push({ text: `使用：拿着胡萝卜对草地或泥土按 L 种地里；叶子底下露橙尖尖就是熟了，挖掉收 1~3 根，吃一根回 1 颗心` });
   list.push({ text: `掉落：打鸟掉生肉和羽毛——普通鸟掉 1~2 肉、虎皮鹦鹉掉 2 肉，一半概率掉同色羽毛；乌鸦必掉 1 肉 + 1 黑羽毛` });
-  list.push({ text: `使用：拿铁桶对水按 P 盛一格水，一桶最多装 3 格（数字就是水量）；对地面按 L 倒出一格` });
+  list.push({ text: `使用：拿铁桶或玻璃瓶对水按 P 盛一格水，铁桶最多装 3 格、玻璃瓶只能装 1 格（数字就是水量）；对地面按 L 倒出一格` });
   list.push({ text: `矿石：地下石头层约 5% 会生成煤矿，挖煤矿掉 1 个煤块；煤块能做煤条（3个合1）、煤炭（2个合1）和煤粉（1个拆3），做熔炉要用煤粉` });
   list.push({ text: `掉落：睡醒只掉1颗碎片，${name(STAR_SHARD)}和${name(MANG_SHARD)}各有1/2概率，分别能做星能灯/芒能灯` });
   // —— 沼泽系列：加在最后，别打乱存档里的方法顺序号 ——
-  swampEntries.push({ text: '拆解：把一整桶泽液放进合成格，得到原来的空桶和桶内全部泽液；一次拆一桶，背包要留空位' });
+  swampEntries.push({ text: '拆解：把装满液体的桶或瓶放进合成格，得到空容器和里面全部液体；一次拆一个，背包要留空位' });
   swampEntries.push({ text: `地形：草地上有圆形沼泽，越往中间越毒——淡沼泽液、沼泽液、幻泽液、深泽液、溺泽液` });
-  swampEntries.push({ text: `使用：拿铁桶或玻璃桶对泽液按 P 盛一格，一桶最多 3 格同一种（不能混装）；对地面按 L 倒出` });
+  swampEntries.push({ text: `使用：拿铁桶、玻璃桶或玻璃瓶对泽液按 P 盛一格，桶最多 3 格、瓶只能 1 格，同一种才能混装；对地面按 L 倒出` });
   swampEntries.push({ text: `掉落：打僵尸有 1/20 概率掉${name(DYE_DEEPGREEN)}，黑颜料+绿颜料也能融出来` });
   swampEntries.push({ text: `使用：药水瓶按 E 喝、按 P 扔——毒药瓶每3秒扣1血共15秒，剧毒瓶每2秒扣2血共14秒；幻药瓶让怪减速一半、每5秒扣1血共15秒，自己喝幻觉6秒；防溺瓶水下呼吸60秒` });
   swampEntries.push({ text: `使用：${name(GLASS_CONE)}是小刀，攻击是拳头的 1.5 倍，但用一次有 2/3 概率碎掉` });

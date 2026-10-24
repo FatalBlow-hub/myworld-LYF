@@ -78,6 +78,9 @@ const TILE_NAMES = [
   'potion_poison', 'potion_phantom', 'potion_deadly', 'potion_breath', 'dye_deepgreen',
   'bucket_sw_light', 'bucket_sw_mid', 'bucket_sw_phantom', 'bucket_sw_deep', 'bucket_sw_drown',
   'gbucket_sw_light', 'gbucket_sw_mid', 'gbucket_sw_phantom', 'gbucket_sw_deep', 'gbucket_sw_drown',
+  // —— 玻璃瓶装液体：水瓶 + 五种泽液瓶（一格液体就是一瓶）——
+  'bottle_water',
+  'gbottle_sw_light', 'gbottle_sw_mid', 'gbottle_sw_phantom', 'gbottle_sw_deep', 'gbottle_sw_drown',
   ...GOLDEN_TILE_NAMES,
   // —— 竹子（方块要进图集，不然世界里的竹子没贴图）：杆侧面 / 竹节箍 / 杆顶截面 / 顶部竹叶大小两丛 / 物品图标 ——
   'bamboo', 'bamboo_side', 'bamboo_node', 'bamboo_top', 'bamboo_leaves', 'bamboo_leaves_small', 'bamboo_shoot',
@@ -356,6 +359,16 @@ for (const [name, col] of Object.entries(SW_BUCKET_LIQ)) {
   PAINTERS[name] = (c, x, y) => {
     (name.startsWith('gbucket') ? PAINTERS.glass_bucket : PAINTERS.bucket)(c, x, y);
     c.fillStyle = col; c.fillRect(x + 4, y + 7, 8, 2); c.fillStyle = '#ffffff66'; c.fillRect(x + 5, y + 7, 3, 1);
+  };
+}
+// 装了液体的玻璃瓶 = 玻璃瓶 + 瓶里一格对应颜色的液体（水/五种泽液，一格就是一瓶）
+const BOTTLE_LIQ: Record<string, string> = {
+  bottle_water: '#3d6fb0',
+  gbottle_sw_light: '#a8c878', gbottle_sw_mid: '#568a46', gbottle_sw_phantom: '#9668c6', gbottle_sw_deep: '#18421a', gbottle_sw_drown: '#1a3456',
+};
+for (const [name, col] of Object.entries(BOTTLE_LIQ)) {
+  PAINTERS[name] = (c, x, y) => {
+    PAINTERS.glass_bottle(c, x, y); c.fillStyle = col; c.fillRect(x + 6, y + 7, 4, 6); c.fillStyle = '#ffffff88'; c.fillRect(x + 7, y + 7, 1, 2);
   };
 }
 

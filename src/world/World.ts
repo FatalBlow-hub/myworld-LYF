@@ -1,7 +1,7 @@
 /** 世界 — 区块 + 方块朝向 + 箱子/熔炉内容 + 按碰撞盒的碰撞查询 */
 
 import { CHUNK, SMELT_TIME, WATER_FLOW } from '../config';
-import { AIR, BAMBOO, CROP_NEXT, SAPLING_MATURE, SAPLING_NEXT, SOUL_FURNACE, STONE, WATER, Slots } from './Block';
+import { AIR, BAMBOO, CROP_NEXT, SAPLING_MATURE, SAPLING_NEXT, SOUL_FURNACE, STONE, isLiquid, Slots } from './Block';
 import { bambooStandable } from './bamboo';
 import { solidBoxes } from './Shapes';
 import { tryGrowTree } from './Trees';
@@ -27,7 +27,7 @@ export class World {
   readonly furnaces = new Map<string, FurnaceState>();
   /** 内容变过、等待重建网格的区块 key */
   readonly dirtyChunks = new Set<string>();
-  /** 悬空的水：下面是空气，排队等着往下流（key = "x,y,z"） */
+  /** 悬空的液体：下面是空气，排队等着往下流（key = "x,y,z"） */
   private wetQueue = new Set<string>();
 
   /** 种下去的孢子还剩几秒长成蘑菇（key = "x,y,z" → 秒）；玩家亲手种的冬天也不消失 */
@@ -86,14 +86,14 @@ export class World {
     return chunk;
   }
 
-  /** 把这个区块里"下面是空气"的水登记进流水队列（会自己往下漏） */
+  /** 把这个区块里"下面是空气"的液体登记进流水队列（会自己往下漏） */
   private seedWater(chunk: Chunk): void {
     const bx = chunk.cx * CHUNK.SIZE;
     const bz = chunk.cz * CHUNK.SIZE;
     for (let lx = 0; lx < CHUNK.SIZE; lx++) {
       for (let y = 1; y < CHUNK.HEIGHT; y++) {
         for (let lz = 0; lz < CHUNK.SIZE; lz++) {
-          if (chunk.get(lx, y, lz) === WATER && chunk.get(lx, y - 1, lz) === AIR) {
+          if (isLiquid(chunk.get(lx, y, lz)) && chunk.get(lx, y - 1, lz) === AIR) {
             this.wetQueue.add(World.posKey(bx + lx, y, bz + lz));
           }
         }
@@ -122,11 +122,11 @@ export class World {
     chunk.set(lx, wy, lz, id);
     this.dirtyChunks.add(World.key(cx, cz));
 
-    // 水登记：变成水且下面是空气 → 排队往下流；挖空了且头顶是水 → 那格水也排队
-    if (id === WATER && this.getBlock(wx, wy - 1, wz) === AIR) {
+    // 液体登记：变成液体且下面是空气 → 排队往下流；挖空了且头顶是液体 → 那格液体也排队
+    if (isLiquid(id) && this.getBlock(wx, wy - 1, wz) === AIR) {
       this.wetQueue.add(World.posKey(wx, wy, wz));
     }
-    if (id === AIR && this.getBlock(wx, wy + 1, wz) === WATER) {
+    if (id === AIR && isLiquid(this.getBlock(wx, wy + 1, wz))) {
       this.wetQueue.add(World.posKey(wx, wy + 1, wz));
     }
 
@@ -384,21 +384,23 @@ export class World {
     }
   }
 
-  /** 悬空的水往下流：70% 概率源头留着、下面多一格水（水变多）；30% 整格挪下去 */
+  /** 悬空的液体往下流：70% 概率源头留着、下面多一格（液体变多）；30% 整格挪下去。
+   *  只往下流不往旁边流——水和五种泽液都走这一套 */
   flowWater(): void {
-    // 先复制一份再处理：流出来的新水要等下一轮才继续流，瀑布是一格一格长出来的
+    // 先复制一份再处理：流出来的新液体要等下一轮才继续流，瀑布是一格一格长出来的
     for (const key of [...this.wetQueue]) {
       this.wetQueue.delete(key);
       const [x, y, z] = key.split(',').map(Number);
+      const id = this.getBlock(x, y, z);
       // 状态可能已经变了（被人填上或流走了），不再悬空就跳过
-      if (this.getBlock(x, y, z) !== WATER || this.getBlock(x, y - 1, z) !== AIR) continue;
+      if (!isLiquid(id) || this.getBlock(x, y - 1, z) !== AIR) continue;
       if (Math.random() < WATER_FLOW.GROW) {
-        this.setBlock(x, y - 1, z, WATER); // 直接下流：下面多一格水，源头还在
+        this.setBlock(x, y - 1, z, id); // 直接下流：下面多一格同样的液体，源头还在
       } else {
-        this.setBlock(x, y, z, AIR);       // 整体下流：上面的水挪到下面
-        this.setBlock(x, y - 1, z, WATER);
+        this.setBlock(x, y, z, AIR);    // 整体下流：上面的液体挪到下面
+        this.setBlock(x, y - 1, z, id);
       }
-      // 新水如果还悬着，setBlock 会顺手把它登记回队列，下一轮接着流
+      // 新液体如果还悬着，setBlock 会顺手把它登记回队列，下一轮接着流
     }
   }
 

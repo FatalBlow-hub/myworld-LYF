@@ -9,6 +9,8 @@ import { FOOD_BLOCKS, FOOD_IDS } from './blocks.food';
 import { BLACK_BLOCKS, BLACK_PICKAXE, WARRIOR_BOW, WARRIOR_BOW_FIRE, WARRIOR_BOW_ICE } from './blocks.black';
 import { SWORD_BLOCKS, SWORD_IDS } from './blocks.swords';
 import { PLANK_BLOCKS, DYED_PLANK_IDS } from './blocks.planks';
+import { BOTTLE_BLOCKS, BOTTLE_SW_DEEP, BOTTLE_SW_DROWN, BOTTLE_SW_LIGHT, BOTTLE_SW_MID, BOTTLE_SW_PHANTOM, BOTTLE_WATER } from './blocks.bottles';
+import { BUCKET_WATER_MAX } from '../config';
 
 export * from './blocks.trees'; // 果树一族（梨/柿子/果树叶/树苗）的 ID 与物种表也走这里转发，外部照旧只认 './Block'
 export * from './blocks.mushrooms'; // 蘑菇一族（四种蘑菇 + 孢子）同样转发
@@ -17,6 +19,7 @@ export * from './blocks.food'; // 新食物与饮品（红花蜜茶/凉茶/草�
 export * from './blocks.black'; // 黑色售卖机一族（机器 + 黑色木镐 + 小战士弓三形态）同样转发
 export * from './blocks.swords'; // 六把剑（blocks.swords.ts）同样转发
 export * from './blocks.planks'; // 染色木板一族（blocks.planks.ts）同样转发
+export * from './blocks.bottles'; // 玻璃瓶装液体一族（blocks.bottles.ts）同样转发
 
 export const AIR = 0;
 export const GRASS = 1;
@@ -203,12 +206,31 @@ export const SWAMP_FILL: Record<number, { bucket: number; liquid: number }> = {
   [GS_BUCKET_DEEP]: { bucket: GLASS_BUCKET, liquid: SWAMP_DEEP },
   [GS_BUCKET_DROWN]: { bucket: GLASS_BUCKET, liquid: SWAMP_DROWN },
 };
-/** 空桶 + 泽液 → 装满后变成的桶 ID（舀泽液用） */
+/** 玻璃瓶装一格液体 → 空瓶和装的什么（玻璃瓶只装 1 格，清水和泽液都能装） */
+export const BOTTLE_FILL: Record<number, { bucket: number; liquid: number }> = {
+  [BOTTLE_WATER]: { bucket: GLASS_BOTTLE, liquid: WATER },
+  [BOTTLE_SW_LIGHT]: { bucket: GLASS_BOTTLE, liquid: SWAMP_LIGHT },
+  [BOTTLE_SW_MID]: { bucket: GLASS_BOTTLE, liquid: SWAMP_MID },
+  [BOTTLE_SW_PHANTOM]: { bucket: GLASS_BOTTLE, liquid: SWAMP_PHANTOM },
+  [BOTTLE_SW_DEEP]: { bucket: GLASS_BOTTLE, liquid: SWAMP_DEEP },
+  [BOTTLE_SW_DROWN]: { bucket: GLASS_BOTTLE, liquid: SWAMP_DROWN },
+};
+/** 所有装满的液体容器 → 空容器 + 装的液体（铁桶水/铁桶泽液/玻璃桶泽液/玻璃瓶一切） */
+export const LIQUID_FILL: Record<number, { bucket: number; liquid: number }> = {
+  [WATER_BUCKET]: { bucket: BUCKET, liquid: WATER },
+  ...SWAMP_FILL,
+  ...BOTTLE_FILL,
+};
+/** 空容器 + 液体 → 装满后变成的容器 ID（舀液体用：铁桶、玻璃桶、玻璃瓶统一查这张表） */
 export const FILLED_ID: Record<string, number> = Object.fromEntries(
-  Object.entries(SWAMP_FILL).map(([fid, v]) => [`${v.bucket}:${v.liquid}`, Number(fid)]),
+  Object.entries(LIQUID_FILL).map(([fid, v]) => [`${v.bucket}:${v.liquid}`, Number(fid)]),
 );
-/** 这桶能不能装泽液（空桶/玻璃桶/已经装了泽液的桶都行） */
-export const isSwampBucket = (id: number): boolean => id === BUCKET || id === GLASS_BUCKET || id in SWAMP_FILL;
+/** 这容器能装几格液体：玻璃瓶 1 格，铁桶/玻璃桶 BUCKET_WATER_MAX 格（容器填"空"的样子） */
+export const liquidCapOf = (container: number): number => container === GLASS_BOTTLE ? 1 : BUCKET_WATER_MAX;
+/** 这桶能不能装泽液（空桶/玻璃桶/玻璃瓶/已经装了泽液的容器都行） */
+export const isSwampBucket = (id: number): boolean => id === BUCKET || id === GLASS_BUCKET || id === GLASS_BOTTLE || id in SWAMP_FILL;
+/** 算液体的方块：清水 + 五种泽液（都会往下流，不会往旁边流） */
+export const isLiquid = (id: number): boolean => id === WATER || isSwamp(id);
 /** 四种药水瓶 ID 表 */
 // —— 黄金系列编号（211~223）：编号放在 ID 段里，避免和 GoldenItems.ts 互相 import 成环
 export const DYE_GOLD = 211;
@@ -450,6 +472,7 @@ export const BLOCKS: Record<number, BlockDef> = {
   ...BLACK_BLOCKS,    // 黑色售卖机一族（blocks.black.ts）：机器 + 黑色木镐 + 三形态小战士弓
   ...SWORD_BLOCKS,    // 六把剑（blocks.swords.ts）：木/铁/金/钻石/雪花/血腥
   ...PLANK_BLOCKS,    // 染色木板一族（blocks.planks.ts）：深/浅/灵魂蓝
+  ...BOTTLE_BLOCKS,   // 玻璃瓶装液体一族（blocks.bottles.ts）：一格一瓶
   [AIR]:         { cn: '空气',   tex: { top: '', side: '' }, solid: false, seeThrough: true, hardness: 0 },
   [GRASS]:       { cn: '草方块', tex: { top: 'grass_top', side: 'grass_side', bottom: 'dirt' }, solid: true, seeThrough: false, hardness: 0.6, drop: DIRT },
   [DIRT]:        { cn: '泥土',   tex: { top: 'dirt', side: 'dirt' }, solid: true, seeThrough: false, hardness: 0.5 },
@@ -741,6 +764,7 @@ export const ALL_ITEMS = [
   ...SWAMP_IDS,
   GLASS_SHARD, GLASS_CONE, GLASS_BOTTLE, GLASS_BUCKET, ...POTION_IDS, DYE_DEEPGREEN,
   ...Object.keys(SWAMP_FILL).map(Number),
+  ...Object.keys(BOTTLE_FILL).map(Number), // 六种玻璃瓶装液体（水瓶 + 五种泽液瓶）
   MANG_SHARD, MANG_LAMP, STAR_LAMP, HYDROGEN_LAMP,
   ROLLER_SKATES, COBBLE_SHARD, ...FIRESTARTER_IDS, ...WAISTBAG_IDS,
   BAMBOO, BAMBOO_SHOOT_PLANT, BAMBOO_SHOOT,

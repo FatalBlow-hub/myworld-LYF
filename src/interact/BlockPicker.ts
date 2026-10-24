@@ -1,7 +1,7 @@
 /** 方块拾取 — 从眼睛沿视线发射线找方块，执行挖掘 / 放置 / 开关门 */
 
 import { CHUNK, PLAYER } from '../config';
-import { AIR, BAMBOO, BLOCKS, CARROT_SEED, DIRT, DOOR_CLOSED, GRASS, RICE_SEED, SEAWEED, STAR_WOOL, WATER, dropOf, isBed, isDoor, isPlant, isSolid, isSwamp, toggleDoor } from '../world/Block';
+import { AIR, BAMBOO, BLOCKS, CARROT_SEED, DIRT, DOOR_CLOSED, GRASS, RICE_SEED, SEAWEED, STAR_WOOL, WATER, dropOf, isBed, isDoor, isLiquid, isPlant, isSolid, toggleDoor } from '../world/Block';
 import { bambooStandable } from '../world/bamboo';
 import { META_DIRS } from '../world/Shapes';
 import { World } from '../world/World';
@@ -72,7 +72,7 @@ export function pickWater(world: World, body: PlayerBody): BlockHit | null {
 
   while (t <= PLAYER.REACH) {
     const id = world.getBlock(x, y, z);
-    if (id === WATER || isSwamp(id)) return { x, y, z, nx, ny, nz }; // 碰到液体就停：盛这格
+    if (isLiquid(id)) return { x, y, z, nx, ny, nz }; // 碰到液体就停：盛这格
     if (isSolid(id) || isDoor(id) || BLOCKS[id]?.targetable) return null; // 被实心方块挡住，够不到液体
     if (tMaxX < tMaxY && tMaxX < tMaxZ) {
       x += stepX; t = tMaxX; tMaxX += tDeltaX;
@@ -88,18 +88,18 @@ export function pickWater(world: World, body: PlayerBody): BlockHit | null {
   return null;
 }
 
-/** 盛液体：桶对着水或泽液按 P，这格液体进桶里，原地变空气 */
+/** 盛液体：容器对着水或泽液按挖键，这格液体进容器里，原地变空气 */
 export function scoopWater(world: World, hit: BlockHit): boolean {
   const id = world.getBlock(hit.x, hit.y, hit.z);
-  if (id !== WATER && !isSwamp(id)) return false;
+  if (!isLiquid(id)) return false;
   world.setBlock(hit.x, hit.y, hit.z, AIR);
   return true;
 }
 
-/** 倒液体：对着方块按 L，在它旁边的空格里放一格液体（悬空的水会自己往下流；泽液不流动） */
+/** 倒液体：对着方块按放键，在它旁边的空格里放一格液体（悬空的液体会自己往下流） */
 export function pourWater(world: World, hit: BlockHit, liquid: number = WATER): boolean {
   const x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz;
-  if (y < 0 || y >= CHUNK.HEIGHT || (liquid !== WATER && !isSwamp(liquid))) return false;
+  if (y < 0 || y >= CHUNK.HEIGHT || !isLiquid(liquid)) return false;
   const cur = world.getBlock(x, y, z);
   if (cur !== AIR && !isPlant(cur)) return false; // 只能倒进空气/花草里
   world.setBlock(x, y, z, liquid);
