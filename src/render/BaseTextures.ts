@@ -2,6 +2,14 @@
 
 import { Painter, TILE, fill, speckle } from './TextureUtils';
 
+/** 木板通用画法：底色 + 每 4 像素一条板缝 + 噪点；普通/深色/浅色/灵魂蓝木板共用 */
+function planksLike(c: CanvasRenderingContext2D, x: number, y: number, base: string, seam: string, fleck: string): void {
+  fill(c, x, y, base);
+  c.fillStyle = seam;
+  for (let i = 4; i < TILE; i += 4) c.fillRect(x, y + i, TILE, 1);
+  speckle(c, x, y, [fleck], 20);
+}
+
 export const BASE_PAINTERS: Record<string, Painter> = {
   grass_top: (c, x, y) => { fill(c, x, y, '#5fa832'); speckle(c, x, y, ['#4e8f2a', '#6fbf3d', '#7ecb49'], 90); },
   dirt:      (c, x, y) => { fill(c, x, y, '#8a5f3c'); speckle(c, x, y, ['#755032', '#9c6f47', '#6b452a'], 70); },
@@ -40,12 +48,9 @@ export const BASE_PAINTERS: Record<string, Painter> = {
     c.fillStyle = '#e8d26a';
     c.fillRect(x + 11, y + 8, 2, 2);
   },
-  planks: (c, x, y) => {
-    fill(c, x, y, '#b08a55');
-    c.fillStyle = '#8a6a3e';
-    for (let i = 4; i < TILE; i += 4) c.fillRect(x, y + i, TILE, 1);
-    speckle(c, x, y, ['#c09a62'], 20);
-  },
+  planks: (c, x, y) => planksLike(c, x, y, '#b08a55', '#8a6a3e', '#c09a62'),
+  planks_dark: (c, x, y) => planksLike(c, x, y, '#3d2817', '#241609', '#503722'),
+  planks_light: (c, x, y) => planksLike(c, x, y, '#f0e0b0', '#d4c08c', '#fff5d0'),
   glass: (c, x, y) => {
     c.fillStyle = 'rgba(200,225,255,0.9)';
     c.fillRect(x, y, TILE, 1); c.fillRect(x, y + 15, TILE, 1);
@@ -141,11 +146,7 @@ export const BASE_PAINTERS: Record<string, Painter> = {
     c.fillStyle = '#2e8a94'; c.fillRect(x, y, TILE, 4);
     for (let i = 0; i < TILE; i += 2) c.fillRect(x + i, y + 4, 1, 1 + (i % 3));
   },
-  soul_planks: (c, x, y) => {
-    fill(c, x, y, '#3a6a8a'); c.fillStyle = '#2c5570';
-    for (let i = 4; i < TILE; i += 4) c.fillRect(x, y + i, TILE, 1);
-    speckle(c, x, y, ['#4a80a4'], 20);
-  },
+  soul_planks: (c, x, y) => planksLike(c, x, y, '#3a6a8a', '#2c5570', '#4a80a4'),
   soul_stone: (c, x, y) => { fill(c, x, y, '#4a6a8a'); speckle(c, x, y, ['#3d5a75', '#5a80a5'], 80); },
   soul_chest_side: (c, x, y) => {
     BASE_PAINTERS.soul_planks(c, x, y); c.fillStyle = '#16303f';

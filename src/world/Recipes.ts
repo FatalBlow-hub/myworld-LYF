@@ -16,6 +16,10 @@ import {
   PEACH_LEAVES, PEACH_SAP1, PEAR_LEAVES, PEAR_SAP1, PERSIMMON_LEAVES, PERSIMMON_SAP1,
   MUSHROOM_ENOKI, MUSHROOM_OYSTER, MUSHROOM_RED, MUSHROOM_SHIITAKE,
   GLOW_SHROOM, GLOW_SPORE, SPORE_ENOKI, SPORE_OYSTER, SPORE_RED, SPORE_SHIITAKE,
+  SNOWFLAKE, SWORD_BLOOD, SWORD_DIAMOND, SWORD_GOLD, SWORD_IRON, SWORD_SNOW, SWORD_WOOD,
+  PLANKS_DARK, PLANKS_LIGHT, SOUL_PLANKS,
+  BAG_BAMBOO, BAG_FEATHER, BAG_GLASS, BAG_GRASS, BAG_LEAF, BAG_MANG, BAG_RUBBER, BAG_STAR,
+  BAMBOO, LEAVES, WOOL_BAG_DYES,
   POTION_BREATH, POTION_DEADLY, POTION_PHANTOM, POTION_POISON,
   PUMPKIN, PUMPKIN_SEED, PUMPKIN_SLICE,
   SWAMP_DEEP, SWAMP_DROWN, SWAMP_FILL, SWAMP_LIGHT, SWAMP_MID, SWAMP_PHANTOM, WATER,
@@ -189,6 +193,31 @@ export const RECIPES: Recipe[] = [
   // 水果拼盘：五种水果各一个（红伞伞不进蘑菇拼盘，所以这里也只列四种好蘑菇）
   { out: FRUIT_PLATTER, outCount: 1, needs: [[PEACH, 1], [APPLE, 1], [PEAR, 1], [ORANGE, 1], [PERSIMMON, 1]] },
   { out: MUSHROOM_PLATTER, outCount: 1, needs: [[MUSHROOM_SHIITAKE, 1], [MUSHROOM_ENOKI, 1], [MUSHROOM_OYSTER, 1], [GLOW_SHROOM, 1]] },
+  // —— 2026-10-24 六把剑：材料×2 + 木棍×1（属性见 config.SWORDS）——
+  { out: SWORD_WOOD,    outCount: 1, needs: [[PLANKS, 2], [STICK, 1]] },
+  { out: SWORD_IRON,    outCount: 1, needs: [[IRON_NUGGET, 2], [STICK, 1]] },
+  { out: SWORD_GOLD,    outCount: 1, needs: [[GOLD_NUGGET, 2], [STICK, 1]] },
+  { out: SWORD_DIAMOND, outCount: 1, needs: [[BLUE_DIAMOND, 2], [STICK, 1]] },
+  { out: SWORD_SNOW,    outCount: 1, needs: [[SNOWFLAKE, 2], [STICK, 1]] },
+  { out: SWORD_BLOOD,   outCount: 1, needs: [[BLOOD_MEAT, 2], [STICK, 1]] },
+  // —— 三种染色木板：木板×1 + 颜料×1 ——
+  { out: PLANKS_DARK,  outCount: 1, needs: [[PLANKS, 1], [DYE_BLACK, 1]] },
+  { out: PLANKS_LIGHT, outCount: 1, needs: [[PLANKS, 1], [DYE_WHITE, 1]] },
+  { out: SOUL_PLANKS,  outCount: 1, needs: [[PLANKS, 1], [SOUL_DYE, 1]] },
+  // —— 腰包：老设定里一直没有获取途径（生存根本做不出来），现在补上 ——
+  // 羊毛腰包是底子：白羊毛×4 + 木棍×1 当包带（光放羊毛会变成地毯，得加个木棍）
+  // 其他腰包 = 羊毛腰包×1 + 对应材料包边；彩色腰包 = 羊毛腰包×1 + 对应颜料（跟金腰包一个套路）
+  { out: BAG_WOOL,    outCount: 1, needs: [[WOOL_WHITE, 4], [STICK, 1]] },
+  { out: BAG_GLASS,   outCount: 1, needs: [[BAG_WOOL, 1], [GLASS, 4]],        quiet: true },
+  { out: BAG_GRASS,   outCount: 1, needs: [[BAG_WOOL, 1], [TALL_GRASS, 4]],   quiet: true },
+  { out: BAG_LEAF,    outCount: 1, needs: [[BAG_WOOL, 1], [LEAVES, 4]],       quiet: true },
+  { out: BAG_BAMBOO,  outCount: 1, needs: [[BAG_WOOL, 1], [BAMBOO, 4]],       quiet: true },
+  { out: BAG_FEATHER, outCount: 1, needs: [[BAG_WOOL, 1], [FEATHER_WHITE, 4]], quiet: true },
+  { out: BAG_RUBBER,  outCount: 1, needs: [[BAG_WOOL, 1], [RUBBER, 4]],       quiet: true },
+  { out: BAG_MANG,    outCount: 1, needs: [[BAG_WOOL, 1], [MANG_SHARD, 2]],   quiet: true },
+  { out: BAG_STAR,    outCount: 1, needs: [[BAG_WOOL, 1], [STAR_SHARD, 2]],   quiet: true },
+  // 14 种彩色腰包（quiet：手册用一条说明统一讲，不刷 14 条）
+  ...WOOL_BAG_DYES.map(({ dye, id }) => ({ out: id, outCount: 1, needs: [[BAG_WOOL, 1], [dye, 1]] as [number, number][], quiet: true })),
 ];
 
 /** 星空染色台的颜料融合表：放进材料颜料 → 出新颜料（只有星空染色台能干这活） */
@@ -419,6 +448,10 @@ export const TUTORIALS: Tutorial[] = (() => {
   list.push({ text: `合成：${name(COAL_FIRESTARTER)}×1 + ${name(SOUL_DYE)}×1 → ${name(SOUL_FIRESTARTER)}×1` });
   list.push({ text: `合成：${name(COBBLE)}×2 + ${name(HYDROGEN)}×1 → ${name(HYDROGEN_FIRESTARTER)}×1` });
   list.push({ text: `使用：拿任意打火石对着方块按 L 点火；普通红火烧10秒，灵火蓝火烧15秒，不会蔓延，打火石不消耗` });
+  // 剑的说明追加在最后，别打乱以前学会的方法编号
+  list.push({ text: `战斗：剑都是「材料×2 + ${name(STICK)}×1」合成的——木剑1.5倍拳、铁/雪花/血剑2倍、金剑2.5倍、钻石剑3倍；砍一刀磨1点耐久，用完剑断。雪花剑能把怪冻慢1秒，血腥之剑偶尔砍出4倍暴击` });
+  // 腰包做法追加在最后，别打乱以前学会的方法编号
+  list.push({ text: `装备：${name(WOOL_WHITE)}×4 + ${name(STICK)}×1 → ${name(BAG_WOOL)}（8格，穿在装备栏第二格；光放羊毛会变成地毯，记得加根木棍当包带）；羊毛腰包 + 任意颜料×1 染成同颜色的腰包，+ 玻璃/杂草/树叶/竹子/白羽毛/橡胶/芒星碎片/星星碎片 包出对应材质的腰包` });
   // 兜底：说明文字一模一样的只留一条
   return [...new Map([...list, ...swampEntries].map((t) => [t.text, t])).values()];
 })();

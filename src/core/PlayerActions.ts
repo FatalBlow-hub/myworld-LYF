@@ -28,6 +28,7 @@ import {
 } from '../world/Block';
 import { GOLD_CHEM_DECOMP, GOLD_DYE_TABLE, GOLD_PICKAXE, ICE_MOLECULE } from '../world/GoldenItems';
 import { bambooAbove } from '../world/bamboo';
+import { ignitePortal } from '../world/Portal';
 import { SPORE_GROW_SECONDS, SPORE_IDS, SPORE_TO_PLANT } from '../world/mushrooms';
 import { metaFromYaw } from '../world/Shapes';
 import { World } from '../world/World';
@@ -239,6 +240,11 @@ export class PlayerActions {
       hud.showMessage('手里是空的，先挖点方块吧');
     } else if (FIRESTARTER_IDS.includes(stack.id)) {
       const blue = stack.id === SOUL_FIRESTARTER;
+      // 灵魂打火石先试传送门：点火点在灵魂蓝木门框内腔里就把门框点亮
+      if (blue && ignitePortal(world, hit.x + hit.nx, hit.y + hit.ny, hit.z + hit.nz)) {
+        hud.showMessage('灵魂传送门点亮了！走进去就能到灵魂虚空', 3);
+        return;
+      }
       const lit = this.d.fires.ignite(world, hit, blue ? 'blue' : 'red');
       hud.showMessage(lit ? (blue ? '灵火点燃了，蓝火会烧15秒' : '点燃红火，会烧10秒') : '要对着实地方块旁边的空格点火');
     } else if (stack.id === RICE_GRAIN) {

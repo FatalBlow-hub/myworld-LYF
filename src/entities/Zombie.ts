@@ -3,7 +3,7 @@
  *  腐败人（黑夜最后 10 秒出现，站着不动吐腐败老鼠）；老鼠血少跑得快 */
 
 import * as THREE from 'three';
-import { BLOODZOMBIE, CORRUPT, POTION, RAT, STARZOMBIE, ZOMBIE } from '../config';
+import { BLOODZOMBIE, CORRUPT, GHOST, POTION, RAT, STARZOMBIE, ZOMBIE } from '../config';
 import { AIR, WATER } from '../world/Block';
 import { World } from '../world/World';
 import { heightAt } from '../world/TerrainGen';
@@ -16,9 +16,10 @@ const H = 1.8;  // 人形身高（和玩家一样高）
 const RAT_W = 0.6; // 老鼠长（小个子，趴地上跑）
 const RAT_H = 0.4;
 
-/** 五种僵尸：normal 白天也刷；blood/star 只有黑夜出没天亮就消失；
- *  corrupt 黑夜尾巴上出现但出现了就不走；rat 是腐败人吐的小老鼠 */
-export type ZombieKind = 'normal' | 'blood' | 'star' | 'corrupt' | 'rat';
+/** 六种僵尸：normal 白天也刷；blood/star 只有黑夜出没天亮就消失；
+ *  corrupt 黑夜尾巴上出现但出现了就不走；rat 是腐败人吐的小老鼠；
+ *  ghost 是灵魂虚空里的幽灵鬼：半透明的发光小床单，飘着走 */
+export type ZombieKind = 'normal' | 'blood' | 'star' | 'corrupt' | 'rat' | 'ghost';
 
 /** 每种僵尸的中文名（提示文案用，别在业务里写三元链） */
 export const ZOMBIE_NAMES: Record<ZombieKind, string> = {
@@ -27,6 +28,7 @@ export const ZOMBIE_NAMES: Record<ZombieKind, string> = {
   star: '星空尸',
   corrupt: '腐败人',
   rat: '腐败老鼠',
+  ghost: '幽灵鬼',
 };
 
 // 僵尸配色：绿皮 + 蓝裤子 + 青上衣 + 红眼睛
@@ -45,6 +47,7 @@ const KIND_STATS: Record<ZombieKind, { speed: number; damage: number; hp: number
   star: { speed: 0, damage: STARZOMBIE.DAMAGE, hp: STARZOMBIE.HP },
   corrupt: { speed: 0, damage: 0, hp: CORRUPT.HP },   // 不走路不挠人，只会吐老鼠
   rat: { speed: RAT.SPEED, damage: ZOMBIE.DAMAGE, hp: RAT.HP },
+  ghost: { speed: GHOST.SPEED, damage: GHOST.DAMAGE, hp: GHOST.HP },
 };
 
 export class Zombie {
@@ -84,6 +87,8 @@ export class Zombie {
   hurtByPlayerT = 0;
   /** 中的毒：每 every 秒扣 dmg 血，还剩 left 秒 */
   private poisons = new TimedEffects();
+  /** 幽灵鬼的漂浮相位：每只错开一点，飘起来不会齐刷刷 */
+  private hoverT = Math.random() * 6;
 
   constructor(x: number, y: number, z: number, kind: ZombieKind = 'normal') {
     this.x = x; this.y = y; this.z = z;
@@ -118,6 +123,7 @@ export class Zombie {
   update(dt: number, world: World, px: number, pz: number, hostile = true): boolean {
     this.wanderT -= dt;
     this.attackT -= dt;
+    this.hoverT += dt;
     this.slowT = Math.max(0, this.slowT - dt);
     this.frozenT = Math.max(0, this.frozenT - dt);
     this.hurtOwnerT = Math.max(0, this.hurtOwnerT - dt);
@@ -207,13 +213,16 @@ export class Zombie {
   }
 
   private syncMesh(): void {
-    this.group.position.set(this.x, this.y, this.z);
+    // 幽灵鬼是飘的：模型整体抬离地面一截，还慢悠悠地上下浮
+    const lift = this.kind === 'ghost' ? 0.28 + Math.sin(this.hoverT * 2) * 0.12 : 0;
+    this.group.position.set(this.x, this.y + lift, this.z);
     this.group.rotation.y = this.yaw;
   }
 
-  /** 搭模型：人形怪是头+身+前伸手+两条腿；老鼠是趴地上的小身子+头+尾巴 */
+  /** 搭模型：人形怪是头+身+前伸手+两条腿；老鼠是趴地上的小身子+头+尾巴；幽灵鬼是半透明床单 */
   private buildMesh(): void {
     if (this.kind === 'rat') { this.buildRat(); return; }
+    if (this.kind === 'ghost') { this.buildGhost(); return; }
     const { skin, shirt, pants, eye } =
       this.kind === 'blood' ? BLOOD_SKIN
         : this.kind === 'star' ? STAR_SKIN
@@ -256,6 +265,32 @@ export class Zombie {
     box(0.07, 0.09, 0.04, -0.07, 0.34, -0.3, fur);        // 左耳
     box(0.07, 0.09, 0.04, 0.07, 0.34, -0.3, fur);         // 右耳
     box(0.05, 0.05, 0.4, 0, 0.1, 0.42, 0x8a6a72);         // 细尾巴拖后面
+  }
+
+  /** 幽灵鬼：半透明的青色发光"床单"，头顶镂空黑眼，底下飘着几根尾巴穗（灵魂虚空特产） */
+  private buildGhost(): void {
+    const sheet = 0x8fd8e8; // 床单色：发光的淡青蓝
+    const sheetMat = new THREE.MeshLambertMaterial({
+      color: sheet, emissive: 0x3a8ea8, emissiveIntensity: 0.9,
+      transparent: true, opacity: 0.82,
+    });
+    const eyeMat = new THREE.MeshLambertMaterial({ color: 0x081018 }); // 镂空眼：不透光的小黑洞
+    const box = (w: number, h: number, l: number, x: number, y: number, z: number, m: THREE.Material) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, l), m);
+      mesh.position.set(x, y, z);
+      this.group.add(mesh);
+    };
+    box(0.56, 0.5, 0.44, 0, 1.42, 0, sheetMat);            // 圆乎乎的头顶（床单最鼓的地方）
+    box(0.66, 0.55, 0.5, 0, 0.92, 0, sheetMat);            // 床单身子
+    box(0.42, 0.3, 0.32, 0, 0.5, 0, sheetMat);             // 收窄的尾巴根
+    box(0.17, 0.26, 0.15, -0.17, 0.24, 0, sheetMat);       // 尾巴穗·左
+    box(0.17, 0.3, 0.15, 0.02, 0.22, 0.06, sheetMat);      // 尾巴穗·中
+    box(0.17, 0.24, 0.15, 0.19, 0.26, -0.04, sheetMat);    // 尾巴穗·右
+    box(0.15, 0.13, 0.34, -0.4, 1.02, -0.08, sheetMat);    // 小短手·左（朝前飘）
+    box(0.15, 0.13, 0.34, 0.4, 1.02, -0.08, sheetMat);     // 小短手·右
+    box(0.1, 0.16, 0.02, -0.14, 1.46, -0.23, eyeMat);      // 左眼洞
+    box(0.1, 0.16, 0.02, 0.14, 1.46, -0.23, eyeMat);       // 右眼洞
+    box(0.08, 0.1, 0.02, 0, 1.32, -0.23, eyeMat);          // 张着的小嘴洞
   }
 }
 

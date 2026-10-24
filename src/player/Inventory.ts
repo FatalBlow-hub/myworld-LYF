@@ -1,12 +1,12 @@
 /** 背包 — 格子制：快捷栏 9 格 + 储物 27 格 + 装备 4 格 + 合成 2×2，鼠标捏着东西搬来搬去 */
 
 import { BLACK_PICK, BUCKET_WATER_MAX, SKATES, STACK_MAX } from '../config';
-import { BLACK_PICKAXE, ROLLER_SKATES, Slots, Stack, SWAMP_FILL, WAISTBAG_CAPACITY, WAISTBAG_SLOT, WATER_BUCKET, isWaistbag } from '../world/Block';
+import { BLACK_PICKAXE, ROLLER_SKATES, Slots, Stack, SWORD_OF, SWAMP_FILL, WAISTBAG_CAPACITY, WAISTBAG_SLOT, WATER_BUCKET, isWaistbag } from '../world/Block';
 
-/** 一格最多叠几个：液体桶最多 3 格水；轮滑鞋/黑色木镐独占一格，耐久另外记录 */
+/** 一格最多叠几个：液体桶最多 3 格水；轮滑鞋/黑色木镐/剑独占一格，耐久另外记录 */
 export function stackMaxFor(id: number): number {
   if (id === WATER_BUCKET || id in SWAMP_FILL) return BUCKET_WATER_MAX;
-  if (id === ROLLER_SKATES || id === BLACK_PICKAXE || isWaistbag(id)) return 1;
+  if (id === ROLLER_SKATES || id === BLACK_PICKAXE || id in SWORD_OF || isWaistbag(id)) return 1;
   return STACK_MAX;
 }
 import { CraftMatch } from '../world/Recipes';
@@ -15,9 +15,11 @@ import { GameMode } from './Health';
 export type { Slots, Stack };
 
 function newStack(id: number, count: number, durability?: number): Stack {
-  // 轮滑鞋按摔倒次数记耐久；黑色木镐按挖掉的方块数记耐久（挖满 30 个就没了）
+  // 轮滑鞋按摔倒次数记耐久；黑色木镐按挖掉的方块数记耐久（挖满 30 个就没了）；剑按还能砍几刀记
   if (id === ROLLER_SKATES) return { id, count, durability: durability ?? SKATES.MAX_FALLS };
   if (id === BLACK_PICKAXE) return { id, count, durability: durability ?? BLACK_PICK.USES };
+  const sword = SWORD_OF[id];
+  if (sword) return { id, count, durability: durability ?? sword.uses };
   return { id, count };
 }
 

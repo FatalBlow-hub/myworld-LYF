@@ -194,6 +194,28 @@ export const FIRE = {
   HEIGHT: 0.95,
 };
 
+/** 灵魂蓝传送门：灵魂蓝木板围竖直门框，灵魂打火石点燃内腔；
+ *  内腔至少 2×3、至多 8×12，点燃后内腔填满能穿行的传送门方块 */
+export const PORTAL = {
+  MIN_W: 2, MIN_H: 3, MAX_W: 8, MAX_H: 12,
+  COOLDOWN: 1.5, // 传送后短暂冷却，免得在门框里来回弹
+};
+
+/** 灵魂虚空：传送过去只有一座 9×9×1 灵魂蓝木板平台，脚下全虚空；
+ *  掉下去=掉出世界，回本岛床/复活点；平台上有幽灵鬼游荡 */
+export const VOID_REALM = {
+  PLATFORM: 9,       // 平台边长（格）
+  PLATFORM_Y: 10,    // 平台所在高度
+  GHOST_MAX: 3,      // 同时在场的幽灵鬼上限
+  GHOST_EVERY: 8,    // 补怪间隔（秒）
+  GHOST_FALL_Y: -12, // 幽灵掉到这个高度就悄悄消失
+};
+
+/** 幽灵鬼：灵魂虚空专属的漂浮小鬼；必掉灵魂蓝颜料、一半概率掉雪花（挠人距离/节奏跟普通僵尸一样） */
+export const GHOST = {
+  SPEED: 2.2, DAMAGE: 2, HP: 10,
+};
+
 /** 轮滑鞋：穿靴子格（装备栏最下面那格），滑得快但会摔 */
 export const SKATES = {
   SPEED_MULT: 1.5,   // 滑起来是走路的几倍
@@ -708,6 +730,16 @@ export const CONE = {
   DMG_MULT: 1.5,     // 攻击力是拳头的几倍
   SURVIVE: 1 / 3,    // 用完没碎的概率（2/3 直接碎掉）
 };
+
+/** 六把剑：攻击都是拳头的几倍，砍一刀磨 1 点耐久，耐久用完剑断（雪花剑附带减速、血剑概率暴击） */
+export const SWORDS = {
+  WOOD:    { mult: 1.5, uses: 20 },
+  IRON:    { mult: 2,   uses: 25 },
+  GOLD:    { mult: 2.5, uses: 44 },
+  DIAMOND: { mult: 3,   uses: 57 },
+  SNOW:    { mult: 2,   uses: 21, slowSeconds: 1 },          // 被打的怪 1 秒走路减半速
+  BLOOD:   { mult: 2,   uses: 12, critChance: 0.2, critMult: 4 }, // 20% 概率这一刀变 4 倍
+} as const;
 
 /** 药水瓶：P 扔 E 喝 */
 export const POTION = {

@@ -18,6 +18,7 @@ import { MUSHROOM_PAINTERS, MUSHROOM_TILE_NAMES } from './MushroomTextures';
 import { SHOP_PAINTERS } from './ShopTextures';
 import { FISH_PAINTERS, FISH_TILE_NAMES } from './FishTextures';
 import { BLACKMARKET_PAINTERS, BLACKMARKET_TILE_NAMES } from './BlackMarketTextures';
+import { SWORD_PAINTERS, SWORD_TILE_NAMES } from './SwordTextures';
 import { Painter, TILE, fill, shade, speckle } from './TextureUtils';
 export type { Painter } from './TextureUtils';
 
@@ -27,7 +28,7 @@ const COLS = 4;
 const TILE_NAMES = [
   'grass_top', 'grass_side', 'dirt', 'stone',
   'sand', 'water', 'wood_side', 'wood_top',
-  'leaves', 'door', 'planks', 'glass',
+  'leaves', 'door', 'planks', 'glass', 'planks_dark', 'planks_light',
   'cobble', 'brick', 'craft_top', 'craft_side', 'meat',
   'stick', 'soul_dye', 'meat_cooked', 'sandstone',
   'chest_side', 'chest_front', 'furnace_side', 'furnace_top',
@@ -99,6 +100,10 @@ const TILE_NAMES = [
   ...FISH_TILE_NAMES,
   // —— 四种蘑菇 + 孢子（秋季限定）——
   ...MUSHROOM_TILE_NAMES,
+  // —— 六把剑 ——
+  ...SWORD_TILE_NAMES,
+  // —— 灵魂传送门（半透明蓝幕，只占图集一格）——
+  'soul_portal',
 ];
 
 const PAINTERS: Record<string, Painter> = { ...BASE_PAINTERS };
@@ -400,8 +405,19 @@ PAINTERS.store_front = (c, x, y) => {
   c.fillStyle = '#e8e8f0'; c.fillRect(x + 3, y + 12, 10, 1);         // 取货口
 };
 
+// 灵魂传送门：半透明的深夜蓝底上飘着几道青色光带，像一汪立起来的幽灵水
+PAINTERS.soul_portal = (c, x, y) => {
+  c.fillStyle = 'rgba(26,34,96,0.75)'; c.fillRect(x, y, TILE, TILE);
+  c.fillStyle = 'rgba(110,215,240,0.5)';
+  for (const [sx, w, top, hgt] of [[3, 2, 1, 11], [8, 1, 4, 12], [12, 2, 2, 10]] as const) {
+    c.fillRect(x + sx, y + top, w, hgt);
+  }
+  c.fillStyle = 'rgba(190,240,255,0.7)';
+  [[3, 2], [8, 5], [12, 3], [5, 9], [11, 11]].forEach(([px, py]) => c.fillRect(x + px, y + py, 1, 1));
+};
+
 // 庄稼/羽毛/煤贴图拆出去了（CropTextures / BirdTextures / CoalTextures），合并进大表
-Object.assign(PAINTERS, CROP_PAINTERS, FEATHER_PAINTERS, COAL_PAINTERS, LAMP_PAINTERS, FIRE_PAINTERS, GOLDEN_PAINTERS, BAG_PAINTERS, BAMBOO_PAINTERS, ISLAND_PAINTERS, SHOP_PAINTERS, FISH_PAINTERS, MUSHROOM_PAINTERS, BLACKMARKET_PAINTERS);
+Object.assign(PAINTERS, CROP_PAINTERS, FEATHER_PAINTERS, COAL_PAINTERS, LAMP_PAINTERS, FIRE_PAINTERS, GOLDEN_PAINTERS, BAG_PAINTERS, BAMBOO_PAINTERS, ISLAND_PAINTERS, SHOP_PAINTERS, FISH_PAINTERS, MUSHROOM_PAINTERS, BLACKMARKET_PAINTERS, SWORD_PAINTERS);
 
 export interface Atlas {
   texture: THREE.CanvasTexture;

@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { ANIMAL, BIRD, BLOODZOMBIE, CHUNK, CORRUPT, DAY, DEEPGREEN_DROP, FISH, MANUAL, RAT, STARZOMBIE, WARRIOR, ZOMBIE } from '../config';
-import { BLOOD_MEAT, COOKED_MEAT, DIY_MANUAL, DYE_DEEPGREEN, FEATHER_BLACK, GLOW_SHROOM, IRON_NUGGET, RAW_MEAT, STAR_SHARD } from '../world/Block';
+import { BLOOD_MEAT, COOKED_MEAT, DIY_MANUAL, DYE_DEEPGREEN, FEATHER_BLACK, GLOW_SHROOM, IRON_NUGGET, RAW_MEAT, SNOWFLAKE, SOUL_DYE, STAR_SHARD } from '../world/Block';
 import { STAR_ZOMBIE_GLOW_CHANCE } from '../world/mushrooms';
 import { DIY_GOLD_MANUAL as GOLD_MANUAL } from '../world/GoldenItems';
 import { World } from '../world/World';
@@ -276,6 +276,12 @@ export class Mobs {
     }
     if (mob instanceof Zombie) {
       if (mob.noLoot) return out;  // 挑战房的怪不掉东西
+      // 幽灵鬼（灵魂虚空）：必掉 1 个灵魂蓝颜料 + 一半概率掉 1 朵雪花；不掺和普通僵尸的掉落池
+      if (mob.kind === 'ghost') {
+        out.push([SOUL_DYE, 1]);
+        if (Math.random() < 0.5) out.push([SNOWFLAKE, 1]);
+        return out;
+      }
       // 所有僵尸都有 1/20 概率掉一颗深绿颜料（沼泽特产）
       if (Math.random() < DEEPGREEN_DROP) out.push([DYE_DEEPGREEN, 1]);
       // 腐败人：掉 6 个铁粒；腐败老鼠：掉 1 个铁粒

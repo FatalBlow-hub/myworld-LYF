@@ -1,9 +1,10 @@
 /** 游戏主循环 — 把所有模块装配起来，每帧按固定顺序驱动它们 */
 
 import * as THREE from 'three';
-import { ISLAND_RULES, CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PVP, SAVE, SNOWFALL, VIEW_DISTANCE, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
+import { ISLAND_RULES, CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PORTAL, PVP, SAVE, SNOWFALL, VIEW_DISTANCE, VOID_REALM, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
 import { World } from '../world/World';
 import { buildHall } from '../world/HallMap';
+import { buildVoidRealm, VOID_SPAWN, voidPlatformSpot } from '../world/VoidRealm';
 import { findGrassSpawn, heightAt, randomGrassSpawn, setIslandProfile, setActiveSeason, setTerrainConfig } from '../world/TerrainGen';
 import { ALL_MUSHROOM_IDS, PLANT_TO_MUSHROOM } from '../world/mushrooms';
 import { createAtlas, Atlas } from '../render/Textures';
@@ -59,16 +60,16 @@ import { MobCombat } from './MobCombat';
 import { Vehicles } from './Vehicles';
 import { Challenge } from './Challenge';
 import { Potions } from '../entities/Potions';
-import { AIR, BAG_GLASS, BLOCKS, isSolid, SNOW, SNOWFLAKE, Slots, WAISTBAG_SLOT } from '../world/Block';
+import { AIR, BAG_GLASS, BLOCKS, isSolid, SNOW, SNOWFLAKE, SOUL_PORTAL, Slots, WAISTBAG_SLOT } from '../world/Block';
 import { DIY_GOLD_PICKAXE } from '../world/GoldenItems';
 import { spawnDrop } from '../entities/drops';
-import { ZOMBIE_NAMES } from '../entities/Zombie';
+import { ZOMBIE_NAMES, Zombie } from '../entities/Zombie';
 import { FireSystem } from '../entities/Fire';
 import { hurtPlayer } from '../player/damage';
 import { NetClient } from '../net/Client';
 import { probeAuth } from '../ui/Auth';
 
-export type SceneMode = 'island' | 'hall' | 'visit';
+export type SceneMode = 'island' | 'hall' | 'visit' | 'void'; // void=灵魂虚空：灵魂蓝传送门过去的 9×9 平台世界
 
 /** 访岛时岛主的小人站在重生点前面多少格（太近会怼脸，太远看不清是谁） */
 const VISIT_AVATAR_DIST = 3.2;
@@ -102,7 +103,9 @@ export class Game {
   private buyBoxSlots: Slots = Array(9).fill(null);
   private visitIslandType: IslandType | null = null; private visitOwner: string | null = null; private visitPerm: VisitPerm | null = null;
   private pvpHitCooldown = 0; // 误伤攻击间隔（秒）
-  private scene: SceneMode = 'island'; // 场景三态：island(自己岛) / hall(大厅) / visit(陌生副本岛或好友岛)
+  private scene: SceneMode = 'island'; // 场景四态：island(自己岛) / hall(大厅) / visit(副本岛) / void(灵魂虚空)
+  private portalCd = 0;   // 传送冷却：刚穿过门出来那几秒不会再被吸回去
+  private voidGhostT = 0; // 灵魂虚空补幽灵鬼的倒计时
   private islandSave: SaveData | null = null;
   private playerActions: PlayerActions | null = null; private pickup: Pickup | null = null;
   private survival: Survival | null = null; private combat: MobCombat | null = null;
@@ -805,6 +808,26 @@ export class Game {
     this.hud!.showHallSwitch(false, this.islandType); this.saveNow();
   }
 
+  /** 走进灵魂蓝传送门：本岛先存档（传送门方块跟着档走）→ 清空场景 → 造 9×9 虚空平台 → 落到平台上 */
+  private enterVoid(): void {
+    if (this.scene === 'island') this.saveNow();
+    this.panels.closeAll(); this.clearScene();
+    setTerrainConfig(WORLD_SEED, false, ISLAND_TYPES[this.islandType].leafId);
+    buildVoidRealm(this.world); this.chunkMeshes.rebuildDirty(this.world);
+    this.scene = 'void'; this.spawn = { x: VOID_SPAWN.x, y: VOID_SPAWN.y, z: VOID_SPAWN.z };
+    const body = this.body!;
+    body.x = this.spawn.x; body.y = this.spawn.y; body.z = this.spawn.z;
+    body.vx = body.vy = body.vz = 0; body.fellFrom = body.y;
+    this.portalCd = PORTAL.COOLDOWN; this.voidGhostT = 0;
+    this.hud!.showMessage('来到了灵魂虚空！脚下是 9×9 的小平台，小心幽灵鬼，别掉下去', 4);
+  }
+
+  /** 从灵魂虚空回本岛：直接走大厅那套「读档+保背包」的回程，回来人还站在本岛传送门里（有传送冷却不怕被吸回去） */
+  private leaveVoid(): void {
+    this.leaveHall();
+    this.portalCd = PORTAL.COOLDOWN;
+  }
+
   /** 队首点击「随机去陌生岛屿」：查岛币 ≥ 5，不够提示并重排队尾，够则扣岛币并发 hall.random */
   private pickRandomIsland(): void {
     const inv = this.inventory!, hud = this.hud!;
@@ -985,6 +1008,8 @@ export class Game {
     this.archersGoHome(); // 弓箭手哨兵不跟传送，但会把岗位挪到重生点，自己走过去
   }
   private respawn(): void {
+    // 灵魂虚空里死掉/掉下去：先被拉回自己岛（读档+保背包），再在床边/复活点重生
+    if (this.scene === 'void') this.leaveVoid();
     const body = this.body!; this.challenge.onPlayerDeath(this.hud!);
     const wasRiding = this.vehicles.riding !== null;
     const keptRiding = wasRiding && !this.vehicles.stowOnDeath(this.inventory!);
@@ -1024,7 +1049,11 @@ export class Game {
     if (!this.paused && this.controller.take('board')) this.boardPanel?.toggle('board'); // B 大厅留言板
     if (!this.paused && this.controller.take('mail')) this.boardPanel?.toggle('mail');   // V 我的信箱
     if (!this.paused) {
-      if (this.controller.take('hall')) { if (this.scene === 'hall') this.leaveHall(); else this.enterHall(); }
+      if (this.controller.take('hall')) {
+        if (this.scene === 'hall') this.leaveHall();
+        else if (this.scene === 'void') this.leaveVoid(); // 虚空里按 H 也是回家
+        else this.enterHall();
+      }
       if (this.controller.take('give')) {
         if (this.visitSync.active) this.givePanel?.open();
         else hud.showMessage('身边没有人可以收礼物', 2);
@@ -1099,7 +1128,33 @@ export class Game {
         hud.showMessage('打到对方啦！', 0.8);
       }
       this.survival!.eatKey(body); this.slot = this.survival!.hotbarKeys(this.slot);
-      if (this.scene === 'island') this.mobs.update(dt, body.x, body.y, body.z, this.day.time >= DAY.NIGHT_FROM, this.day.time);
+      // 灵魂传送门：脚（或腰）所在的格子是传送门方块就穿过去；传送冷却防止刚落地又被吸回去
+      this.portalCd = Math.max(0, this.portalCd - dt);
+      if (this.portalCd <= 0) {
+        const bx = Math.floor(body.x), by = Math.floor(body.y), bz = Math.floor(body.z);
+        if (this.world.getBlock(bx, by, bz) === SOUL_PORTAL || this.world.getBlock(bx, by + 1, bz) === SOUL_PORTAL) {
+          if (this.scene === 'island') this.enterVoid();
+          else if (this.scene === 'void') this.leaveVoid();
+        }
+      }
+      // 灵魂虚空：定时补幽灵鬼到平台上；掉出平台的幽灵悄悄消失（不掉东西，反正也捡不到）
+      if (this.scene === 'void') {
+        for (const z of this.mobs.zombies) {
+          if (z.y < VOID_REALM.GHOST_FALL_Y) { z.dead = true; z.silent = true; }
+        }
+        this.voidGhostT -= dt;
+        if (this.voidGhostT <= 0 && this.mobs.zombieSpawn && this.mobs.zombies.filter((z) => z.kind === 'ghost').length < VOID_REALM.GHOST_MAX) {
+          this.voidGhostT = VOID_REALM.GHOST_EVERY;
+          const s = voidPlatformSpot();
+          const g = new Zombie(s.x, s.y, s.z, 'ghost');
+          this.renderer.scene.add(g.group);
+          this.mobs.zombies.push(g);
+        }
+      }
+      if (this.scene === 'island' || this.scene === 'void') {
+        // 虚空里 mobs 只更新已有的怪（spawn 的地面探测在虚空全落空，不会乱刷）
+        this.mobs.update(dt, body.x, body.y, body.z, this.scene === 'island' && this.day.time >= DAY.NIGHT_FROM, this.day.time);
+      }
       this.potions.update(dt, this.world); this.fires.update(dt);
       this.snowTick(dt, body);
       this.visitAvatar.update(dt, body.x, body.z);

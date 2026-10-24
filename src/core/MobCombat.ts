@@ -1,7 +1,7 @@
-/** 生物战斗 — 玩家挥拳/用玻璃锥攻击，并处理羊的 M 键互动 */
+/** 生物战斗 — 玩家挥拳/用玻璃锥/拿剑攻击，并处理羊的 M 键互动 */
 
 import { ANIMAL, CONE, WARRIOR } from '../config';
-import { GLASS_CONE } from '../world/Block';
+import { BLOCKS, GLASS_CONE, SWORD_OF } from '../world/Block';
 import { PlayerBody } from '../player/Physics';
 import { Controller } from '../player/Controller';
 import { Inventory } from '../player/Inventory';
@@ -26,7 +26,26 @@ export class MobCombat {
     if (this.controller.isDown('mine') && this.hitCooldown <= 0) {
       this.hitCooldown = ANIMAL.HIT_COOLDOWN;
       const held = this.inventory.hotbar[this.slot()];
-      if (held?.id === GLASS_CONE) {
+      const sword = held ? SWORD_OF[held.id] : undefined;
+      if (sword) {
+        let dmg = ANIMAL.PUNCH_DAMAGE * sword.mult;
+        // 血腥之剑：20% 概率这一刀变 4 倍
+        if (sword.critChance && sword.critMult && Math.random() < sword.critChance) {
+          dmg *= sword.critMult;
+          this.hud.showMessage('血腥暴击！');
+        }
+        mob.mob.hurt(dmg, body.yaw);
+        // 雪花剑：被打的怪 1 秒走路减半速（鱼没有 slowT，不减速）
+        if (sword.slowSeconds && 'slowT' in mob.mob) mob.mob.slowT = Math.max(mob.mob.slowT, sword.slowSeconds);
+        // 砍一刀磨 1 点耐久，耐久用完剑断（创造模式不磨）
+        if (!this.inventory.infinite) {
+          held!.durability = (held!.durability ?? sword.uses) - 1;
+          if (held!.durability <= 0) {
+            this.inventory.hotbar[this.slot()] = null;
+            this.hud.showMessage(`${BLOCKS[held!.id].cn}断了！`);
+          }
+        }
+      } else if (held?.id === GLASS_CONE) {
         mob.mob.hurt(ANIMAL.PUNCH_DAMAGE * CONE.DMG_MULT, body.yaw);
         if (!this.inventory.infinite) {
           if (Math.random() < CONE.SURVIVE) this.hud.showMessage('玻璃锥没碎，还能再用！');
