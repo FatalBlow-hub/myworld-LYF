@@ -438,7 +438,7 @@ export function applySave(
   }
   return {
     spawn: { ...d.spawn }, slot: d.slot, learned: d.learned ?? [], golden: d.golden,
-    paused: d.paused ?? false, dayTime: d.dayTime ?? 0, date: normalizeDate(d.date), zombieAttack: d.zombieAttack ?? true, zombieSpawn: d.zombieSpawn ?? true,
+    paused: d.paused ?? false, dayTime: d.dayTime ?? 0, date: normalizeDate(d.date), zombieAttack: d.zombieAttack ?? true, zombieSpawn: (d.zombieSpawn ?? true) && (d.zombieAttack ?? true), // 攻击关着的存档不许带着僵尸生成
     shopQuota: d.shopQuota,
     blackMarket: d.blackMarket,
     islandType: normalizeIslandType(d.islandType) ?? randomIslandType(),

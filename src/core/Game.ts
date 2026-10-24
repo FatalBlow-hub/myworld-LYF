@@ -415,6 +415,8 @@ export class Game {
       this.touch = new TouchControls(this.controller);
       // 生存模式下「降」是废键（descend 只在飞行时生效），不占地方
       this.touch.setFlying(this.body!.flying);
+      // 僵尸攻击关了，「尸」生成开关也不能调：藏掉
+      this.touch.setZombieSpawnVisible(this.mobs.zombieAttack);
     } else {
       // PC：鼠标视角。第一次必须点一下画面才锁得住（浏览器只在用户手势里允许 requestPointerLock）
       this.mouseLook = new MouseLook(this.renderer.canvas);

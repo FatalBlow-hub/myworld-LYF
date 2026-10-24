@@ -153,6 +153,12 @@ export class TouchControls {
     if (btn) btn.style.display = flying ? '' : 'none';
   }
 
+  /** 僵尸攻击关着就不显示「尸」：生成开关跟着攻击走，不能单独调，点不开的按钮不如藏起来 */
+  setZombieSpawnVisible(on: boolean): void {
+    const btn = this.rootEl?.querySelector<HTMLElement>('[data-act="toggleZombieSpawn"]');
+    if (btn) btn.style.display = on ? '' : 'none';
+  }
+
   /** 把视角板上攒下的拖动加到玩家朝向上（每帧、在 stepPhysics 之前调一次） */
   applyLookTo(body: PlayerBody): void {
     if (this.lookDx === 0 && this.lookDy === 0) return;
