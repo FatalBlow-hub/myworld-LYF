@@ -1,13 +1,27 @@
 /** 制作方法手册 — 捡到 DIY 手册就弹出一张白纸写着一个配方，15 秒后收起；
- *  点白纸（或按 7）打开收集册：所有学过的方法列成一页，滚轮上下翻看 */
+ *  点白纸（或按 7）打开收集册：上面一排分类 Tab，下面配方卡片网格——
+ *  卡片上画物品图标、名字、材料小图标；季节配方贴雪花/南瓜小标记；
+ *  材料凑齐了卡片角落亮绿色对勾；点卡片下面看完整说明 */
 
 import { GOLDEN, MANUAL } from '../config';
+import { Atlas } from '../render/Textures';
 import { Inventory } from '../player/Inventory';
-import { TUTORIALS } from '../world/Recipes';
+import { Tutorial, TUTORIALS } from '../world/Tutorials';
+import { BLOCKS, PUMPKIN, SNOWFLAKE } from '../world/Block';
+import { TutorialCat } from '../world/manualCats';
 import {
   ALL_GOLD_DYES, DIY_GOLD_CHEM_DECOMP, DIY_GOLD_CRAFT_TABLE, DIY_GOLD_DYE_TABLE,
   GOLDEN_RANDOM_MANUALS, GOLDEN_TASK_MANUALS,
 } from '../world/GoldenItems';
+
+const TABS: { key: 'all' | TutorialCat; label: string }[] = [
+  { key: 'all', label: '全部' },
+  { key: 'equip', label: '装备' },
+  { key: 'build', label: '建筑方块' },
+  { key: 'small', label: '小物件' },
+  { key: 'food', label: '食物' },
+  { key: 'misc', label: '其他' },
+];
 
 export class RecipeBook {
   /** 已学会的方法下标（对应 TUTORIALS） */
@@ -20,11 +34,15 @@ export class RecipeBook {
   private paperTimeout = 0;
   /** 收集册弹窗 */
   private bookEl: HTMLDivElement;
+  private tabsEl: HTMLDivElement;
   private listEl: HTMLDivElement;
+  private detailEl: HTMLDivElement;
   private titleEl: HTMLParagraphElement;
+  private tab: 'all' | TutorialCat = 'all';
+  private inv: Inventory | null = null;
   visible = false;
 
-  constructor() {
+  constructor(private atlas: Atlas) {
     this.bookEl = document.createElement('div');
     this.bookEl.className = 'inv-overlay';
     this.bookEl.style.display = 'none';
@@ -37,18 +55,31 @@ export class RecipeBook {
     this.titleEl.className = 'inv-sub';
     win.appendChild(this.titleEl);
 
+    this.tabsEl = document.createElement('div');
+    this.tabsEl.className = 'book-tabs';
+    win.appendChild(this.tabsEl);
+
     this.listEl = document.createElement('div');
-    this.listEl.className = 'book-list';
+    this.listEl.className = 'book-cards';
     win.appendChild(this.listEl);
+
+    this.detailEl = document.createElement('div');
+    this.detailEl.className = 'book-detail';
+    win.appendChild(this.detailEl);
 
     const hint = document.createElement('div');
     hint.className = 'inv-hint';
-    hint.textContent = '滚轮翻看 · 7 / 9 / ESC 关闭 · 点空白处也能关';
+    hint.textContent = '点卡片看完整说明 · 7 / 9 / ESC 关闭 · 点空白处也能关';
     win.appendChild(hint);
 
     // 点面板外的空白处也能关门（手机上没有 ESC 键）
     this.bookEl.addEventListener('mousedown', (e) => { if (e.target === this.bookEl) this.close(); });
     document.body.appendChild(this.bookEl);
+  }
+
+  /** 进游戏后把背包挂进来：卡片上的"材料够不够"对勾要查背包 */
+  bindInventory(inv: Inventory): void {
+    this.inv = inv;
   }
 
   /** 还有没有没学会的方法（学全了就不该再掉手册） */
@@ -143,30 +174,119 @@ export class RecipeBook {
     this.paper = null;
   }
 
-  /** 打开收集册：把学会的方法一条条列出来 */
+  /** 一张配方卡片：图标 + 名字 + 材料小图标 + 角标；没学会的就打个问号 */
+  private makeCard(t: Tutorial | { text: string }, learned: boolean, golden = false): HTMLDivElement {
+    const card = document.createElement('div');
+    card.className = 'book-card' + (golden ? ' golden' : '') + (learned ? '' : ' unknown');
+    const meta = t as Tutorial;
+
+    const iconWrap = document.createElement('div');
+    iconWrap.className = 'book-card-icon';
+    if (learned && meta.icon != null) {
+      const img = document.createElement('img');
+      img.src = this.atlas.iconFor(meta.icon);
+      img.alt = '';
+      iconWrap.appendChild(img);
+    } else if (!learned) {
+      iconWrap.textContent = '？';
+    }
+    card.appendChild(iconWrap);
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'book-card-name';
+    nameEl.textContent = learned
+      ? (meta.icon != null ? BLOCKS[meta.icon].cn : meta.text.slice(0, 6))
+      : '？？？';
+    card.appendChild(nameEl);
+
+    if (learned && meta.needs?.length) {
+      const mats = document.createElement('div');
+      mats.className = 'book-card-mats';
+      for (const [id, n] of meta.needs) {
+        const mat = document.createElement('div');
+        mat.className = 'book-mat';
+        const img = document.createElement('img');
+        img.src = this.atlas.iconFor(id);
+        img.alt = BLOCKS[id]?.cn ?? '';
+        img.title = `${BLOCKS[id]?.cn ?? ''}×${n}`;
+        mat.appendChild(img);
+        if (n > 1) {
+          const cnt = document.createElement('span');
+          cnt.textContent = String(n);
+          mat.appendChild(cnt);
+        }
+        mats.appendChild(mat);
+      }
+      card.appendChild(mats);
+    }
+
+    if (learned && meta.fest) {
+      const badge = document.createElement('img');
+      badge.className = 'book-badge fest';
+      badge.src = this.atlas.iconFor(meta.fest === 'snow' ? SNOWFLAKE : PUMPKIN);
+      badge.title = meta.fest === 'snow' ? '冬季配方' : '秋季配方';
+      card.appendChild(badge);
+    }
+    if (learned && meta.needs?.length && this.inv) {
+      const ready = meta.needs.every(([id, n]) => this.inv!.countOf(id) >= n);
+      if (ready) {
+        const ok = document.createElement('div');
+        ok.className = 'book-badge ok';
+        ok.textContent = '✓';
+        ok.title = '材料够了，可以直接做';
+        card.appendChild(ok);
+      }
+    }
+    card.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      this.detailEl.textContent = learned ? t.text : '？？？（还没学会，去捡 DIY 手册吧）';
+    });
+    return card;
+  }
+
+  /** 打开收集册：分类 Tab + 配方卡片网格 */
   open(): void {
     this.hidePaper();
     const goldenTotal = GOLDEN_RANDOM_MANUALS.length + Object.keys(GOLDEN_TASK_MANUALS).length;
     this.titleEl.textContent = `制作方法 · 普通 ${this.learned.size}/${TUTORIALS.length} · 金色 ${this.goldenLearned.size + this.goldenTasks.size}/${goldenTotal}`;
+
+    // 分类 Tab：点哪页看哪页，全部页啥都有
+    this.tabsEl.innerHTML = '';
+    for (const t of TABS) {
+      const btn = document.createElement('button');
+      btn.className = 'book-tab' + (this.tab === t.key ? ' on' : '');
+      btn.textContent = t.label;
+      btn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        this.tab = t.key;
+        this.open();
+      });
+      this.tabsEl.appendChild(btn);
+    }
+
     this.listEl.innerHTML = '';
-    const addRow = (label: string, text: string, learned: boolean) => {
-      const row = document.createElement('div');
-      row.className = 'book-item';
-      row.textContent = learned ? `${label}. ${text}` : `${label}. ？？？（还没学会）`;
-      if (!learned) row.style.opacity = '0.4';
-      this.listEl.appendChild(row);
-    };
-    if (this.learned.size + this.goldenLearned.size + this.goldenTasks.size === 0) {
+    this.detailEl.textContent = '';
+    const inTab = (t: Tutorial) => this.tab === 'all' || (t.cat ?? 'misc') === this.tab;
+    const showAll = this.tab === 'all';
+    TUTORIALS.forEach((tutorial, i) => {
+      if (!inTab(tutorial)) return;
+      this.listEl.appendChild(this.makeCard(tutorial, this.learned.has(i)));
+    });
+    // 金色方法只在「全部」和「其他」页出现，省得金色散得到处都是
+    if (showAll || this.tab === 'misc') {
+      GOLDEN_RANDOM_MANUALS.forEach((text, i) => {
+        this.listEl.appendChild(this.makeCard({ text }, this.goldenLearned.has(i), true));
+      });
+      Object.entries(GOLDEN_TASK_MANUALS).forEach(([id, text]) => {
+        this.listEl.appendChild(this.makeCard({ text }, this.goldenTasks.has(Number(id)), true));
+      });
+    }
+    if (!this.listEl.children.length) {
       const empty = document.createElement('div');
       empty.className = 'book-empty';
-      empty.textContent = '还没学会制作方法，去捡 DIY 手册吧';
+      empty.textContent = '这一页还没有方法，去捡 DIY 手册吧';
       this.listEl.appendChild(empty);
     }
-    TUTORIALS.forEach((tutorial, i) => addRow(`${i + 1}`, tutorial.text, this.learned.has(i)));
-    GOLDEN_RANDOM_MANUALS.forEach((text, i) => addRow(`金色 ${i + 1}`, text, this.goldenLearned.has(i)));
-    Object.entries(GOLDEN_TASK_MANUALS).forEach(([id, text], i) =>
-      addRow(`任务 ${i + 1}`, text, this.goldenTasks.has(Number(id))),
-    );
     this.listEl.scrollTop = 0;
     this.visible = true;
     this.bookEl.style.display = 'flex';

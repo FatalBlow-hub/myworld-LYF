@@ -117,7 +117,7 @@ export class Game {
   private hallMenu: HallMenu | null = null; private visitMenu: VisitMenu | null = null;
   private givePanel: GivePanel | null = null; // 「送礼物」面板：同屏有人时按 C /「给」打开
   private chatPanel: ChatPanel | null = null; // 访岛聊天：同屏有人时按 0 /「聊」开输入框
-  private book = new RecipeBook(); private net: NetClient | null = null; private panels = new PanelStack();
+  private book = new RecipeBook(this.atlas); private net: NetClient | null = null; private panels = new PanelStack();
   /** PC 端鼠标视角；手机版不建（用虚拟按键转视角），保持 null */
   private mouseLook: MouseLook | null = null;
   /** 手机版触屏控制（摇杆 + 视角板）；PC 不建，保持 null */
@@ -289,6 +289,7 @@ export class Game {
     this.mobs.zombieAttack = zombieAttack; this.mobs.zombieSpawn = zombieAttack;
     this.hunger = new Hunger(mode); this.health = new Health(mode, () => this.hunger!.respawn());
     this.inventory = new Inventory(mode);
+    this.book.bindInventory(this.inventory);
     this.hud = new Hud(this.health.showStats, this.atlas, this.inventory.infinite);
     this.hud.setDate(dateLabel(this.day.date)); // 新档开局先显示 7 月 8 日；读档会在下面再刷一次
     // 手机上直接点快捷栏那一格就选中它（比 ◀▶ 一格格挪快，所以触屏不再放换格子键）

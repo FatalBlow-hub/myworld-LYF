@@ -3,7 +3,7 @@
 
 import { CROP } from '../config';
 import {
-  APPLE, BAG_WOOL, BED_IDS, BED_STAR, BLOCKS, BLOOD_MEAT, BLUE_BLOCK, BLUE_DIAMOND, BLUE_SHARD, BRICK, BUCKET, CARPET_BLOOD, CARPET_IDS, CARPET_STAR, CARPET_WHITE, CHEST, COBBLE,
+  APPLE, BAG_WOOL, BED_IDS, BED_STAR, BLOOD_MEAT, BLUE_BLOCK, BLUE_DIAMOND, BLUE_SHARD, BRICK, BUCKET, CARPET_BLOOD, CARPET_IDS, CARPET_STAR, CARPET_WHITE, CHEST, COBBLE,
   COCONUT, COOKED_MEAT, CRAFTING_TABLE, DOOR_CLOSED, CARROT,
   DYE_BLACK, DYE_BLOOD, DYE_BLUE, DYE_GRAY, DYE_GREEN, DYE_ORANGE, DYE_PINK, DYE_RED, DYE_TABLE, DYE_YELLOW,
   DYE_WHITE, DYE_PURPLE, DYE_SWAN, DYE_LIGHTGREEN, DYE_STAR, DYE_DEEPGREEN,
@@ -237,7 +237,7 @@ export const FUSIONS: Recipe[] = [
 ];
 
 /** 专门的拆解表：不是配方产物但也能拆的东西 */
-const UNCRAFT: Record<number, [number, number][]> = {
+export const UNCRAFT: Record<number, [number, number][]> = {
   [SOUL_GRASS]: [[GRASS, 1], [SOUL_DYE, 1]],
   // 彩色羊毛 → 白羊毛 + 同色颜料
   [WOOL_RED]: [[WOOL_WHITE, 1], [DYE_RED, 1]],
@@ -383,76 +383,3 @@ export const SMELT: Record<number, number> = {
   [COBBLE]: STONE,
   [RAW_MEAT]: COOKED_MEAT,
 };
-
-/** DIY 手册里能学到的所有"制作方法"：合成 + 拆解 + 熔炉烧制，写成一行中文说明 */
-export interface Tutorial {
-  /** 一句话配方，比如 "木板×4 → 工作台×1" */
-  text: string;
-}
-
-export const TUTORIALS: Tutorial[] = (() => {
-  const name = (id: number) => BLOCKS[id].cn;
-  const list: Tutorial[] = [];
-  const swampEntries: Tutorial[] = [];
-  const swampRecipes = new Set([GLASS, GLASS_CONE, GLASS_BOTTLE, GLASS_BUCKET, POTION_POISON, POTION_PHANTOM, POTION_DEADLY, POTION_BREATH, DYE_DEEPGREEN]);
-  const swampUncraft = new Set([GLASS, SWAMP_LIGHT, SWAMP_PHANTOM, SWAMP_DEEP]);
-  const islandUncraft = new Set([PUMPKIN, PUMPKIN_SLICE, MELON, MELON_SLICE]);
-  for (const r of RECIPES) {
-    // 7 种床的配方只差地毯颜色，合成一条讲清楚，不然手册里看着像重复
-    if (BED_IDS.includes(r.out) || r.quiet) continue;
-    const needs = r.needs.map(([id, n]) => `${name(id)}×${n}`).join(' + ');
-    // 材料种类超过 4 种的，2×2 小格子摆不下，得用工作台开 3×3 大合成台
-    const big = r.needs.length > 4 ? '（要 3×3 大合成台）' : '';
-    const batch = r.scale ? '（放几个出几个）' : '';
-    (swampRecipes.has(r.out) ? swampEntries : list).push({ text: `合成：${needs} → ${name(r.out)}×${r.outCount}${big}${batch}` });
-  }
-  list.push({ text: `合成：${name(WOOD)}×3 + 地毯×1 → 床×1（地毯什么颜色，床就什么颜色）` });
-  for (const [id, gives] of Object.entries(UNCRAFT)) {
-    // 8 种彩色羊毛的拆法也一样，只差颜色，合并成一条
-    if (WOOL_IDS.includes(Number(id)) || islandUncraft.has(Number(id))) continue;
-    const outs = gives.map(([g, n]) => `${name(g)}×${n}`).join(' + ');
-    (swampUncraft.has(Number(id)) ? swampEntries : list).push({ text: `拆解：${name(Number(id))} → ${outs}` });
-  }
-  list.push({ text: `拆解：彩色羊毛 → ${name(WOOL_WHITE)}×1 + 同色颜料×1` });
-  // 隐藏配方预告：告诉玩家集齐手册有奖励，才有动力全收集
-  list.push({ text: '秘方：手册集齐后，拿一整摞（64 个）生肉按 M → 铁粒×3' });
-  for (const [id, out] of Object.entries(SMELT)) {
-    list.push({ text: `熔炉：${name(Number(id))} → ${name(out)}` });
-  }
-  // 拆解器不是合成用的：拿水桶对它按 M，电解出一瓶氢气（加在最后，别打乱存档里的方法顺序号）
-  list.push({ text: `使用：拿水桶对 ${name(CHEM_DECOMP)} 按 M → ${name(HYDROGEN)}×1` });
-  list.push({ text: `掉落：砍树有 60% 概率掉 1~2 个${name(RUBBER)}，做轮子用` });
-  list.push({ text: `使用：拿着${name(TANK_BULLET)}对坦克按 L 装弹（开着车也行），按 P 开炮` });
-  list.push({ text: `星空染色台：能染${name(CARPET_STAR)}，还能把颜料融合成新颜色（红+黄=橙、蓝+白+粉=星空色……）` });
-  list.push({ text: `合成：${name(STAR_SHARD)}×1 + 任意羊毛×1 → ${name(STAR_WOOL)}×1` }); // 加在最后，别打乱存档里的方法顺序号
-  list.push({ text: `使用：挑战房要 5×5 平地 + 上面全空才能放；对门按 M 交 10 生肉打 4 关，中途不许出来` });
-  // 种地两条：加在最后，别打乱存档里的方法顺序号
-  list.push({ text: `使用：拿着稻粒对水按 L 种水稻，半天长一截；黄了挖掉收 5~10 粒，吃一粒回半颗心` });
-  list.push({ text: `使用：拿着胡萝卜对草地或泥土按 L 种地里；叶子底下露橙尖尖就是熟了，挖掉收 1~3 根，吃一根回 1 颗心` });
-  list.push({ text: `掉落：打鸟掉生肉和羽毛——普通鸟掉 1~2 肉、虎皮鹦鹉掉 2 肉，一半概率掉同色羽毛；乌鸦必掉 1 肉 + 1 黑羽毛` });
-  list.push({ text: `使用：拿铁桶或玻璃瓶对水按 P 盛一格水，铁桶最多装 3 格、玻璃瓶只能装 1 格（数字就是水量）；对地面按 L 倒出一格` });
-  list.push({ text: `矿石：地下石头层约 5% 会生成煤矿，挖煤矿掉 1 个煤块；煤块能做煤条（3个合1）、煤炭（2个合1）和煤粉（1个拆3），做熔炉要用煤粉` });
-  list.push({ text: `掉落：睡醒只掉1颗碎片，${name(STAR_SHARD)}和${name(MANG_SHARD)}各有1/2概率，分别能做星能灯/芒能灯` });
-  // —— 沼泽系列：加在最后，别打乱存档里的方法顺序号 ——
-  swampEntries.push({ text: '拆解：把装满液体的桶或瓶放进合成格，得到空容器和里面全部液体；一次拆一个，背包要留空位' });
-  swampEntries.push({ text: `地形：草地上有圆形沼泽，越往中间越毒——淡沼泽液、沼泽液、幻泽液、深泽液、溺泽液` });
-  swampEntries.push({ text: `使用：拿铁桶、玻璃桶或玻璃瓶对泽液按 P 盛一格，桶最多 3 格、瓶只能 1 格，同一种才能混装；对地面按 L 倒出` });
-  swampEntries.push({ text: `掉落：打僵尸有 1/20 概率掉${name(DYE_DEEPGREEN)}，黑颜料+绿颜料也能融出来` });
-  swampEntries.push({ text: `使用：药水瓶按 E 喝、按 P 扔——毒药瓶每3秒扣1血共15秒，剧毒瓶每2秒扣2血共14秒；幻药瓶让怪减速一半、每5秒扣1血共15秒，自己喝幻觉6秒；防溺瓶水下呼吸60秒` });
-  swampEntries.push({ text: `使用：${name(GLASS_CONE)}是小刀，攻击是拳头的 1.5 倍，但用一次有 2/3 概率碎掉` });
-  list.push({ text: `装备：${name(ROLLER_SKATES)}放背包左边最下面那个格子穿上，走路变 1.5 倍快；连滑 10 秒会摔一跤，耐久显示还能摔几次，摔 3 次鞋就烂了` });
-  // 打火石做法追加在最后，避免打乱以前学会的方法编号
-  list.push({ text: `合成：${name(COBBLE)}×1 → ${name(COBBLE_SHARD)}×2` });
-  list.push({ text: `合成：${name(COBBLE_SHARD)}×2 + ${name(COAL_DUST)}×1 → ${name(COAL_FIRESTARTER)}×1` });
-  list.push({ text: `合成：${name(COBBLE_SHARD)}×2 + ${name(MANG_SHARD)}×1 → ${name(MANG_FIRESTARTER)}×1` });
-  list.push({ text: `合成：${name(COBBLE_SHARD)}×2 + ${name(STAR_SHARD)}×1 → ${name(STAR_FIRESTARTER)}×1` });
-  list.push({ text: `合成：${name(COAL_FIRESTARTER)}×1 + ${name(SOUL_DYE)}×1 → ${name(SOUL_FIRESTARTER)}×1` });
-  list.push({ text: `合成：${name(COBBLE)}×2 + ${name(HYDROGEN)}×1 → ${name(HYDROGEN_FIRESTARTER)}×1` });
-  list.push({ text: `使用：拿任意打火石对着方块按 L 点火；普通红火烧10秒，灵火蓝火烧15秒，不会蔓延，打火石不消耗` });
-  // 剑的说明追加在最后，别打乱以前学会的方法编号
-  list.push({ text: `战斗：剑都是「材料×2 + ${name(STICK)}×1」合成的——木剑1.5倍拳、铁/雪花/血剑2倍、金剑2.5倍、钻石剑3倍；砍一刀磨1点耐久，用完剑断。雪花剑能把怪冻慢1秒，血腥之剑偶尔砍出4倍暴击` });
-  // 腰包做法追加在最后，别打乱以前学会的方法编号
-  list.push({ text: `装备：${name(WOOL_WHITE)}×4 + ${name(STICK)}×1 → ${name(BAG_WOOL)}（8格，穿在装备栏第二格；光放羊毛会变成地毯，记得加根木棍当包带）；羊毛腰包 + 任意颜料×1 染成同颜色的腰包，+ 玻璃/杂草/树叶/竹子/白羽毛/橡胶/芒星碎片/星星碎片 包出对应材质的腰包` });
-  // 兜底：说明文字一模一样的只留一条
-  return [...new Map([...list, ...swampEntries].map((t) => [t.text, t])).values()];
-})();

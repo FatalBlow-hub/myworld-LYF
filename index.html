@@ -252,17 +252,55 @@
     .paper-head { font-size: 20px; font-weight: bold; text-align: center; }
     .paper-body { font-size: 15px; line-height: 1.9; }
     .paper-foot { margin-top: auto; font-size: 11px; color: #888; text-align: center; }
-    .book-window { width: 340px; }
-    .book-list {
+    .book-window { width: 560px; max-width: 94vw; }
+    .book-tabs {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;
+    }
+    .book-tab {
+      padding: 5px 12px; font-size: 13px; font-family: inherit; cursor: pointer;
+      background: #d8d8d8; color: #333; border: 2px solid #999; border-radius: 4px;
+      box-shadow: inset 0 -3px 0 rgba(0,0,0,0.15); /* 像素按钮底边，按下去有厚度感 */
+    }
+    .book-tab.on {
+      background: #4a9e5c; color: #fff; border-color: #2e6e3c;
+    }
+    .book-cards {
       max-height: 300px; overflow-y: auto;
       background: #efefef; border: 2px solid #999; padding: 8px;
-      display: flex; flex-direction: column; gap: 4px;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px;
     }
-    .book-item {
-      background: #f7f5ee; border: 1px solid #ccc; padding: 8px 10px;
-      color: #1a1a1a; font-size: 13px; line-height: 1.6;
+    .book-card {
+      position: relative; background: #f7f5ee; border: 1px solid #ccc; border-radius: 4px;
+      padding: 8px 4px 6px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+      color: #1a1a1a; cursor: pointer; min-height: 86px;
     }
-    .book-empty { color: #666; font-size: 13px; text-align: center; padding: 20px 4px; }
+    .book-card:hover { border-color: #4a9e5c; }
+    .book-card.golden { border-color: #c9a227; background: #fdf6e0; }
+    .book-card.unknown { opacity: 0.45; }
+    .book-card-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 26px; color: #888; }
+    .book-card-icon img { width: 40px; height: 40px; image-rendering: pixelated; }
+    .book-card-name { font-size: 12px; line-height: 1.3; text-align: center; word-break: break-all; }
+    .book-card-mats { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; }
+    .book-mat { position: relative; width: 20px; height: 20px; }
+    .book-mat img { width: 20px; height: 20px; image-rendering: pixelated; display: block; }
+    .book-mat span {
+      position: absolute; right: -2px; bottom: -3px; font-size: 10px; color: #fff;
+      text-shadow: 1px 1px 0 #000;
+    }
+    .book-badge { position: absolute; top: 3px; }
+    .book-badge.fest { left: 3px; width: 16px; height: 16px; image-rendering: pixelated; }
+    .book-badge.ok {
+      right: 3px; width: 16px; height: 16px; border-radius: 50%;
+      background: #37b34a; color: #fff; font-size: 12px; font-weight: bold;
+      display: flex; align-items: center; justify-content: center; line-height: 1;
+    }
+    .book-detail {
+      min-height: 20px; margin-top: 6px; padding: 6px 8px;
+      background: #fdf6e0; border: 1px solid #d8c89a; border-radius: 4px;
+      color: #333; font-size: 12px; line-height: 1.5;
+    }
+    .book-detail:empty { display: none; }
+    .book-empty { color: #666; font-size: 13px; text-align: center; padding: 20px 4px; grid-column: 1 / -1; }
 
     #message {
       position: absolute; left: 50%; top: 30%; transform: translateX(-50%);
@@ -403,8 +441,8 @@
     .is-mobile .slotbox img { width: 28px; height: 28px; }
     .is-mobile .craft-grid { grid-template-columns: repeat(2, 40px); }
     .is-mobile .paper { width: min(300px, 88vw); min-height: 0; max-height: 88vh; overflow-y: auto; padding: 18px 16px; }
-    .is-mobile .book-window { width: min(340px, 92vw); }
-    .is-mobile .book-list { max-height: 46vh; }
+    .is-mobile .book-window { width: min(420px, 94vw); }
+    .is-mobile .book-cards { max-height: 46vh; grid-template-columns: repeat(auto-fill, minmax(82px, 1fr)); }
 
     .is-mobile #paused { font-size: 22px; gap: 14px; }
     .is-mobile #paused button { font-size: 16px; padding: 14px 24px; }
