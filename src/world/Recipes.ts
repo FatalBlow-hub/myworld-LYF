@@ -38,6 +38,14 @@ import {
   // —— 四季节日（2026-10-27）——
   CHUNK_ROLL, CALAMUS, POUCH_CALAMUS, SHIELD_CALAMUS, HARVEST_PLATTER,
   BEAD_IDS, BEAD_RED, BEAD_YELLOW, BEAD_BLUE, XMAS_COOKIE, BEAD_FIREWORK,
+  // —— 美食烹饪（2026-10-28）——
+  FOOD_TABLE,
+  BAGUETTE, BAMBOO_RICE, CARROT_CAKE, CARROT_MUSHROOM, COD_CUTLET, DOUGH, DUMPLING_CARROT,
+  FISH_CLOWN_FRIED, FLOUR, HAM, PUMPKIN_PIE, ROUJIAOMO, SALMON_STEW, SANDWICH,
+  SOUP_MUSHROOM, SOUP_PUFFER,
+  ROPE,
+  // —— 四种生鱼（河豚/小丑鱼/鲑鱼/鳕鱼）——
+  FISH_CLOWN, FISH_COD, FISH_PUFFER, FISH_SALMON,
   Slots,
 } from './Block';
 import {
@@ -55,8 +63,29 @@ export interface Recipe {
   scale?: boolean;
   /** 安静配方：手册里不单独列（比如"任意羊毛"展开成的 7 条），由手写说明代替 */
   quiet?: boolean;
+  /** 只能在美食工作台做（2026-10-28 设定：美食与道具配方互不通用）；
+   *  不带的配方就是普通道具类，2×2 背包与普通/星空/黄金工作台都能做 */
+  bench?: 'food';
   pattern?: (number | null)[];
 }
+
+/** 五种蘑菇（生菌汤/三明治的「蘑菇」按它们枚举，可同类） */
+const MUSHROOM_IDS = [MUSHROOM_SHIITAKE, MUSHROOM_ENOKI, MUSHROOM_OYSTER, MUSHROOM_RED, GLOW_SHROOM];
+/** 从五种蘑菇里任取 n 个（可重复）的所有组合，每种组合压成 [ID, 数量] 列表 */
+const mushroomCombos = (n: number): [number, number][][] => {
+  const out: [number, number][][] = [];
+  const walk = (start: number, left: number, pick: number[]): void => {
+    if (left === 0) {
+      const counts = new Map<number, number>();
+      pick.forEach((id) => counts.set(id, (counts.get(id) ?? 0) + 1));
+      out.push([...counts].map(([id, c]) => [id, c] as [number, number]));
+      return;
+    }
+    for (let i = start; i < MUSHROOM_IDS.length; i++) walk(i, left - 1, [...pick, MUSHROOM_IDS[i]]);
+  };
+  walk(0, n, []);
+  return out;
+};
 
 /** 六种水果（春卷的「任意水果」与丰收拼盘的「两种不同水果」都按它们枚举） */
 const FRUITS = [APPLE, PEACH, ORANGE, PEAR, PERSIMMON, BANANA];
@@ -164,7 +193,7 @@ export const RECIPES: Recipe[] = [
   { out: JUICE_PEACH, outCount: 1, needs: [[PEACH, 1], [GLASS_BOTTLE, 1]] },
   { out: JUICE_PEAR, outCount: 1, needs: [[PEAR, 1], [GLASS_BOTTLE, 1]] },
   // —— 柿子饼：10 份粮食摊一个饼，柿子的回血再往上加 3 点 ——
-  { out: PERSIMMON_CAKE, outCount: 1, needs: [[RICE_GRAIN, 10], [PERSIMMON, 1]] },
+  { out: PERSIMMON_CAKE, outCount: 1, needs: [[RICE_GRAIN, 10], [PERSIMMON, 1]], bench: 'food' }, // 柿子饼是料理，只在美食工作台做
   { out: WINE, outCount: 1, needs: [[RAW_MEAT, 2], [ICE, 1], [SWAMP_DEEP, 1]] },  // 生肉×2 + 冰×1 + 深泽液×1
   { out: JUICE_COCONUT, outCount: 1, needs: [[COCONUT, 1], [GLASS_BOTTLE, 1]] },
   { out: JUICE_MELON, outCount: 1, needs: [[MELON_SLICE, 2], [GLASS_BOTTLE, 1]] },
@@ -201,13 +230,14 @@ export const RECIPES: Recipe[] = [
   { out: MELON_SEED, outCount: CROP.SPLIT_COUNT, needs: [[MELON_SLICE, 1]], scale: true, quiet: true },
   // —— 2026-10-23 新吃食（只能自己做）：两种茶 / 草饼 / 颠倒香蕉液 / 两种拼盘 ——
   // 手册下标会进存档，新配方一律追加在末尾，别插到中间去
-  { out: TEA_RED, outCount: 1, needs: [[POPPY, 1], [GLASS_BOTTLE, 1]] },            // 小红花 + 玻璃瓶
-  { out: TEA_DANDELION, outCount: 1, needs: [[DANDELION, 3], [GLASS_BOTTLE, 1]] },  // 蒲公英 ×3 + 玻璃瓶
-  { out: GRASS_CAKE, outCount: 1, needs: [[TALL_GRASS, 1], [RICE_GRAIN, 1]] },      // 杂草 + 稻粒（设定里的「麦子」就用稻粒）
-  { out: BANANA_FLIP, outCount: 1, needs: [[BANANA, 2], [GLASS_BOTTLE, 1]] },       // 香蕉 ×2 + 玻璃瓶
+  // 2026-10-28：料理类一律 bench:'food'（只能在美食工作台做），榨汁/喝酒不算料理照旧
+  { out: TEA_RED, outCount: 1, needs: [[POPPY, 1], [GLASS_BOTTLE, 1]], bench: 'food' },            // 小红花 + 玻璃瓶
+  { out: TEA_DANDELION, outCount: 1, needs: [[DANDELION, 3], [GLASS_BOTTLE, 1]], bench: 'food' },  // 蒲公英 ×3 + 玻璃瓶
+  { out: GRASS_CAKE, outCount: 1, needs: [[TALL_GRASS, 1], [RICE_GRAIN, 1]], bench: 'food' },      // 杂草 + 稻粒（设定里的「麦子」就用稻粒）
+  { out: BANANA_FLIP, outCount: 1, needs: [[BANANA, 2], [GLASS_BOTTLE, 1]], bench: 'food' },       // 香蕉 ×2 + 玻璃瓶
   // 水果拼盘：五种水果各一个（红伞伞不进蘑菇拼盘，所以这里也只列四种好蘑菇）
-  { out: FRUIT_PLATTER, outCount: 1, needs: [[PEACH, 1], [APPLE, 1], [PEAR, 1], [ORANGE, 1], [PERSIMMON, 1]] },
-  { out: MUSHROOM_PLATTER, outCount: 1, needs: [[MUSHROOM_SHIITAKE, 1], [MUSHROOM_ENOKI, 1], [MUSHROOM_OYSTER, 1], [GLOW_SHROOM, 1]] },
+  { out: FRUIT_PLATTER, outCount: 1, needs: [[PEACH, 1], [APPLE, 1], [PEAR, 1], [ORANGE, 1], [PERSIMMON, 1]], bench: 'food' },
+  { out: MUSHROOM_PLATTER, outCount: 1, needs: [[MUSHROOM_SHIITAKE, 1], [MUSHROOM_ENOKI, 1], [MUSHROOM_OYSTER, 1], [GLOW_SHROOM, 1]], bench: 'food' },
   // —— 2026-10-24 六把剑：材料×2 + 木棍×1（属性见 config.SWORDS）——
   { out: SWORD_WOOD,    outCount: 1, needs: [[PLANKS, 2], [STICK, 1]] },
   { out: SWORD_IRON,    outCount: 1, needs: [[IRON_NUGGET, 2], [STICK, 1]] },
@@ -244,7 +274,7 @@ export const RECIPES: Recipe[] = [
   // —— 2026-10-27 四季节日（旅者 NPC 交谈解锁手册；材料多、都要 3×3 工作台）——
   // 春卷：草 + 胡萝卜 + 麦粒×3 + 任意水果 + 熟肉。六种水果各一条，只有第一条进手册，其余 quiet
   ...FRUITS.map((fruit, i) => ({
-    out: CHUNK_ROLL, outCount: 1, quiet: i > 0,
+    out: CHUNK_ROLL, outCount: 1, quiet: i > 0, bench: 'food' as const,
     needs: [[TALL_GRASS, 1], [CARROT, 1], [RICE_GRAIN, 3], [fruit, 1], [COOKED_MEAT, 1]] as [number, number][],
   })),
   // 端午：菖蒲香囊（叶×3）/ 菖蒲护盾（叶×5）
@@ -252,15 +282,46 @@ export const RECIPES: Recipe[] = [
   { out: SHIELD_CALAMUS, outCount: 1, needs: [[CALAMUS, 5]] },
   // 丰收拼盘：两种不一样的水果 + 麦粒×5（15 种组合，只有第一条进手册）
   ...FRUIT_PAIRS.map(([a, b], i) => ({
-    out: HARVEST_PLATTER, outCount: 1, quiet: i > 0,
+    out: HARVEST_PLATTER, outCount: 1, quiet: i > 0, bench: 'food' as const,
     needs: [[a, 1], [b, 1], [RICE_GRAIN, 5]] as [number, number][],
   })),
   // 冬季节日：圣诞甜饼（任意珠子×1 + 麦粒×3，三种珠子各一条）/ 彩珠礼花（三色齐全）
   ...BEAD_IDS.map((beadId, i) => ({
-    out: XMAS_COOKIE, outCount: 1, quiet: i > 0,
+    out: XMAS_COOKIE, outCount: 1, quiet: i > 0, bench: 'food' as const,
     needs: [[beadId, 1], [RICE_GRAIN, 3]] as [number, number][],
   })),
   { out: BEAD_FIREWORK, outCount: 1, needs: [[BEAD_RED, 1], [BEAD_YELLOW, 1], [BEAD_BLUE, 1]] },
+  // —— 2026-10-28 美食工作台（独立功能方块，本身是道具类配方：普通工作台就能做）——
+  { out: FOOD_TABLE, outCount: 1, needs: [[PLANKS, 4], [IRON_NUGGET, 2]] },
+  // —— 2026-10-28 美食 DIY：食材加工 + 15 道料理（全部 bench:'food'，只能美食工作台做）——
+  // 手册下标会进存档：本段一律追加在最末尾，别插到中间去
+  { out: FLOUR, outCount: 1, needs: [[RICE_GRAIN, 4]], bench: 'food' },   // 引子：4 麦粒磨 1 袋面粉（原设定 10 麦粒 + 1 面粉是死循环）
+  { out: FLOUR, outCount: 8, needs: [[RICE_GRAIN, 10], [FLOUR, 1]], bench: 'food' },
+  { out: DOUGH, outCount: 1, needs: [[FLOUR, 2]], bench: 'food' },
+  { out: HAM, outCount: 1, needs: [[COOKED_MEAT, 2]], bench: 'food' },
+  { out: BAGUETTE, outCount: 1, needs: [[DOUGH, 1], [RICE_GRAIN, 1]], bench: 'food' },
+  // 法式三明治：面包棍 + 草 + 树叶 + 任意 4 个蘑菇（70 种组合，只有第一条进手册）
+  ...mushroomCombos(4).map((mush, i) => ({
+    out: SANDWICH, outCount: 1, quiet: i > 0, bench: 'food' as const,
+    needs: [[BAGUETTE, 1], [TALL_GRASS, 1], [LEAVES, 1], ...mush] as [number, number][],
+  })),
+  { out: PUMPKIN_PIE, outCount: 1, needs: [[PUMPKIN_SLICE, 3], [DOUGH, 1]], bench: 'food' },
+  { out: SOUP_PUFFER, outCount: 1, needs: [[FISH_PUFFER, 1], [MUSHROOM_ENOKI, 1]], bench: 'food' },
+  { out: FISH_CLOWN_FRIED, outCount: 1, needs: [[FISH_CLOWN, 1], [MUSHROOM_OYSTER, 1]], bench: 'food' },
+  { out: SALMON_STEW, outCount: 1, needs: [[FISH_SALMON, 1], [MUSHROOM_ENOKI, 1]], bench: 'food' },
+  { out: COD_CUTLET, outCount: 1, needs: [[FISH_COD, 1], [MUSHROOM_OYSTER, 1]], bench: 'food' },
+  { out: ROUJIAOMO, outCount: 1, needs: [[DOUGH, 1], [COOKED_MEAT, 1]], bench: 'food' },
+  { out: BAMBOO_RICE, outCount: 1, needs: [[LEAVES, 1], [RICE_GRAIN, 32]], bench: 'food' },
+  { out: DUMPLING_CARROT, outCount: 3, needs: [[DOUGH, 1], [LEAVES, 1], [COOKED_MEAT, 1], [CARROT, 1]], bench: 'food' },
+  { out: CARROT_CAKE, outCount: 1, needs: [[FLOUR, 3], [TALL_GRASS, 1], [CARROT, 1]], bench: 'food' },
+  { out: CARROT_MUSHROOM, outCount: 1, needs: [[MUSHROOM_OYSTER, 1], [CARROT, 3]], bench: 'food' },
+  // 生菌汤：任意两种蘑菇（15 种组合，只有第一条进手册）
+  ...mushroomCombos(2).map((mush, i) => ({
+    out: SOUP_MUSHROOM, outCount: 1, quiet: i > 0, bench: 'food' as const,
+    needs: mush as [number, number][],
+  })),
+  // 绳索：2 木棍合成 1 根（道具类，普通工作台就能做）
+  { out: ROPE, outCount: 1, needs: [[STICK, 2]] },
 ];
 
 /** 星空染色台的颜料融合表：放进材料颜料 → 出新颜料（只有星空染色台能干这活） */
@@ -339,11 +400,13 @@ export interface CraftMatch {
  * 只在材料组合唯一时兜底：像木板 1/2/3/4/5 块分别能出木台阶/门/木棍/工作台/楼梯，
  * 这种有歧义的不猜，仍然要求玩家放准数量。
  */
-function matchByEnough(counts: Map<number, number>): CraftMatch | null {
+function matchByEnough(counts: Map<number, number>, bench: 'none' | 'food' = 'none'): CraftMatch | null {
   let only: Recipe | null = null;
   for (const r of RECIPES) {
     // 批量配方按倍数算（已有精确匹配）、pattern 配方要靠摆格子，都不走兜底
     if (r.scale || r.pattern) continue;
+    // 配方分区：美食配方只能在美食工作台匹配，道具配方在美食工作台上不匹配
+    if (bench === 'food' ? r.bench !== 'food' : r.bench === 'food') continue;
     const need = new Map(r.needs);
     if (need.size !== counts.size) continue;
     let ok = true;
@@ -357,10 +420,13 @@ function matchByEnough(counts: Map<number, number>): CraftMatch | null {
   return only ? { consume: only.needs, gives: [[only.out, only.outCount]], uncraft: false } : null;
 }
 
-/** 2×2 格子里现在能合成/拆解什么？对不上返回 null */
-export function matchCraft(counts: Map<number, number>, grid?: Slots): CraftMatch | null {
+/** 2×2 格子里现在能合成/拆解什么？对不上返回 null
+ *  bench = 在哪张台上合：'none' = 背包 2×2 或普通工作台，'food' = 美食工作台 */
+export function matchCraft(counts: Map<number, number>, grid?: Slots, bench: 'none' | 'food' = 'none'): CraftMatch | null {
   // 先对合成表：材料按种类和数量匹配（合成优先，避免"4木板"被当成拆解）
   for (const r of RECIPES) {
+    // 配方分区：美食配方只在美食工作台参与匹配；美食工作台上不匹配道具配方
+    if (bench === 'food' ? r.bench !== 'food' : r.bench === 'food') continue;
     const need = new Map(r.needs);
     if (need.size !== counts.size) continue;
     if (r.scale) {
@@ -390,7 +456,7 @@ export function matchCraft(counts: Map<number, number>, grid?: Slots): CraftMatc
     if (ok) return { consume: r.needs, gives: [[r.out, r.outCount]], uncraft: false };
   }
   // 精确数量对不上，但材料种类对、数量还更多 → 按配方扣，多的留格子里
-  const loose = matchByEnough(counts);
+  const loose = matchByEnough(counts, bench);
   if (loose) return loose;
   // 再判断拆解：格子里只有一种东西，且它正好是某个配方的产出
   if (counts.size === 1) {

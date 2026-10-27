@@ -484,6 +484,7 @@ export class Game {
       islandFruit: () => ISLAND_TYPES[this.scene === 'visit' && this.visitIslandType ? this.visitIslandType : this.islandType].fruitId,
       visitPerm: () => (this.scene === 'visit' && this.visitOwner ? this.visitPerm : null),
       inHall: () => this.scene === 'hall',
+      sceneMode: () => this.scene,
       openShop: (kind) => this.openShop(kind),
       openBuyBox: () => this.openBuyBox(),
       openArena: () => this.openArena(),
@@ -1664,7 +1665,7 @@ export class Game {
         || (!riding && this.potions.handleInput(this.controller, this.inventory!, this.slot, body, hud, hit, this.highlight));
       if (!potionHandled && !riding && mob && mob.dist <= blockDist) {
         this.highlight.visible = false; this.playerActions!.cancelMining(); hud.setProgress(0);
-        this.combat!.update(mob, body, dt, (sheep) => this.survival!.useSheep(sheep));
+        this.combat!.update(mob, body, dt, (sheep) => this.survival!.useSheep(sheep), (animal) => this.survival!.useAnimalRope(animal));
       } else if (!potionHandled) {
         if (hit) { this.highlight.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5); this.highlight.visible = true; }
         else this.highlight.visible = false;

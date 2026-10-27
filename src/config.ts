@@ -174,6 +174,21 @@ export const EAT_HP: Record<number, FoodEffect> = {
   359: { hunger: 1, hp: 0, godSeconds: 15, cleanseSeconds: 30 },                      // 春卷：15 秒免伤 + 不耗饥饿，30 秒负面豁免
   363: { hunger: 2, hp: 0, atkSeconds: 10, atkMult: 1.25 },                           // 丰收拼盘：+2 饥饿，10 秒攻击 ×1.25
   367: { hunger: 2, hp: 1, cleanseSeconds: 60 },                                      // 圣诞甜饼：+2 饥饿 +1 血，1 分钟负面豁免
+  // —— 2026-10-28 美食 DIY（面粉/面团是加工食材，不能吃也没标价）——
+  378: { hunger: 2, hp: 1 },                                     // 生菌汤
+  379: { hunger: 2, hp: 0 },                                     // 火腿
+  381: { hunger: 1.5, hp: 0 },                                   // 法式面包棍
+  382: { hunger: 3, hp: 1 },                                     // 法式三明治
+  383: { hunger: 2, hp: 0 },                                     // 南瓜饼
+  384: { hunger: 2.5, hp: 2, boostSeconds: 10, boostMult: 1.1 }, // 河豚汤：+2.5 饥饿 +2 血，10 秒移速 ×1.1
+  385: { hunger: 2, hp: 0 },                                     // 煎小丑鱼
+  386: { hunger: 3, hp: 2 },                                     // 炖鲑鱼
+  387: { hunger: 2, hp: 1 },                                     // 炸鳕鱼排
+  388: { hunger: 2.5, hp: 0 },                                   // 肉夹馍
+  389: { hunger: 3, hp: 0 },                                     // 竹筒饭
+  390: { hunger: 1.2, hp: 0 },                                   // 胡萝卜肉饺（单个）
+  391: { hunger: 2, hp: 0, slowHeal: { seconds: 15, hp: 2 } },   // 胡萝卜蛋糕：15 秒缓慢回血共 2 点
+  392: { hunger: 1.5, hp: 0 },                                   // 胡萝卜炒蘑菇
 };
 
 /** 鱼：四种都住在海里（水里游来游去），下水按 P 打，打死掉对应的鱼物品 */
@@ -511,7 +526,7 @@ export const LEGACY_ISLAND_MAP: Record<string, IslandType> = {
 };
 
 export const ISLAND = {
-  LEAF_FRUIT_CHANCE: 0.05,   // 挖掉普通树叶掉本岛专属水果的概率（5%，兼容老存档）
+  LEAF_STICK_CHANCE: 0.1,    // 挖掉普通树叶额外掉 1 个木棍的概率（2026-10-28 起普通树不掉了，改掉杂项）
   FRUIT_LEAF_CHANCE: 0.15,   // 挖掉果树树叶掉对应水果的概率（15%：果树上果子本来就多）
   FRUIT_TREE_CHANCE: 0.31,   // 落地后约两成的树是本岛果树（hash 在区块边缘偏密，果树又要多留一格边，得掷高些才够两成）
 };
@@ -670,6 +685,21 @@ export const SELL_PRICE: Record<number, { coins: number; per: number }> = {
   34: { coins: 0.75, per: 1 }, 35: { coins: 0.75, per: 1 }, 36: { coins: 0.75, per: 1 },
   37: { coins: 0.75, per: 1 }, 38: { coins: 0.75, per: 1 }, 39: { coins: 0.75, per: 1 },
   40: { coins: 0.75, per: 1 }, 64: { coins: 0.75, per: 1 }, 65: { coins: 0.75, per: 1 },
+  // —— 2026-10-28 美食 DIY 的料理（面粉/面团是加工食材，不收）——
+  378: { coins: 4, per: 1 },  // 生菌汤
+  379: { coins: 3, per: 1 },  // 火腿
+  381: { coins: 2, per: 1 },  // 法式面包棍
+  382: { coins: 7, per: 1 },  // 法式三明治
+  383: { coins: 4, per: 1 },  // 南瓜饼
+  384: { coins: 8, per: 1 },  // 河豚汤
+  385: { coins: 5, per: 1 },  // 煎小丑鱼
+  386: { coins: 9, per: 1 },  // 炖鲑鱼
+  387: { coins: 6, per: 1 },  // 炸鳕鱼排
+  388: { coins: 5, per: 1 },  // 肉夹馍
+  389: { coins: 6, per: 1 },  // 竹筒饭
+  390: { coins: 2, per: 1 },  // 胡萝卜肉饺（单个）
+  391: { coins: 7, per: 1 },  // 胡萝卜蛋糕
+  392: { coins: 3, per: 1 },  // 胡萝卜炒蘑菇
 };
 
 /** 椰子树：只长在沙滩（沙子地面、离海平面 2 格以内），树顶挂 3~4 个椰子 */
@@ -848,6 +878,7 @@ export const SEASON_FOOD = {
   POUCH_EVERY: 4,      // 每几秒扣一次血
   POUCH_DAMAGE: 1,     // 每次扣几点
   BEAD_CHANCE: 0.125,  // 冬季挖树叶掉装饰珠子的概率
+  BIRCH_SNOWFLAKE_CHANCE: 0.15, // 冬季挖普通树叶（设定的"桦树叶"）额外掉一朵雪花的概率
   CALAMUS_CHANCE: 0.125, // 夏季水面长出菖蒲叶的概率
   UNLOCK_COST: 3,      // 旅者对话里收费解锁的那几本（3 岛币）
   TALK_DIST: 3,        // 站多近能跟旅者说话（格）

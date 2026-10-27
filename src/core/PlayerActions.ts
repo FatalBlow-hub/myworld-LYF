@@ -13,6 +13,7 @@ import { scoopBucket } from '../interact/LiquidBuckets';
 import { Controller } from '../player/Controller';
 import { Inventory } from '../player/Inventory';
 import { PlayerBody } from '../player/Physics';
+import type { SceneMode } from './Game';
 import { ContainerPanel } from '../ui/Container';
 import { DyePanel } from '../ui/DyePanel';
 import { Hud } from '../ui/Hud';
@@ -20,9 +21,9 @@ import { Panel } from '../ui/Panel';
 import { RecipeBook } from '../ui/RecipeBook';
 import {
   AIR, ARENA_BOX, BAMBOO, BLACK_PICKAXE, BLOCKS, BOTTLE_WATER, BUCKET, BUY_BOX, CARROT, CHALLENGE_DOOR, CHALLENGE_HOUSE, CHEM_DECOMP, CRAFTING_TABLE,
-  DIRT, DYE_TABLE, DYEABLE_CARPETS, FIRESTARTER_IDS, FRUIT_LEAF_IDS, FRUIT_OF_LEAF, GLASS_BOTTLE, GLASS_BUCKET, GRASS, HYDROGEN, ICE, IRON_NUGGET,
+  DIRT, DYE_TABLE, DYEABLE_CARPETS, FIRESTARTER_IDS, FOOD_TABLE, FRUIT_LEAF_IDS, FRUIT_OF_LEAF, GLASS_BOTTLE, GLASS_BUCKET, GRASS, HYDROGEN, ICE, IRON_NUGGET,
   LEAVES, MAPLE_LEAF, MELON_SEED, MELON_STAGE1, PETAL_SAKURA, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT, WILLOW_LEAVES,
-  RICE_GRAIN, RUBBER, SAND, SAPLING_IDS, SEAWEED, SNOW, SNOWFLAKE, SOUL_CHEST, SOUL_FIRESTARTER, SPECIES_BY_SAPLING, STAR_DYE_TABLE, STAR_TABLE, LIQUID_FILL,
+  RICE_GRAIN, RUBBER, SAND, SAPLING_IDS, SEAWEED, SNOW, SNOWFLAKE, SOUL_CHEST, SOUL_FIRESTARTER, SPECIES_BY_SAPLING, STAR_DYE_TABLE, STAR_TABLE, STICK, LIQUID_FILL,
   TANK, TRAP_BLOCK_IDS, VENDING_BLACK, VENDING_DRINK, VENDING_SPECIAL, VENDING_STORE, VISIT_LIST_BLOCKS, WATER_BUCKET, WILLOW_TRAP, WOOD,
   BEAD_IDS, BEAD_FIREWORK,
   dropCountOf, isBed, isChest, isDoor, isFurnace,
@@ -72,6 +73,8 @@ export interface PlayerActionDeps {
   body?: () => PlayerBody;
   /** 现在是不是站在大厅里（大厅是公共区域，方块禁挖禁放） */
   inHall: () => boolean;
+  /** 当前场景（美食工作台只允许 island / visit） */
+  sceneMode: () => SceneMode;
   /** 对着售卖机按 M：打开对应货架（special = 特殊物品售卖机，drink = 饮料售卖机） */
   openShop: (kind: 'special' | 'drink' | 'store' | 'black') => void;
   /** 对着收购箱按 M：打开收购界面 */
@@ -95,6 +98,12 @@ export class PlayerActions {
   private pickaxeCooldown = 0;
 
   constructor(private d: PlayerActionDeps) {}
+
+  /** 美食工作台只能在自由岛用：大赛（cs）/极限挑战（arena）/灵魂虚空/大厅都不行 */
+  private benchAllowed(): boolean {
+    const s = this.d.sceneMode();
+    return s === 'island' || s === 'visit';
+  }
 
   /** 校验访客在好友岛上是否允许挖该方块（true = 允许挖） */
   private canVisitorMine(blockId: number): boolean {
@@ -204,6 +213,15 @@ export class PlayerActions {
         inventory.add(beadId, 1);
         hud.showMessage(`叶子里藏着一颗${BLOCKS[beadId].cn}！`);
       }
+      // 冬季挖普通树叶（设定的"桦树叶"）：除原有掉落外，15% 额外掉一朵雪花
+      if (id === LEAVES && season === 'winter' && !creative && Math.random() < SEASON_FOOD.BIRCH_SNOWFLAKE_CHANCE) {
+        inventory.add(SNOWFLAKE, 1);
+        hud.showMessage('树叶里藏着一朵雪花！');
+      }
+      // 挖普通树叶的杂项：10% 概率掉 1 个木棍（2026-10-28 起普通树不再掉水果，水果只能从果树来）
+      if (id === LEAVES && !creative && Math.random() < ISLAND.LEAF_STICK_CHANCE) {
+        inventory.add(STICK, 1);
+      }
       if (bambooFallen > 0 && !creative) inventory.add(BAMBOO, bambooFallen);
       // 砍树额外掉橡胶：每挖掉一块木头掷一次骰子，中了掉 1~2 个
       if (id === WOOD && !creative && Math.random() < RUBBER_DROP.CHANCE) {
@@ -211,12 +229,12 @@ export class PlayerActions {
         inventory.add(RUBBER, n);
         hud.showMessage(`树干里蹦出 ${n} 块橡胶！`);
       }
-      // 挖树叶掉水果：果树树叶按自己的品种掉（15%，果子本来就挂在叶子上）；
-      // 普通树叶只在自己岛上 5% 掉本岛专属水果（兼容老岛上没有果树的存档）。
+      // 挖树叶掉水果：只果树树叶按自己的品种掉（15%，果子本来就挂在叶子上）；
+      // 普通树叶不再掉水果（2026-10-28 设定：普通树掉落与果树分开，改掉木棍杂项）
       // 外岛（随机岛/好友岛）同样生效：果树品种固定，只有到对应季节才掉（桃子春、苹果/梨夏、橘子/柿子秋）
-      if (id === LEAVES || id in FRUIT_OF_LEAF) {
-        const fruitId = id === LEAVES ? this.d.islandFruit() : FRUIT_OF_LEAF[id];
-        const chance = id === LEAVES ? ISLAND.LEAF_FRUIT_CHANCE : ISLAND.FRUIT_LEAF_CHANCE;
+      if (id in FRUIT_OF_LEAF) {
+        const fruitId = FRUIT_OF_LEAF[id];
+        const chance = ISLAND.FRUIT_LEAF_CHANCE;
         const inSeason = fruitId !== null && isFruitInSeason(fruitId, seasonOf(this.d.day.date));
         if (fruitId !== null && inSeason && Math.random() < chance) {
           spawnDrop(this.sink, fruitId, 1, hitX! + 0.5, hitY! + 0.5, hitZ! + 0.5);
@@ -258,6 +276,10 @@ export class PlayerActions {
       return;
     }
     const stack = inventory.hotbar[this.d.slot()];
+    if (stack?.id === FOOD_TABLE && !this.benchAllowed()) {
+      hud.showMessage('美食工作台只能在自由岛上用');
+      return;
+    }
     const spend = () => {
       if (!inventory.infinite) {
         stack!.count--;
@@ -432,6 +454,10 @@ export class PlayerActions {
       }
     } else if (id === CRAFTING_TABLE || id === STAR_TABLE) {
       panel.openTable(); // 星空工作台和普通工作台一样开 3×3 大合成台
+    } else if (id === FOOD_TABLE) {
+      // 美食工作台：只做美食配方，且只在自由岛生效（大赛/虚空/大厅开不了）
+      if (this.benchAllowed()) panel.openFoodTable();
+      else hud.showMessage('美食工作台只能在自由岛上用');
     } else if (id === DYE_TABLE || id === STAR_DYE_TABLE || id === GOLD_DYE_TABLE) {
       const star = id !== DYE_TABLE;
       const gold = id === GOLD_DYE_TABLE;

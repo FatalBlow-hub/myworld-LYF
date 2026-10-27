@@ -29,8 +29,11 @@ export class Panel {
   private slotRefs: { el: HTMLDivElement; slots: Slots; i: number }[] = [];
   /** 键盘选中框停在第几格（储物 27 + 快捷栏 9 连成一条，共 36 格） */
   private sel = 0;
-  /** 工作台模式：合成格是 3×3 的 craftBig 而不是背包里的 2×2 */
+  /** 工作台模式：合成格是 3×3 的 craftBig 而不是背包里的 2×2
+   *  benchMode：'none' = 背包 2×2；'table' = 普通/星空/黄金工作台（只能做道具配方）；
+   *  'food' = 美食工作台（只能做美食配方） */
   private bigMode = false;
+  private benchMode: 'none' | 'table' | 'food' = 'none';
   /** 装备栏旁边那个 3D 小人（懒建 WebGL 上下文，面板关了停渲染） */
   private preview = new CharacterPreview();
   visible = false;
@@ -59,7 +62,7 @@ export class Panel {
     if (this.bigMode) {
       const title = document.createElement('p');
       title.className = 'inv-sub';
-      title.textContent = '工作台 · 3×3 大合成';
+      title.textContent = this.benchMode === 'food' ? '美食工作台 · 只能做美食' : '工作台 · 3×3 大合成';
       win.appendChild(title);
       const craft = document.createElement('div');
       craft.className = 'craft-area';
@@ -268,11 +271,12 @@ export class Panel {
     });
     if (counts.size === 0) return null;
     if (this.craftGrid().some((s) => s && s.id in LIQUID_FILL) && this.craftGrid().filter(Boolean).length !== 1) return null;
-    return matchCraft(counts, this.craftGrid());
+    return matchCraft(counts, this.craftGrid(), this.benchMode === 'food' ? 'food' : 'none');
   }
 
   open(): void {
     this.bigMode = false;
+    this.benchMode = 'none';
     this.buildContent();
     this.visible = true;
     this.sel = 0;
@@ -283,6 +287,18 @@ export class Panel {
   /** 对着工作台按 M：打开 3×3 大合成台 */
   openTable(): void {
     this.bigMode = true;
+    this.benchMode = 'table';
+    this.buildContent();
+    this.visible = true;
+    this.sel = 0;
+    this.el.style.display = 'flex';
+    this.refresh();
+  }
+
+  /** 对着美食工作台按 M：打开 3×3 美食台（只认 bench:'food' 的配方） */
+  openFoodTable(): void {
+    this.bigMode = true;
+    this.benchMode = 'food';
     this.buildContent();
     this.visible = true;
     this.sel = 0;

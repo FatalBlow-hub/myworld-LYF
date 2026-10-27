@@ -14,6 +14,8 @@ import {
   HARVEST_PLATTER, POUCH_CALAMUS, SEASON_FOOD_BLOCKS, SHIELD_CALAMUS, XMAS_COOKIE,
 } from './blocks.seasonfood';
 import { CS_BLOCKS } from './blocks.cs';
+import { COOKING_BLOCKS, COOKING_FOOD_IDS, COOKING_MAT_IDS, FOOD_TABLE } from './blocks.cooking';
+import { ROPE, ROPE_BLOCKS } from './blocks.rope';
 import { PLANK_BLOCKS, DYED_PLANK_IDS } from './blocks.planks';
 import { BOTTLE_BLOCKS, BOTTLE_SW_DEEP, BOTTLE_SW_DROWN, BOTTLE_SW_LIGHT, BOTTLE_SW_MID, BOTTLE_SW_PHANTOM, BOTTLE_WATER } from './blocks.bottles';
 import { DECO_BLOCKS, VINE_LADDER } from './blocks.deco';
@@ -38,6 +40,8 @@ export * from './blocks.arena'; // 红焰大赛箱（blocks.arena.ts）同样转
 export * from './blocks.newgear'; // 四季 DIY 道具（blocks.newgear.ts：樱花药包/枫叶腰包/飞刀/柳条陷阱）同样转发
 export * from './blocks.seasonfood'; // 四季节日道具（blocks.seasonfood.ts：春卷/菖蒲叶/香囊/护盾/拼盘/珠子/甜饼/礼花）同样转发
 export * from './blocks.cs'; // CS 大赛道具（blocks.cs.ts：手枪/弹药/闪光弹/手雷/步枪/毒药瓶/AK47）同样转发
+export * from './blocks.cooking'; // 美食烹饪一族（blocks.cooking.ts：美食工作台 + 食材/料理）同样转发
+export * from './blocks.rope'; // 绳索（blocks.rope.ts：拴动物用）同样转发
 export * from './radish'; // 白萝卜（radish.ts：物品 + 价格逻辑）同样转发
 
 export const AIR = 0;
@@ -504,6 +508,8 @@ export const BLOCKS: Record<number, BlockDef> = {
   ...NEWGEAR_BLOCKS,  // 四季 DIY 道具（blocks.newgear.ts）：两个腰包/飞刀/柳条陷阱五态
   ...SEASON_FOOD_BLOCKS, // 四季节日道具（blocks.seasonfood.ts）：春卷/菖蒲叶/香囊/护盾/拼盘/珠子/甜饼/礼花
   ...CS_BLOCKS,          // CS 大赛道具（blocks.cs.ts）：七样比赛用品，不进创造面板
+  ...COOKING_BLOCKS,     // 美食烹饪一族（blocks.cooking.ts）：美食工作台（只能做美食配方）
+  ...ROPE_BLOCKS,        // 绳索（blocks.rope.ts）：2 木棍合成，拴动物用
   [AIR]:         { cn: '空气',   tex: { top: '', side: '' }, solid: false, seeThrough: true, hardness: 0 },
   [GRASS]:       { cn: '草方块', tex: { top: 'grass_top', side: 'grass_side', bottom: 'dirt' }, solid: true, seeThrough: false, hardness: 0.6, drop: DIRT },
   [DIRT]:        { cn: '泥土',   tex: { top: 'dirt', side: 'dirt' }, solid: true, seeThrough: false, hardness: 0.5 },
@@ -842,6 +848,12 @@ export const ALL_ITEMS = [
   BAG_SAKURA, BAG_MAPLE, KNIFE_MAPLE, WILLOW_TRAP, ...TRAP_BLOCK_IDS,
   // 四季节日道具（2026-10-27）：春卷/菖蒲叶/香囊/护盾/拼盘/三色珠子/甜饼/礼花
   CHUNK_ROLL, CALAMUS, POUCH_CALAMUS, SHIELD_CALAMUS, HARVEST_PLATTER, ...BEAD_IDS, XMAS_COOKIE, BEAD_FIREWORK,
+  // 美食工作台（blocks.cooking.ts）：独立功能台，只做美食配方，自由岛外放不下
+  FOOD_TABLE,
+  // 美食 DIY（2026-10-28）：两种加工食材 + 14 道料理
+  ...COOKING_MAT_IDS, ...COOKING_FOOD_IDS,
+  // 绳索（blocks.rope.ts）：拴动物带着走
+  ROPE,
 ];
 
 /** 庄稼生长链：每 60 秒走一级（水稻/胡萝卜/南瓜/西瓜共用）；最后一级不在表里 = 熟透了不再长 */
