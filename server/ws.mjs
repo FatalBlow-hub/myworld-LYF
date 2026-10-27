@@ -2,6 +2,7 @@
 
 import { randomBytes } from 'node:crypto';
 import { WebSocketServer } from 'ws';
+import { dropFromRooms, handleCsMessage, sweepCsRooms } from './csroom.mjs';
 
 const HEARTBEAT_CHECK_MS = 10_000; // 每 10 秒巡检一次超时连接
 const HEARTBEAT_TIMEOUT_MS = 30_000; // 超过 30 秒没收到任何消息判定掉线
@@ -294,6 +295,12 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null, a
       }
       if (!msg || typeof msg.t !== 'string') return;
 
+      // CS 联机房间：建房/加入/开赛/位置/命中，房间状态与血量都由服务端说了算
+      if (msg.t.startsWith('cs.')) {
+        handleCsMessage({ ws, info, msg, send: sendMsg });
+        return;
+      }
+
       if (msg.t === 'ping') {
         // 防沉迷/封停：ping 顺手计一次在线时长（与 HTTP 心跳共用"上次计时"，不会重复计）；
         // 已锁定或被停用的账号当场踢下线，客户端收到 addict.locked 会锁屏
@@ -556,7 +563,7 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null, a
       }
     });
 
-    ws.on('close', () => cleanup(ws, 'close'));
+    ws.on('close', () => { dropFromRooms(ws, sendMsg); cleanup(ws, 'close'); });
     ws.on('error', (err) => {
       console.error('[ws] 连接错误:', err.message);
       cleanup(ws, 'error');
@@ -566,6 +573,7 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null, a
   // 定时清理超过 30 秒没有任何消息的僵尸连接
   const timer = setInterval(() => {
     const now = Date.now();
+    sweepCsRooms(); // 顺手回收没人用的 CS 房间
     for (const [ws, info] of clients.entries()) {
       if (now - info.lastSeen > HEARTBEAT_TIMEOUT_MS) {
         cleanup(ws, 'timeout');

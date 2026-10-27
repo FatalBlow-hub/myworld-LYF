@@ -14,6 +14,8 @@ import { Traveler, TRAVELERS } from '../entities/Traveler';
 import { TravelerOffer, TravelerPanel } from '../ui/TravelerPanel';
 import { Fireworks } from '../render/Fireworks';
 import { CsMatch, CsMode } from './CsMatch';
+import { CsOnline } from './CsOnline';
+import { CsRoomAction, CsRoomPanel } from '../ui/CsRoomPanel';
 import { CsGood, CsShopPanel } from '../ui/CsShopPanel';
 import { CS_SPAWN_ALLY, buildCsArena } from '../world/CsMaps';
 import { findGrassSpawn, heightAt, randomGrassSpawn, setIslandProfile, setActiveSeason, setTerrainConfig } from '../world/TerrainGen';
@@ -174,6 +176,10 @@ export class Game {
   /** CS 阵亡后钉住的落脚点 */
   private csDownX = 0;
   private csDownZ = 0;
+  /** CS 联机：房间面板 + 对局（真人对战） */
+  private csOnline: CsOnline | null = null;
+  private csRoomPanel: CsRoomPanel | null = null;
+  private csIsOnline = false;
   /** 大厅留言板 / 信箱（B / V 打开，登录后才有内容） */
   private boardPanel: BoardPanel | null = null;
   private settingsPanel: SettingsPanel | null = null;
@@ -308,6 +314,14 @@ export class Game {
       onHallQueue: (queue, pos) => this.hallMenu?.setQueueState(this.scene === 'hall', queue, pos),
       onHallHead: () => { if (this.scene === 'hall') { this.hud?.showMessage('轮到你啦！请选择目的地', 2.5); this.hallMenu?.open(); } },
       onHallMatched: (id, type) => { if (this.scene === 'hall') this.enterVisit(id, type); },
+      // —— CS 联机房间 ——
+      onCsRoom: (room) => { this.csOnline!.onRoom(room); this.csRoomPanel?.setRoom(room); },
+      onCsError: (msg) => this.hud?.showMessage(msg, 2.5),
+      onCsPhase: (phase, seconds, round) => this.csOnline!.onPhase(phase, seconds, round),
+      onCsPos: (name, x, y, z, yaw) => this.csOnline!.onPos(name, x, y, z, yaw),
+      onCsHit: (from, target, dmg, hp, alive) => this.csOnline!.onHit(from, target, dmg, hp, alive),
+      onCsRound: (winner, scoreA, scoreB) => this.csOnline!.onRound(winner, scoreA, scoreB),
+      onCsEnd: (winner) => this.csOnline!.onEnd(winner),
       onHallError: (msg) => this.hud?.showMessage(msg, 2.5),
       onVisitIncoming: (from) => { this.hud?.showMessage(`${from} 申请访问你的岛屿`, 2.5); this.visitMenu?.openRequest(from); },
       onVisitRequested: () => { window.clearTimeout(this.visitSendTimer); this.hud?.showMessage('对方收到了申请，等他同意…', 2.5); },
@@ -361,7 +375,22 @@ export class Game {
     });
     this.shopPanel = new ShopPanel(this.atlas, () => this.coins, (good) => this.buyGood(good));
     this.arenaPanel = new ArenaPanel(this.atlas, () => this.coins, () => seasonOf(this.day.date),
-      (kind) => this.enterArena(kind), (mode) => this.enterCs(mode));
+      (kind) => this.enterArena(kind), (mode) => this.enterCs(mode), () => this.openCsRoom());
+    this.csRoomPanel = new CsRoomPanel((action, code) => this.csRoomAction(action, code));
+    this.csOnline = new CsOnline(this.renderer.scene, this.world, () => this.inventory!, () => this.hud,
+      () => this.net, {
+        hurtPlayer: (dmg) => {
+          const r = hurtPlayer(this.health!, dmg);
+          if (r.hurt) this.hud?.showMessage('中弹了！', 0.6);
+          if (r.died) {
+            if (this.body) { this.csDownX = this.body.x; this.csDownZ = this.body.z; }
+            this.respawn();
+          }
+        },
+        muzzle: () => { this.csLightT = CS.MUZZLE_LIGHT; },
+        onEnd: (won) => this.leaveCsOnline(won),
+        onPhase: (phase) => this.onCsOnlinePhase(phase),
+      });
     this.csShopPanel = new CsShopPanel(this.atlas, () => this.csMatch?.cs ?? 0, (good) => this.buyCsGood(good));
     this.csMatch = new CsMatch(this.renderer.scene, this.world, () => this.inventory!, () => this.hud, {
       hurtPlayer: (dmg) => {
@@ -431,6 +460,7 @@ export class Game {
     this.panels.register({ name: 'trap', isOpen: () => this.trapPanel!.visible, close: () => { this.trapPanel!.close(); this.trapHit = null; } });
     this.panels.register({ name: 'traveler', isOpen: () => this.travelerPanel!.visible, close: () => this.travelerPanel!.close() });
     this.panels.register({ name: 'csShop', isOpen: () => this.csShopPanel!.visible, close: () => this.csShopPanel!.close() });
+    this.panels.register({ name: 'csRoom', isOpen: () => this.csRoomPanel!.visible, close: () => this.csRoomPanel!.close() });
     this.panels.register({ name: 'book', isOpen: () => this.book.visible, close: () => this.book.close(), closeKeys: ['book'] });
     this.boardPanel = new BoardPanel();
     this.panels.register({ name: 'board', isOpen: () => this.boardPanel!.visible, close: () => this.boardPanel!.close(), closeKeys: ['board', 'mail'] });
@@ -923,6 +953,7 @@ export class Game {
     this.fireworks?.clear();
     this.hideTraveler();
     this.csMatch?.abort(); // 换场景就把比赛收掉（没在比赛里时是个空操作）
+    if (this.csIsOnline) { this.csIsOnline = false; this.csOnline?.abort(); }
     this.world.clear(); this.chunkMeshes.clear();
   }
 
@@ -1025,6 +1056,76 @@ export class Game {
     if (won) this.addCoins(CS.REWARD);
     this.enterHall();
     this.hud?.showMessage(won ? `整套打赢了！奖励 ${CS.REWARD} 岛币，比赛物品已清空` : '整套打输了，比赛物品已清空', 4);
+    this.hud?.refreshHotbar(this.inventory!, this.slot);
+  }
+
+  /** 打开联机房间面板（建房 / 加入） */
+  private openCsRoom(): void {
+    if (this.net?.getStatus() !== 'connected') { this.hud?.showMessage('没连上服务器，联机对战用不了', 2.5); return; }
+    this.csRoomPanel?.open(this.net?.getName() ?? '');
+    this.csRoomPanel?.setRoom(null);
+  }
+
+  /** 房间面板上的操作：建房 / 加入 / 开赛 / 退出 */
+  private csRoomAction(action: CsRoomAction, code: string): void {
+    const cs = this.csOnline!;
+    if (action === 'create1') cs.create('1v1');
+    else if (action === 'create3') cs.create('3v3');
+    else if (action === 'join') {
+      if (!/^\d{4}$/.test(code)) { this.hud?.showMessage('房间号是 4 位数字', 2); return; }
+      cs.join(code);
+    } else if (action === 'start') {
+      if (this.coins < CS.FEE && !this.inventory?.infinite) { this.hud?.showMessage(`岛币不够，开赛每人 ${CS.FEE} 个`, 2.5); return; }
+      cs.start();
+    } else {
+      cs.leave();
+      this.csRoomPanel?.setRoom(null);
+    }
+  }
+
+  /** 联机对战进图（服务端说"准备"了才进）：扣报名费 → 建沙漠图 → 清包发枪 */
+  private enterOnlineCs(): void {
+    const inv = this.inventory, hud = this.hud;
+    if (!inv || !hud || !this.body || !this.health) return;
+    if (this.coins < CS.FEE && !inv.infinite) {
+      this.csOnline?.leave();
+      hud.showMessage(`岛币不够，开赛要 ${CS.FEE} 个，已退出房间`, 3);
+      return;
+    }
+    if (this.scene === 'island') this.saveNow();
+    if (!inv.infinite) this.addCoins(-CS.FEE);
+    this.panels.closeAll(); this.clearScene();
+    setTerrainConfig(WORLD_SEED, false, ISLAND_TYPES[this.islandType].leafId);
+    buildCsArena(this.world);
+    this.chunkMeshes.rebuildDirty(this.world);
+    this.scene = 'cs';
+    this.csIsOnline = true;
+    this.csOnline!.begin();
+    this.csOnline!.respawnAt(this.body);
+    this.health.respawn();
+    this.hunger?.respawn();
+    hud.refreshHotbar(inv, this.slot);
+    hud.showMessage('联机 CS 开赛！沙漠图，五局三胜', 4);
+  }
+
+  /** 联机阶段变化：准备阶段进图或复活 */
+  private onCsOnlinePhase(phase: string): void {
+    if (phase !== 'prep') return;
+    if (this.scene !== 'cs') { this.enterOnlineCs(); return; }
+    // 已经在图里：下一小局复活并回到自己队的出生点
+    this.health?.respawn();
+    this.hunger?.respawn();
+    if (this.body) this.csOnline!.respawnAt(this.body);
+  }
+
+  /** 联机整套结束：赢了发 10 岛币，回大厅 */
+  private leaveCsOnline(won: boolean): void {
+    this.csIsOnline = false;
+    this.health?.respawn();
+    this.hunger?.respawn();
+    if (won) this.addCoins(CS.REWARD);
+    this.enterHall();
+    this.hud?.showMessage(won ? `整套打赢了！奖励 ${CS.REWARD} 岛币` : '整套打输了，比赛物品已清空', 4);
     this.hud?.refreshHotbar(this.inventory!, this.slot);
   }
 
@@ -1140,12 +1241,16 @@ export class Game {
   /** CS 大赛每帧：推进赛事、开枪时点亮视野 */
   private csTick(dt: number, body: PlayerBody): void {
     this.csLightT = Math.max(0, this.csLightT - dt);
-    this.csMatch!.update(dt, body);
-    // 手持枪/投掷物时 P 是开枪或甩出去（比赛里按 M 开商店）
-    if (this.controller.take('mine') && this.csMatch!.fire(body, this.slot)) {
-      this.hud!.setProgress(0);
+    // 联机版与本地 AI 版共用这套输入与地图，只是推进的对象不同
+    if (this.csIsOnline) {
+      this.csOnline!.update(dt, body);
+      if (this.controller.take('mine') && this.csOnline!.fire(body, this.slot)) this.hud!.setProgress(0);
+      if (this.controller.take('door')) this.hud!.showMessage('联机对战暂时没有 CS 商店（只有本地版有）', 1.5);
+    } else {
+      this.csMatch!.update(dt, body);
+      if (this.controller.take('mine') && this.csMatch!.fire(body, this.slot)) this.hud!.setProgress(0);
+      if (this.controller.take('door')) this.csMatch!.toggleStore();
     }
-    if (this.controller.take('door')) this.csMatch!.toggleStore();
     // 比赛里禁止挖/放/捡方块：把这两个键吃掉（沙漠图的掩体是死的）
     if (this.controller.take('place')) this.hud!.showMessage('CS 大赛里不能放方块', 1);
   }
@@ -1419,7 +1524,15 @@ export class Game {
     // 极限挑战里死掉：算这场失败，结算后送回大厅（不走本岛的死亡重生）
     if (this.scene === 'arena') { this.arena?.onPlayerDeath(); return; }
     // CS 大赛里中弹倒下：本小局出局，等下一小局复活（不重生、不回大厅）
-    if (this.scene === 'cs') { this.csMatch?.onPlayerDeath(); return; }
+    if (this.scene === 'cs') {
+      if (this.csIsOnline) {
+        // 联机版血量由服务端管，本地只把血顶回 1 点避免每帧重复判死
+        if (this.health && this.health.hp <= 0) this.health.hp = 1;
+        return;
+      }
+      this.csMatch?.onPlayerDeath();
+      return;
+    }
     // 灵魂虚空里死掉/掉下去：先被拉回自己岛（读档+保背包），再在床边/复活点重生
     if (this.scene === 'void') this.leaveVoid();
     const body = this.body!; this.challenge.onPlayerDeath(this.hud!);
@@ -1466,7 +1579,12 @@ export class Game {
         if (this.scene === 'hall') this.leaveHall();
         else if (this.scene === 'void') this.leaveVoid(); // 虚空里按 H 也是回家
         else if (this.scene === 'arena') this.arena?.abort(); // 比赛里按 H = 放弃（不退报名费）
-        else if (this.scene === 'cs') { this.csMatch?.abort(); this.csShopPanel?.close(); this.enterHall(); }
+        else if (this.scene === 'cs') {
+          this.csShopPanel?.close();
+          if (this.csIsOnline) { this.csIsOnline = false; this.csOnline?.abort(); }
+          else this.csMatch?.abort();
+          this.enterHall();
+        }
         else this.enterHall();
       }
       if (this.controller.take('give')) {
@@ -1511,7 +1629,7 @@ export class Game {
       const pev = stepPhysics(body, this.world, this.controller, dt);
       this.updateTraps(dt, body); // 柳条陷阱：踩上就困住 3 秒，到点自毁
       // CS 大赛：阵亡后本小局只能看着（钉在原地等下一小局）
-      if (this.scene === 'cs' && this.csMatch!.playerDown) {
+      if (this.scene === 'cs' && (this.csIsOnline ? this.csOnline!.down : this.csMatch!.playerDown)) {
         body.x = this.csDownX; body.z = this.csDownZ;
         body.vx = 0; body.vz = 0;
       }

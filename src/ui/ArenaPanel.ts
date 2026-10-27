@@ -45,6 +45,8 @@ export class ArenaPanel {
     private onStart: (kind: Kind) => void,
     /** 报名 CS 大赛（mode = 1v1 / 3v3，本地 + AI 对手） */
     private onCs: (mode: CsMode) => void,
+    /** 打开联机房间面板（建房 / 加入，和真人打） */
+    private onOnline: () => void,
   ) {
     this.el = document.createElement('div');
     this.el.className = 'inv-overlay';
@@ -101,6 +103,13 @@ export class ArenaPanel {
     csHead.textContent = `全年 CS 大赛（报名 ${CS.FEE} 岛币，五局三胜，整套打赢得 ${CS.REWARD} 岛币）`;
     this.win.appendChild(csHead);
     for (const c of CS_MODES) this.win.appendChild(this.makeCsRow(c));
+
+    const onlineBtn = document.createElement('button');
+    onlineBtn.textContent = '联机对战（建房 / 加入房间）';
+    onlineBtn.style.cssText = 'margin-top:6px;padding:6px 10px;font-size:13px;cursor:pointer;border-radius:6px;'
+      + 'border:1px solid #888;background:#2f5f8a;color:#fff;';
+    onlineBtn.addEventListener('click', () => { this.close(); this.onOnline(); });
+    this.win.appendChild(onlineBtn);
 
     const hint = document.createElement('div');
     hint.className = 'inv-hint';

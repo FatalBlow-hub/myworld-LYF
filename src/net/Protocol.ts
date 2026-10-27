@@ -111,6 +111,44 @@ export interface C2SReservedMsg {
   [key: string]: unknown;
 }
 
+/* ---------------- CS 联机房间 ---------------- */
+
+/** 房间里的一个人（服务端下发的快照） */
+export interface CsMemberView {
+  name: string;
+  team: 'A' | 'B';
+  hp: number;
+  alive: boolean;
+  host: boolean;
+}
+
+/** 房间快照 */
+export interface CsRoomView {
+  code: string;
+  mode: '1v1' | '3v3';
+  phase: 'lobby' | 'prep' | 'fight' | 'between';
+  round: number;
+  scoreA: number;
+  scoreB: number;
+  members: CsMemberView[];
+}
+
+export interface C2SCsCreateMsg { t: 'cs.create'; mode: '1v1' | '3v3' }
+export interface C2SCsJoinMsg { t: 'cs.join'; code: string }
+export interface C2SCsLeaveMsg { t: 'cs.leave' }
+export interface C2SCsStartMsg { t: 'cs.start' }
+export interface C2SCsPosMsg { t: 'cs.pos'; x: number; y: number; z: number; yaw: number }
+/** 命中上报：伤害由服务端钳位并结算，客户端只报"我打中了谁" */
+export interface C2SCsHitMsg { t: 'cs.hit'; target: string; damage: number }
+
+export interface S2CCsRoomMsg { t: 'cs.room'; room: CsRoomView }
+export interface S2CCsErrorMsg { t: 'cs.error'; msg: string }
+export interface S2CCsPhaseMsg { t: 'cs.phase'; phase: 'lobby' | 'prep' | 'fight' | 'between'; seconds?: number; round: number }
+export interface S2CCsPosMsg { t: 'cs.pos'; name: string; x: number; y: number; z: number; yaw: number }
+export interface S2CCsHitMsg { t: 'cs.hit'; from: string; target: string; damage: number; hp: number; alive: boolean }
+export interface S2CCsRoundMsg { t: 'cs.round'; winner: 'A' | 'B'; scoreA: number; scoreB: number; round: number }
+export interface S2CCsEndMsg { t: 'cs.end'; winner: 'A' | 'B' }
+
 export type C2SMsg =
   | C2SHelloMsg
   | C2SPingMsg
@@ -126,7 +164,13 @@ export type C2SMsg =
   | C2SVisitHitMsg
   | C2SVisitGiveMsg
   | C2SVisitChatMsg
-  | C2SReservedMsg;
+  | C2SReservedMsg
+  | C2SCsCreateMsg
+  | C2SCsJoinMsg
+  | C2SCsLeaveMsg
+  | C2SCsStartMsg
+  | C2SCsPosMsg
+  | C2SCsHitMsg;
 export type C2SMsgType = C2SMsg['t'];
 
 /* ---------------- 服务端 → 客户端（S2C） ---------------- */
@@ -300,5 +344,12 @@ export type S2CMsg =
   | S2CVisitHitMsg
   | S2CVisitGiveMsg
   | S2CVisitChatMsg
-  | S2CReservedMsg;
+  | S2CReservedMsg
+  | S2CCsRoomMsg
+  | S2CCsErrorMsg
+  | S2CCsPhaseMsg
+  | S2CCsPosMsg
+  | S2CCsHitMsg
+  | S2CCsRoundMsg
+  | S2CCsEndMsg;
 export type S2CMsgType = S2CMsg['t'];

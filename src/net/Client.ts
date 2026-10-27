@@ -1,7 +1,7 @@
 /** 联机客户端（Client） — 管理 WebSocket 长连接、JSON 收发、心跳检测、指数退避重连、在线名单与大厅排队收发 */
 
 import type { IslandType, VisitPerm } from '../config';
-import { C2SMsg, NetStatus, S2CMsg, S2CVisitPeerMsg, VisitDenyReason } from './Protocol';
+import { C2SMsg, CsRoomView, NetStatus, S2CMsg, S2CVisitPeerMsg, VisitDenyReason } from './Protocol';
 
 const CLIENT_VER = 'coscreen-1017'; // 客户端代码版本号：hello 上报，日志里能看出谁还在跑旧缓存
 const PING_INTERVAL_MS = 10_000;   // 客户端每 10 秒发一次 ping
@@ -47,6 +47,20 @@ export interface NetClientCallbacks {
   onVisitDenied?: (reason: VisitDenyReason) => void;
   /** 收到任意服务端消息时触发 */
   onMessage?: (msg: S2CMsg) => void;
+  /** CS 联机：房间快照变了（有人进出、血量变了） */
+  onCsRoom?: (room: CsRoomView) => void;
+  /** CS 联机：建房/加入失败的原因 */
+  onCsError?: (msg: string) => void;
+  /** CS 联机：阶段变化（准备/交战/换局） */
+  onCsPhase?: (phase: 'lobby' | 'prep' | 'fight' | 'between', seconds: number, round: number) => void;
+  /** CS 联机：同房间某个人的位置更新 */
+  onCsPos?: (name: string, x: number, y: number, z: number, yaw: number) => void;
+  /** CS 联机：有人挨枪（血量由服务端算，客户端只负责表现） */
+  onCsHit?: (from: string, target: string, damage: number, hp: number, alive: boolean) => void;
+  /** CS 联机：一小局打完 */
+  onCsRound?: (winner: 'A' | 'B', scoreA: number, scoreB: number) => void;
+  /** CS 联机：整套打完 */
+  onCsEnd?: (winner: 'A' | 'B') => void;
 }
 
 export class NetClient {
@@ -166,6 +180,36 @@ export class NetClient {
   /** 同屏访岛：发聊天消息给对端（返回 false = 没发出去） */
   sendVisitChat(text: string): boolean {
     return this.send({ t: 'visit.chat', text });
+  }
+
+  /** CS 联机：建房（mode 决定每队几人） */
+  sendCsCreate(mode: '1v1' | '3v3'): boolean {
+    return this.send({ t: 'cs.create', mode } as C2SMsg);
+  }
+
+  /** CS 联机：按房间号加入 */
+  sendCsJoin(code: string): boolean {
+    return this.send({ t: 'cs.join', code } as C2SMsg);
+  }
+
+  /** CS 联机：退出房间 */
+  sendCsLeave(): boolean {
+    return this.send({ t: 'cs.leave' } as C2SMsg);
+  }
+
+  /** CS 联机：房主开赛 */
+  sendCsStart(): boolean {
+    return this.send({ t: 'cs.start' } as C2SMsg);
+  }
+
+  /** CS 联机：上报自己的位置（服务端转发给同房间其他人） */
+  sendCsPos(x: number, y: number, z: number, yaw: number): void {
+    this.send({ t: 'cs.pos', x, y, z, yaw } as C2SMsg);
+  }
+
+  /** CS 联机：上报"我打中了谁"（伤害由服务端钳位并结算） */
+  sendCsHit(target: string, damage: number): void {
+    this.send({ t: 'cs.hit', target, damage } as C2SMsg);
   }
 
   /** 更新本档是否曾开启创造模式标记 */
@@ -403,6 +447,35 @@ export class NetClient {
       }
       case 'visit.chat': {
         this.callbacks.onVisitChat?.(msg.name, msg.text);
+        break;
+      }
+      // —— CS 联机房间 ——
+      case 'cs.room': {
+        this.callbacks.onCsRoom?.(msg.room);
+        break;
+      }
+      case 'cs.error': {
+        this.callbacks.onCsError?.(msg.msg);
+        break;
+      }
+      case 'cs.phase': {
+        this.callbacks.onCsPhase?.(msg.phase, msg.seconds ?? 0, msg.round);
+        break;
+      }
+      case 'cs.pos': {
+        this.callbacks.onCsPos?.(msg.name, msg.x, msg.y, msg.z, msg.yaw);
+        break;
+      }
+      case 'cs.hit': {
+        this.callbacks.onCsHit?.(msg.from, msg.target, msg.damage, msg.hp, msg.alive);
+        break;
+      }
+      case 'cs.round': {
+        this.callbacks.onCsRound?.(msg.winner, msg.scoreA, msg.scoreB);
+        break;
+      }
+      case 'cs.end': {
+        this.callbacks.onCsEnd?.(msg.winner);
         break;
       }
       case 'visit.denied': {
