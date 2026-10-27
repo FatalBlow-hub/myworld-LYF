@@ -119,6 +119,10 @@ function guessColor(id: number): number {
     345: 0xf7f4dc, // 柳絮孢子：奶白
     346: 0xb8a44a, // 柳条：黄绿
     347: 0xcfe88a, // 柳絮腰包：浅黄绿
+    349: 0xf7a8c8, // 樱花药包：樱粉
+    351: 0xc8422a, // 枫叶腰包：枫红
+    352: 0xc8422a, // 枫叶飞刀：枫红
+    353: 0xb8a44a, // 柳条陷阱：黄绿
   };
   return colors[id] ?? 0xcccccc;
 }

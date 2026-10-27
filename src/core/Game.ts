@@ -1,13 +1,15 @@
 /** 游戏主循环 — 把所有模块装配起来，每帧按固定顺序驱动它们 */
 
 import * as THREE from 'three';
-import { ARENA, ISLAND_RULES, CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PORTAL, PVP, SAVE, SNOWFALL, VIEW_DISTANCE, VOID_REALM, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
+import { ARENA, ISLAND_RULES, CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PORTAL, PVP, SAVE, SNOWFALL, TRAP, VIEW_DISTANCE, VOID_REALM, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
 import { World } from '../world/World';
 import { buildHall } from '../world/HallMap';
 import { buildVoidRealm, VOID_SPAWN, voidPlatformSpot } from '../world/VoidRealm';
 import { SNOW_SPAWN, VOID_ARENA_SPAWN, arenaOpen, buildSnowArena, buildVoidArena } from '../world/ArenaMaps';
 import { Arena, ArenaKind, ArenaResult } from './Arena';
 import { ArenaPanel } from '../ui/ArenaPanel';
+import { Knife } from '../entities/Knife';
+import { TrapPanel, trapFormName } from '../ui/TrapPanel';
 import { findGrassSpawn, heightAt, randomGrassSpawn, setIslandProfile, setActiveSeason, setTerrainConfig } from '../world/TerrainGen';
 import { ALL_MUSHROOM_IDS, PLANT_TO_MUSHROOM } from '../world/mushrooms';
 import { createAtlas, Atlas } from '../render/Textures';
@@ -25,7 +27,7 @@ import { WorldCycles } from '../world/WorldCycles';
 import { GameMode, Health } from '../player/Health';
 import { Hunger } from '../player/Hunger';
 import { Inventory } from '../player/Inventory';
-import { pick, pickWater } from '../interact/BlockPicker';
+import { BlockHit, pick, pickWater } from '../interact/BlockPicker';
 import { runMenuFlow } from './Menus';
 import { TouchControls } from '../ui/TouchControls';
 import { isMobile } from '../ui/Platform';
@@ -67,7 +69,7 @@ import { MobCombat } from './MobCombat';
 import { Vehicles } from './Vehicles';
 import { Challenge } from './Challenge';
 import { Potions } from '../entities/Potions';
-import { AIR, BAG_GLASS, BLOCKS, isSolid, SNOW, SNOWFLAKE, SOUL_PORTAL, Slots, WAISTBAG_SLOT, WILLOW_FLUFF, WILLOW_LEAVES } from '../world/Block';
+import { AIR, BAG_GLASS, BLOCKS, isPlant, isSolid, SNOW, SNOWFLAKE, SOUL_PORTAL, Slots, TRAP_BLOCK_IDS, WAISTBAG_SLOT, WILLOW_FLUFF, WILLOW_LEAVES } from '../world/Block';
 import { DIY_GOLD_PICKAXE } from '../world/GoldenItems';
 import { spawnDrop } from '../entities/drops';
 import { ZOMBIE_NAMES, Zombie } from '../entities/Zombie';
@@ -144,6 +146,15 @@ export class Game {
   private arenaPanel: ArenaPanel | null = null;
   /** 进竞技场前饥饿开关是什么状态，出来要还原 */
   private hungerWasOn = false;
+  /** 枫叶飞刀（一次性投掷物） */
+  private knife: Knife | null = null;
+  /** 柳条陷阱：选伪装的面板 + 待放置的那一格 */
+  private trapPanel: TrapPanel | null = null;
+  private trapHit: BlockHit | null = null;
+  /** 已经触发、等着 3 秒后自毁的陷阱（key = x,y,z） */
+  private traps = new Map<string, { x: number; y: number; z: number; t: number }>();
+  /** 玩家被陷阱困住时锁住的落脚点 */
+  private trapLock = { x: 0, z: 0, t: 0 };
   /** 大厅留言板 / 信箱（B / V 打开，登录后才有内容） */
   private boardPanel: BoardPanel | null = null;
   private settingsPanel: SettingsPanel | null = null;
@@ -331,6 +342,8 @@ export class Game {
     });
     this.shopPanel = new ShopPanel(this.atlas, () => this.coins, (good) => this.buyGood(good));
     this.arenaPanel = new ArenaPanel(this.atlas, () => this.coins, () => seasonOf(this.day.date), (kind) => this.enterArena(kind));
+    this.trapPanel = new TrapPanel(this.atlas, (id) => this.placeTrap(id), () => { this.trapHit = null; });
+    this.knife = new Knife(this.renderer.scene, this.mobs, (msg) => this.hud?.showMessage(msg, 1.2));
     this.arena = new Arena(this.renderer.scene, this.mobs, () => this.inventory!, () => this.hud, {
       addCoins: (n) => this.addCoins(n),
       onEnd: (result) => this.leaveArena(result),
@@ -377,6 +390,7 @@ export class Game {
     this.panels.register({ name: 'dye', isOpen: () => this.dyePanel!.visible, close: () => this.dyePanel!.close() });
     this.panels.register({ name: 'shop', isOpen: () => this.shopPanel!.visible, close: () => this.shopPanel!.close() });
     this.panels.register({ name: 'arena', isOpen: () => this.arenaPanel!.visible, close: () => this.arenaPanel!.close(), closeKeys: ['door'] });
+    this.panels.register({ name: 'trap', isOpen: () => this.trapPanel!.visible, close: () => { this.trapPanel!.close(); this.trapHit = null; } });
     this.panels.register({ name: 'book', isOpen: () => this.book.visible, close: () => this.book.close(), closeKeys: ['book'] });
     this.boardPanel = new BoardPanel();
     this.panels.register({ name: 'board', isOpen: () => this.boardPanel!.visible, close: () => this.boardPanel!.close(), closeKeys: ['board', 'mail'] });
@@ -403,6 +417,7 @@ export class Game {
       openShop: (kind) => this.openShop(kind),
       openBuyBox: () => this.openBuyBox(),
       openArena: () => this.openArena(),
+      openTrapPicker: (hit) => this.openTrapPicker(hit),
       summonWarrior: (eggId, x, y, z) => this.summonWarrior(eggId, x, y, z),
       summonArcher: (bowId, x, y, z) => this.summonArcher(bowId, x, y, z),
       body: () => this.body!,
@@ -862,6 +877,7 @@ export class Game {
     this.mobs.fish.length = 0;       // 鱼不存档：回岛/串门之后海里重新刷
     this.fires.clear(); this.challenge = this.createChallenge();
     this.fluff?.clear(); // 柳絮是场景内的粒子，换场景必须清干净
+    this.traps.clear(); this.trapLock.t = 0; // 陷阱跟着旧世界一起作废
     this.world.clear(); this.chunkMeshes.clear();
   }
 
@@ -973,6 +989,63 @@ export class Game {
     this.enterHall();            // 比赛场地不留人，直接送回大厅
     this.hud?.showMessage(text, 4);
     this.hud?.refreshHotbar(this.inventory!, this.slot);
+  }
+
+  /** 手持柳条陷阱按 L：先把指着的那一格记下来，等玩家挑好伪装 */
+  private openTrapPicker(hit: BlockHit): void {
+    this.trapHit = hit;
+    this.trapPanel?.open();
+  }
+
+  /** 伪装选好了：在指着的那面放下陷阱，并扣掉手里 1 个 */
+  private placeTrap(blockId: number): void {
+    const hit = this.trapHit; this.trapHit = null;
+    const inv = this.inventory;
+    if (!hit || !inv) return;
+    const x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz;
+    const cur = this.world.getBlock(x, y, z);
+    if (cur !== AIR && !isPlant(cur)) { this.hud?.showMessage('这格放不下陷阱，换个位置', 2); return; }
+    this.world.setBlock(x, y, z, blockId);
+    if (!inv.infinite) {
+      const held = inv.hotbar[this.slot];
+      if (held) { held.count--; if (held.count <= 0) inv.hotbar[this.slot] = null; }
+    }
+    this.hud?.showMessage(`柳条陷阱放好了，伪装成${trapFormName(blockId)}`, 2);
+    this.hud?.refreshHotbar(inv, this.slot);
+  }
+
+  /** 有人踩上陷阱：登记 3 秒后自毁；玩家额外把位置锁住（怪走 Zombie.trapT 那条路） */
+  private springTrap(x: number, y: number, z: number, body?: PlayerBody): void {
+    const key = `${x},${y},${z}`;
+    if (this.traps.has(key)) return;
+    this.traps.set(key, { x, y, z, t: TRAP.FREEZE });
+    if (body) {
+      this.trapLock = { x: body.x, z: body.z, t: TRAP.FREEZE };
+      this.hud?.showMessage(`踩到柳条陷阱！被困住 ${TRAP.FREEZE} 秒`, 2);
+    }
+  }
+
+  /** 每帧：玩家/怪踩到陷阱就禁锢，时间到了陷阱自己消失（不掉东西） */
+  private updateTraps(dt: number, body: PlayerBody): void {
+    if (this.trapLock.t > 0) {
+      this.trapLock.t -= dt;
+      body.x = this.trapLock.x; body.z = this.trapLock.z;
+      body.vx = 0; body.vz = 0;
+    }
+    const px = Math.floor(body.x), py = Math.floor(body.y - 0.1), pz = Math.floor(body.z);
+    if (TRAP_BLOCK_IDS.includes(this.world.getBlock(px, py, pz))) this.springTrap(px, py, pz, body);
+    for (const z of this.mobs.zombies) {
+      if (z.dead || z.trapT > 0) continue;
+      const tx = Math.floor(z.x), ty = Math.floor(z.y - 0.1), tz = Math.floor(z.z);
+      if (TRAP_BLOCK_IDS.includes(this.world.getBlock(tx, ty, tz))) {
+        z.trapT = TRAP.FREEZE;
+        this.springTrap(tx, ty, tz);
+      }
+    }
+    for (const [key, t] of this.traps) {
+      t.t -= dt;
+      if (t.t <= 0) { this.world.setBlock(t.x, t.y, t.z, AIR); this.traps.delete(key); }
+    }
   }
 
   /** 从灵魂虚空回本岛：直接走大厅那套「读档+保背包」的回程，回来人还站在本岛传送门里（有传送冷却不怕被吸回去） */
@@ -1243,6 +1316,7 @@ export class Game {
       this.mouseLook?.applyTo(body);
       this.touch?.applyLookTo(body);
       const pev = stepPhysics(body, this.world, this.controller, dt);
+      this.updateTraps(dt, body); // 柳条陷阱：踩上就困住 3 秒，到点自毁
       const skateMessage = this.skates.update(body, this.inventory!.armor, dt, pev.horizontalDistance > 0);
       if (skateMessage) hud.showMessage(skateMessage, 1.5);
       const hev = health.update(dt, body, pev.fallDistance);
@@ -1267,7 +1341,10 @@ export class Game {
       const riding = this.vehicles.riding !== null;
       this.vehicles.update(dt, this.world, body, this.controller, this.inventory!, hud,
         Math.min(blockDist, mob?.dist ?? Infinity), this.slot, () => this.hud!.refreshHotbar(this.inventory!, this.slot));
-      const potionHandled = !riding && this.potions.handleInput(this.controller, this.inventory!, this.slot, body, hud, hit, this.highlight);
+      // 手持枫叶飞刀时 P 是甩飞刀（一次性），其余情况才是扔药水
+      const knifeHandled = !riding && this.knife!.handleInput(this.controller, this.inventory!, this.slot, body, hud);
+      const potionHandled = knifeHandled
+        || (!riding && this.potions.handleInput(this.controller, this.inventory!, this.slot, body, hud, hit, this.highlight));
       if (!potionHandled && !riding && mob && mob.dist <= blockDist) {
         this.highlight.visible = false; this.playerActions!.cancelMining(); hud.setProgress(0);
         this.combat!.update(mob, body, dt, (sheep) => this.survival!.useSheep(sheep));
@@ -1318,7 +1395,7 @@ export class Game {
         // 虚空里 mobs 只更新已有的怪（spawn 的地面探测在虚空全落空，不会乱刷）
         this.mobs.update(dt, body.x, body.y, body.z, this.scene === 'island' && this.day.time >= DAY.NIGHT_FROM, this.day.time);
       }
-      this.potions.update(dt, this.world); this.fires.update(dt);
+      this.potions.update(dt, this.world); this.knife!.update(dt, this.world); this.fires.update(dt);
       this.snowTick(dt, body);
       this.fluffTick(dt, body);
       this.visitAvatar.update(dt, body.x, body.z);

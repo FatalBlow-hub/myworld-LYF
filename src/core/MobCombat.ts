@@ -24,10 +24,13 @@ export class MobCombat {
   update(mob: MobHit, body: PlayerBody, dt: number, useSheep: (sheep: Animal) => void): void {
     this.hitCooldown = Math.max(0, this.hitCooldown - dt);
     if (this.controller.isDown('mine') && this.hitCooldown <= 0) {
-      this.hitCooldown = ANIMAL.HIT_COOLDOWN;
       const held = this.inventory.hotbar[this.slot()];
       const sword = held ? SWORD_OF[held.id] : undefined;
-      if (sword) {
+      // 樱花剑出手更快（0.33 秒一刀），其余武器跟空手同节奏（0.4 秒）
+      this.hitCooldown = sword?.cooldown ?? ANIMAL.HIT_COOLDOWN;
+      // 樱花剑只够得到 3 格：够不着算空挥——不掉耐久、也不伤怪
+      const outOfReach = !!sword && sword.reach !== undefined && mob.dist > sword.reach;
+      if (sword && !outOfReach) {
         let dmg = ANIMAL.PUNCH_DAMAGE * sword.mult;
         // 血腥之剑：20% 概率这一刀变 4 倍
         if (sword.critChance && sword.critMult && Math.random() < sword.critChance) {

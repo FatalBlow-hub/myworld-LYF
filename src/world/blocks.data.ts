@@ -7,7 +7,8 @@ import { MUSHROOM_BLOCKS, GLOW_SHROOM, GLOW_SPORE, MUSHROOM_ENOKI, MUSHROOM_OYST
 import { SNOWFLAKE, SNOW_BLOCKS } from './blocks.season';
 import { FOOD_BLOCKS, FOOD_IDS } from './blocks.food';
 import { BLACK_BLOCKS, BLACK_PICKAXE, WARRIOR_BOW, WARRIOR_BOW_FIRE, WARRIOR_BOW_ICE } from './blocks.black';
-import { SWORD_BLOCKS, SWORD_IDS } from './blocks.swords';
+import { ALL_SWORD_IDS, SWORD_BLOCKS } from './blocks.swords';
+import { BAG_MAPLE, BAG_SAKURA, KNIFE_MAPLE, NEWGEAR_BLOCKS, TRAP_BLOCK_IDS, WILLOW_TRAP } from './blocks.newgear';
 import { PLANK_BLOCKS, DYED_PLANK_IDS } from './blocks.planks';
 import { BOTTLE_BLOCKS, BOTTLE_SW_DEEP, BOTTLE_SW_DROWN, BOTTLE_SW_LIGHT, BOTTLE_SW_MID, BOTTLE_SW_PHANTOM, BOTTLE_WATER } from './blocks.bottles';
 import { DECO_BLOCKS, VINE_LADDER } from './blocks.deco';
@@ -29,6 +30,7 @@ export * from './blocks.deco'; // 装饰方块一族（blocks.deco.ts）同样�
 export * from './blocks.willow'; // 柳树一族（blocks.willow.ts：柳树干/柳叶/柳树苗/柳絮孢子/柳条/柳絮腰包）同样转发
 export * from './blocks.leafdrops'; // 树冠季节产物（blocks.leafdrops.ts：樱花花瓣/枫叶）同样转发
 export * from './blocks.arena'; // 红焰大赛箱（blocks.arena.ts）同样转发
+export * from './blocks.newgear'; // 四季 DIY 道具（blocks.newgear.ts：樱花药包/枫叶腰包/飞刀/柳条陷阱）同样转发
 export * from './radish'; // 白萝卜（radish.ts：物品 + 价格逻辑）同样转发
 
 export const AIR = 0;
@@ -396,7 +398,7 @@ export const WOOL_BAG_DYES = [
 export const WAISTBAG_CAPACITY: Record<number, number> = {
   [BAG_WOOL]: 8, [BAG_MANG]: 10, [BAG_STAR]: 10, [BAG_GLASS]: 8,
   [BAG_GRASS]: 6, [BAG_LEAF]: 4, [BAG_BAMBOO]: 4, [BAG_FEATHER]: 6, [BAG_RUBBER]: 4, [BAG_GOLD]: 10,
-  [WILLOW_BAG]: 6,
+  [WILLOW_BAG]: 6, [BAG_SAKURA]: 6, [BAG_MAPLE]: 6,
   ...Object.fromEntries(WOOL_BAG_DYES.map(({ id }) => [id, 8])),
 };
 export const WAISTBAG_IDS = Object.keys(WAISTBAG_CAPACITY).map(Number);
@@ -405,7 +407,7 @@ export const WAISTBAG_TEXTURES: Record<number, string> = {
   [BAG_WOOL]: 'bag_wool', [BAG_MANG]: 'bag_mang', [BAG_STAR]: 'bag_star',
   [BAG_GLASS]: 'bag_glass', [BAG_GRASS]: 'bag_grass', [BAG_LEAF]: 'bag_leaf',
   [BAG_BAMBOO]: 'bag_bamboo', [BAG_FEATHER]: 'bag_feather', [BAG_RUBBER]: 'bag_rubber', [BAG_GOLD]: 'bag_gold',
-  [WILLOW_BAG]: 'bag_willow',
+  [WILLOW_BAG]: 'bag_willow', [BAG_SAKURA]: 'bag_sakura', [BAG_MAPLE]: 'bag_maple',
   ...Object.fromEntries(WOOL_BAG_DYES.map(({ id, texture }) => [id, texture])),
 };
 
@@ -492,6 +494,7 @@ export const BLOCKS: Record<number, BlockDef> = {
   ...WILLOW_BLOCKS,   // 柳树一族（blocks.willow.ts）：柳树干/柳叶/三阶段树苗/柳絮孢子/柳条/柳絮腰包
   ...LEAF_DROP_BLOCKS, // 树冠季节产物（blocks.leafdrops.ts）：樱花花瓣/枫叶
   ...ARENA_BLOCKS,    // 红焰大赛箱（blocks.arena.ts）：大厅赛事入口
+  ...NEWGEAR_BLOCKS,  // 四季 DIY 道具（blocks.newgear.ts）：两个腰包/飞刀/柳条陷阱五态
   [AIR]:         { cn: '空气',   tex: { top: '', side: '' }, solid: false, seeThrough: true, hardness: 0 },
   [GRASS]:       { cn: '草方块', tex: { top: 'grass_top', side: 'grass_side', bottom: 'dirt' }, solid: true, seeThrough: false, hardness: 0.6, drop: DIRT },
   [DIRT]:        { cn: '泥土',   tex: { top: 'dirt', side: 'dirt' }, solid: true, seeThrough: false, hardness: 0.5 },
@@ -813,8 +816,8 @@ export const ALL_ITEMS = [
   ...FOOD_IDS,
   // 黑色售卖机的货（blocks.black.ts）：黑色木镐 + 三形态小战士弓（机器本体不进面板，跟其他机器一个待遇）
   BLACK_PICKAXE, WARRIOR_BOW, WARRIOR_BOW_FIRE, WARRIOR_BOW_ICE,
-  // 六把剑（blocks.swords.ts）：木/铁/金/钻石/雪花/血腥
-  ...SWORD_IDS,
+  // 六把剑 + 樱花剑（blocks.swords.ts）
+  ...ALL_SWORD_IDS,
   // 三种染色木板（blocks.planks.ts）：深色/浅色/灵魂蓝，能正常盖房子
   ...DYED_PLANK_IDS,
   // 装饰方块（blocks.deco.ts）：藤蔓梯子，缠了藤的梯子照样能爬
@@ -826,6 +829,8 @@ export const ALL_ITEMS = [
   WILLOW_WOOD, WILLOW_LEAVES, WILLOW_SAP1, WILLOW_FLUFF, WILLOW_BRANCH, WILLOW_BAG,
   // 红焰大赛箱（大厅赛事入口，正常靠大厅里那台，创造面板也放一份方便摆）
   ARENA_BOX,
+  // 四季 DIY 道具（2026-10-27）：樱花药包 / 枫叶腰包 / 枫叶飞刀 / 柳条陷阱（含五种伪装）
+  BAG_SAKURA, BAG_MAPLE, KNIFE_MAPLE, WILLOW_TRAP, ...TRAP_BLOCK_IDS,
 ];
 
 /** 庄稼生长链：每 60 秒走一级（水稻/胡萝卜/南瓜/西瓜共用）；最后一级不在表里 = 熟透了不再长 */

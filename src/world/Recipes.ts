@@ -32,6 +32,9 @@ import {
   SOUL_CHEST, SOUL_DYE, SOUL_FURNACE, SOUL_GRASS, SOUL_STONE_SLAB,
   SOUL_WOOD_SLAB, STAR_SHARD, STAR_TABLE, STAR_WOOL, STICK, STONE, STONE_SLAB, TALL_GRASS, WOOD, WOOD_SLAB, WOOD_STAIRS,
   WOOL_BLACK, WOOL_BLUE, WOOL_GRAY, WOOL_GREEN, WOOL_IDS, WOOL_ORANGE, WOOL_PINK, WOOL_RED, WOOL_WHITE, WOOL_YELLOW,
+  // —— 四季 DIY（2026-10-27）：樱花剑/两个腰包/枫叶飞刀/柳条陷阱 ——
+  SWORD_SAKURA, BAG_SAKURA, BAG_MAPLE, KNIFE_MAPLE, WILLOW_TRAP,
+  WILLOW_FLUFF, WILLOW_BRANCH, WILLOW_SAP1, WILLOW_BAG, PETAL_SAKURA, MAPLE_LEAF,
   Slots,
 } from './Block';
 import {
@@ -219,6 +222,14 @@ export const RECIPES: Recipe[] = [
   { out: BAG_STAR,    outCount: 1, needs: [[BAG_WOOL, 1], [STAR_SHARD, 2]],   quiet: true },
   // 14 种彩色腰包（quiet：手册用一条说明统一讲，不刷 14 条）
   ...WOOL_BAG_DYES.map(({ dye, id }) => ({ out: id, outCount: 1, needs: [[BAG_WOOL, 1], [dye, 1]] as [number, number][], quiet: true })),
+  // —— 2026-10-27 四季 DIY：柳絮/樱花花瓣/枫叶做的七件套（只在自由岛做，不能带进大赛）——
+  { out: WILLOW_SAP1,  outCount: 1, needs: [[WILLOW_FLUFF, 4]] },                        // 柳絮孢子 ×4 → 柳树苗
+  { out: WILLOW_BAG,   outCount: 1, needs: [[WILLOW_FLUFF, 5]] },                        // 柳絮孢子 ×5 → 柳絮腰包
+  { out: BAG_SAKURA,   outCount: 1, needs: [[PETAL_SAKURA, 5]] },                        // 樱花花瓣 ×5 → 樱花药包
+  { out: SWORD_SAKURA, outCount: 1, needs: [[PETAL_SAKURA, 2], [STICK, 1]] },            // 樱花花瓣 ×2 + 木棒 → 樱花剑
+  { out: BAG_MAPLE,    outCount: 1, needs: [[MAPLE_LEAF, 5]] },                          // 枫叶 ×5 → 枫叶腰包
+  { out: KNIFE_MAPLE,  outCount: 1, needs: [[MAPLE_LEAF, 3], [IRON_NUGGET, 1]] },        // 枫叶 ×3 + 铁粒 → 枫叶飞刀
+  { out: WILLOW_TRAP,  outCount: 1, needs: [[WILLOW_BRANCH, 3], [TALL_GRASS, 1]] },      // 柳条 ×3 + 草 → 柳条陷阱
 ];
 
 /** 星空染色台的颜料融合表：放进材料颜料 → 出新颜料（只有星空染色台能干这活） */

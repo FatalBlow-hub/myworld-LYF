@@ -31,6 +31,7 @@ const SWORD_SKINS: Record<string, SwordSkin> = {
   sword_diamond: { blade: '#6ee8e0', edge: '#d0fcf8', guard: '#30a8a0', grip: '#4a2e14' },
   sword_snow:    { blade: '#bfe8ff', edge: '#ffffff', guard: '#6aa8d0', grip: '#2e5470' },
   sword_blood:   { blade: '#8a1a1a', edge: '#d83a3a', guard: '#4a0f0c', grip: '#2e0a08' },
+  sword_sakura:  { blade: '#f7a8c8', edge: '#ffe6f2', guard: '#c85f8c', grip: '#5a3a2a' },
 };
 
 export const SWORD_TILE_NAMES = Object.keys(SWORD_SKINS);

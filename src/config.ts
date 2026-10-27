@@ -780,7 +780,24 @@ export const SWORDS = {
   DIAMOND: { mult: 3,   uses: 57 },
   SNOW:    { mult: 2,   uses: 21, slowSeconds: 1 },          // 被打的怪 1 秒走路减半速
   BLOOD:   { mult: 2,   uses: 12, critChance: 0.2, critMult: 4 }, // 20% 概率这一刀变 4 倍
+  // 樱花剑：单次半格血（1 点）、10 刀、0.33 秒一刀、只够到 3 格——轻快但很脆
+  SAKURA:  { mult: 0.5, uses: 10, reach: 3, cooldown: 0.33 },
 } as const;
+
+/** 枫叶飞刀：一次性投掷物，命中扣 2 点血（一颗心），扔空就没了 */
+export const KNIFE = {
+  DAMAGE: 2,        // 命中敌人扣多少血
+  SPEED: 22,        // 飞多快（格/秒）
+  GRAVITY: 8,       // 抛物线重力（比药瓶轻，飞得更直）
+  RANGE: 18,        // 最多飞多远（格）
+  STEP: 1 / 120,    // 分步碰撞的步长
+};
+
+/** 柳条陷阱：踩上去禁锢 3 秒后陷阱自毁；挖掉能捡回本体 */
+export const TRAP = {
+  FREEZE: 3,        // 禁锢几秒
+  HARDNESS: 0.3,    // 挖掉要多久
+};
 
 /** 药水瓶：P 扔 E 喝 */
 export const POTION = {

@@ -23,7 +23,7 @@ import {
   DIRT, DYE_TABLE, DYEABLE_CARPETS, FIRESTARTER_IDS, FRUIT_LEAF_IDS, FRUIT_OF_LEAF, GLASS_BOTTLE, GLASS_BUCKET, GRASS, HYDROGEN, ICE, IRON_NUGGET,
   LEAVES, MAPLE_LEAF, MELON_SEED, MELON_STAGE1, PETAL_SAKURA, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT, WILLOW_LEAVES,
   RICE_GRAIN, RUBBER, SAND, SAPLING_IDS, SEAWEED, SNOW, SNOWFLAKE, SOUL_CHEST, SOUL_FIRESTARTER, SPECIES_BY_SAPLING, STAR_DYE_TABLE, STAR_TABLE, LIQUID_FILL,
-  TANK, VENDING_BLACK, VENDING_DRINK, VENDING_SPECIAL, VENDING_STORE, VISIT_LIST_BLOCKS, WATER_BUCKET, WOOD,
+  TANK, TRAP_BLOCK_IDS, VENDING_BLACK, VENDING_DRINK, VENDING_SPECIAL, VENDING_STORE, VISIT_LIST_BLOCKS, WATER_BUCKET, WILLOW_TRAP, WOOD,
   dropCountOf, isBed, isChest, isDoor, isFurnace,
 } from '../world/Block';
 import { GOLD_CHEM_DECOMP, GOLD_DYE_TABLE, GOLD_PICKAXE, ICE_MOLECULE } from '../world/GoldenItems';
@@ -77,6 +77,8 @@ export interface PlayerActionDeps {
   openBuyBox: () => void;
   /** 对着红焰大赛箱按 M：打开大赛面板（极限季节挑战 / CS 大赛） */
   openArena: () => void;
+  /** 手持柳条陷阱按 L：先选伪装成什么方块，再落地 */
+  openTrapPicker: (hit: BlockHit) => void;
   /** 拿着小战士召唤蛋对地按 M：召唤保镖（扣蛋由外面负责） */
   summonWarrior: (eggId: number, x: number, y: number, z: number) => void;
   /** 拿着小战士弓对地按 M：召唤弓箭手哨兵（扣弓由外面负责） */
@@ -182,9 +184,15 @@ export class PlayerActions {
       const canopy = id === LEAVES || id === WILLOW_LEAVES || id in FRUIT_OF_LEAF;
       const seasonPick = canopy && season === 'summer' ? PETAL_SAKURA
         : canopy && season === 'autumn' ? MAPLE_LEAF : AIR;
+      // 柳条陷阱：挖掉不返还伪装方块，而是把陷阱本体收回去（设定原文）
+      const wasTrap = TRAP_BLOCK_IDS.includes(id);
+      if (wasTrap && !creative) {
+        inventory.add(WILLOW_TRAP, 1);
+        hud.showMessage('挖掉一个柳条陷阱');
+      }
       if (seasonPick !== AIR) {
         if (!creative) inventory.add(seasonPick, 1); // 花瓣/枫叶必掉 1 个，树叶本体就不给了
-      } else if (drop !== AIR && !creative) {
+      } else if (!wasTrap && drop !== AIR && !creative) {
         inventory.add(drop, dropCountOf(id)); // 创造模式挖了不进包
       }
       if (bambooFallen > 0 && !creative) inventory.add(BAMBOO, bambooFallen);
@@ -249,6 +257,9 @@ export class PlayerActions {
     };
     if (!stack) {
       hud.showMessage('手里是空的，先挖点方块吧');
+    } else if (stack.id === WILLOW_TRAP) {
+      // 柳条陷阱：先挑伪装（沙子/雪块/草方块/泥土/圆石），选完才落地
+      this.d.openTrapPicker(hit);
     } else if (FIRESTARTER_IDS.includes(stack.id)) {
       const blue = stack.id === SOUL_FIRESTARTER;
       // 灵魂打火石先试传送门：点火点在灵魂蓝木门框内腔里就把门框点亮

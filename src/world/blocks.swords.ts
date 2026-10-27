@@ -16,6 +16,12 @@ export const SWORD_BLOOD = 325;
 
 export const SWORD_IDS = [SWORD_WOOD, SWORD_IRON, SWORD_GOLD, SWORD_DIAMOND, SWORD_SNOW, SWORD_BLOOD];
 
+// —— 樱花剑（350）：春季 DIY，樱花花瓣 + 木棒，只能砍 10 刀但出手极快 ——
+export const SWORD_SAKURA = 350;
+
+/** 所有剑（含樱花剑）：手册"装备"页与武器判定都认这张表 */
+export const ALL_SWORD_IDS = [...SWORD_IDS, SWORD_SAKURA];
+
 /** 一把剑的属性：攻击力是拳头几倍、能砍几刀；雪花剑带减速秒数、血剑带暴击概率和倍率 */
 export interface SwordSpec {
   readonly mult: number;
@@ -23,6 +29,10 @@ export interface SwordSpec {
   readonly slowSeconds?: number;
   readonly critChance?: number;
   readonly critMult?: number;
+  /** 只能够到几格（缺省用 PLAYER.REACH）；樱花剑 3 格 */
+  readonly reach?: number;
+  /** 攻击间隔秒数（缺省用 ANIMAL.HIT_COOLDOWN）；樱花剑 0.33 秒一刀 */
+  readonly cooldown?: number;
 }
 
 /** 剑 ID → 属性（数值全在 config.SWORDS，改手感只动那里） */
@@ -33,6 +43,7 @@ export const SWORD_OF: Record<number, SwordSpec> = {
   [SWORD_DIAMOND]: SWORDS.DIAMOND,
   [SWORD_SNOW]:    SWORDS.SNOW,
   [SWORD_BLOOD]:   SWORDS.BLOOD,
+  [SWORD_SAKURA]:  SWORDS.SAKURA,
 };
 
 const swordDef = (cn: string, tex: string): BlockDef => ({
@@ -46,4 +57,5 @@ export const SWORD_BLOCKS: Record<number, BlockDef> = {
   [SWORD_DIAMOND]: swordDef('钻石剑',   'sword_diamond'),
   [SWORD_SNOW]:    swordDef('雪花剑',   'sword_snow'),
   [SWORD_BLOOD]:   swordDef('血腥之剑', 'sword_blood'),
+  [SWORD_SAKURA]:  swordDef('樱花剑',   'sword_sakura'),
 };

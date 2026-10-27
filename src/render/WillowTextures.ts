@@ -47,6 +47,7 @@ export const WILLOW_TILE_NAMES = [
   'willow_log', 'willow_log_top', 'leaves_willow',
   'sap_willow_1', 'sap_willow_2', 'sap_willow_3',
   'willow_fluff', 'willow_branch',
+  'trap_willow', 'maple_knife',
 ];
 
 export const WILLOW_PAINTERS: Record<string, Painter> = {
@@ -83,6 +84,34 @@ export const WILLOW_PAINTERS: Record<string, Painter> = {
     c.fillRect(x + 3, y + 3, 1, 1);
     c.fillRect(x + 12, y + 4, 1, 1);
     c.fillRect(x + 4, y + 12, 1, 1);
+  },
+  // 柳条陷阱：柳条编成的浅盘，中间一圈草绳（物品图标；放下后外观是伪装的方块）
+  trap_willow: (c, x, y) => {
+    c.clearRect(x, y, TILE, TILE);
+    c.fillStyle = '#b8a44a';
+    c.fillRect(x + 2, y + 6, 12, 6);
+    c.fillRect(x + 3, y + 5, 10, 1);
+    c.fillRect(x + 3, y + 12, 10, 1);
+    c.fillStyle = '#8f7a2e';
+    for (let i = 0; i < 5; i++) c.fillRect(x + 3 + i * 2, y + 6, 1, 6);
+    c.fillStyle = '#7ab04a';
+    c.fillRect(x + 6, y + 8, 4, 2);
+    c.fillStyle = '#cfe88a';
+    c.fillRect(x + 7, y + 8, 1, 1);
+  },
+  // 枫叶飞刀：一片红枫叶削成的薄刃，左下角一小截手柄
+  maple_knife: (c, x, y) => {
+    c.clearRect(x, y, TILE, TILE);
+    c.fillStyle = '#c8422a';
+    c.fillRect(x + 6, y + 2, 3, 4);
+    c.fillRect(x + 4, y + 4, 7, 5);
+    c.fillRect(x + 5, y + 8, 4, 2);
+    c.fillStyle = '#e8661e';
+    c.fillRect(x + 7, y + 3, 1, 6);
+    c.fillStyle = '#8f2410';
+    c.fillRect(x + 5, y + 10, 2, 4);
+    c.fillStyle = '#e8b060';
+    c.fillRect(x + 5, y + 13, 2, 1);
   },
   // 柳条：一根细长柔韧的枝条，带两片小叶
   willow_branch: (c, x, y) => {
