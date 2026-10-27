@@ -208,7 +208,7 @@ export class Mobs {
         this.scene.remove(e.group);
         return false;
       });
-    this.animals = keepNear(this.animals, (a) => a.tamed); // 驯服的羊不会被刷掉
+    this.animals = keepNear(this.animals, (a) => a.tamed || a.leashed); // 驯服的/被绳索拴住的不会被刷掉
     this.zombies = keepNear(this.zombies);
     this.fish = keepNear(this.fish);
 

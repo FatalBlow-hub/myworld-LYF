@@ -112,7 +112,7 @@ export interface SaveData {
   playerMushrooms?: string[];
   chests: Record<string, Slots>;
   furnaces: Record<string, FurnaceState>;
-  animals: { kind: AnimalKind; x: number; y: number; z: number; woolId: number; hp: number; grow?: number; tamed?: boolean; waiting?: boolean; feather?: number }[];
+  animals: { kind: AnimalKind; x: number; y: number; z: number; woolId: number; hp: number; grow?: number; tamed?: boolean; waiting?: boolean; leashed?: boolean; feather?: number }[];
   /** 僵尸也存（旧存档没这字段就当没有）；kind = 哪种僵尸（旧字段 blood 还认） */
   zombies?: { x: number; y: number; z: number; hp: number; blood?: boolean; kind?: ZombieKind }[];
   drops: { id: number; count: number; x: number; y: number; z: number; age: number }[];
@@ -324,7 +324,7 @@ export function buildSave(g: {
     playerMushrooms: g.world.exportPlayerMushrooms(),
     chests: Object.fromEntries(g.world.chests),
     furnaces: Object.fromEntries(g.world.furnaces),
-    animals: g.animals.map((a) => ({ kind: a.kind, x: a.x, y: a.y, z: a.z, woolId: a.woolId, hp: a.hp, grow: a.growT, tamed: a.tamed, waiting: a.waiting, feather: a.feather })),
+    animals: g.animals.map((a) => ({ kind: a.kind, x: a.x, y: a.y, z: a.z, woolId: a.woolId, hp: a.hp, grow: a.growT, tamed: a.tamed, waiting: a.waiting, leashed: a.leashed, feather: a.feather })),
     // 挑战房的怪（noLoot）不走僵尸存档——它们由 challenge 字段自己恢复，存两份会刷双倍
     zombies: g.zombies.filter((z) => !z.noLoot).map((z) => ({ x: z.x, y: z.y, z: z.z, hp: z.hp, kind: z.kind === 'normal' ? undefined : z.kind })),
     drops: g.drops.map((d) => ({ id: d.itemId, count: d.count, x: d.x, y: d.y, z: d.z, age: d.age })),
@@ -400,6 +400,7 @@ export function applySave(
     }
     an.tamed = a.tamed ?? false;   // 驯服状态也读回来
     an.waiting = a.waiting ?? false;
+    an.leashed = a.leashed ?? false; // 绳索拴住状态（老档没有就当没拴）
     animals.push(an);
     scene.add(an.group);
   }

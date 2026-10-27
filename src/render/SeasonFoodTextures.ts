@@ -37,20 +37,34 @@ export const SEASON_FOOD_PAINTERS: Record<string, Painter> = {
     c.fillStyle = '#e8661e';
     c.fillRect(x + 2, y + 8, 1, 2);
   },
-  // 菖蒲叶：两三片细长剑形叶，从水面往上长
+  // 菖蒲叶（用户设定：外形与荷叶一致，材质不像麦子/草类植物）：圆整荷叶盘 + 放射叶脉 + 边缘豁口
   calamus: (c, x, y) => {
     c.clearRect(x, y, 16, 16);
-    c.fillStyle = '#4e9e46';
-    c.fillRect(x + 7, y + 2, 2, 14);
-    c.fillRect(x + 4, y + 5, 2, 11);
-    c.fillRect(x + 10, y + 6, 2, 10);
-    c.fillStyle = '#6fbf5c';
-    c.fillRect(x + 7, y + 2, 1, 10);
-    c.fillRect(x + 4, y + 5, 1, 7);
-    c.fillStyle = '#2f6b2a';
-    c.fillRect(x + 8, y + 8, 1, 6);
-    c.fillStyle = '#c8d86a';
-    c.fillRect(x + 6, y + 1, 2, 1);
+    // 叶盘：圆角圆盘形（四角切掉，占满格子）
+    c.fillStyle = '#2f6b2a'; // 墨绿描边
+    c.fillRect(x + 2, y + 1, 12, 14);
+    c.fillRect(x + 1, y + 2, 14, 12);
+    c.fillStyle = '#3f8f34'; // 深绿叶面
+    c.fillRect(x + 2, y + 2, 12, 12);
+    c.fillRect(x + 3, y + 1, 10, 1);
+    c.fillRect(x + 3, y + 14, 10, 1);
+    c.fillStyle = '#57a844'; // 内侧亮一档
+    c.fillRect(x + 3, y + 3, 10, 10);
+    // 放射叶脉：从中心 (8,8) 向八个方向拉细线
+    c.fillStyle = '#8fd06a';
+    for (const [dx, dy] of [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]] as const) {
+      c.fillRect(x + 8 + dx * 3, y + 8 + dy * 3, 1, 1);
+      c.fillRect(x + 8 + dx * 2, y + 8 + dy * 2, 1, 1);
+    }
+    c.fillStyle = '#a8e07c'; // 中心亮斑
+    c.fillRect(x + 7, y + 7, 2, 2);
+    // 豁口：右上方向切掉一角（荷叶的缺口）
+    c.clearRect(x + 11, y + 2, 3, 1);
+    c.clearRect(x + 12, y + 3, 2, 1);
+    c.clearRect(x + 13, y + 4, 1, 1);
+    // 叶缘挂点水珠
+    c.fillStyle = '#cfe8f0';
+    c.fillRect(x + 4, y + 3, 1, 1); c.fillRect(x + 10, y + 12, 1, 1);
   },
   // 菖蒲香囊：布囊 + 抽绳 + 一片菖蒲叶
   pouch_calamus: (c, x, y) => {

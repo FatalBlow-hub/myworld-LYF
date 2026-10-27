@@ -225,4 +225,10 @@ export class Survival {
     sheep.waiting = !sheep.waiting;
     hud.showMessage(sheep.waiting ? '羊在原地等你' : '羊跟上来了');
   }
+
+  /** 拿绳索对动物按 M：没拴住就拴上（动物跟着玩家走），拴住了就放开 */
+  useAnimalRope(animal: Animal): void {
+    animal.leashed = !animal.leashed;
+    this.d.hud.showMessage(animal.leashed ? '拴住了，它会跟着你走' : '绳子解开了，动物自由了');
+  }
 }

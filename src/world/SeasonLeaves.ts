@@ -1,4 +1,4 @@
-/** 季节换叶 — 树冠按四季换外观：春翠绿、夏粉樱花、秋橙黄、冬绿底积雪
+/** 季节换叶 — 树冠按四季换外观：普通树春绿/夏樱花/秋黄/冬细沙；果树只有秋冬变黄
  *  只改 BLOCKS 表里的贴图 key（网格重建时会按新 key 取图集格子），不改方块 ID，老存档不受影响。
  *
  *  用法:
@@ -14,7 +14,7 @@ import { WILLOW_LEAVES } from './blocks.willow';
 /** 季节名（与 core/Calendar 的 Season 一致；这里用字面量避免 world 反向依赖 core） */
 type SeasonName = 'spring' | 'summer' | 'autumn' | 'winter';
 
-/** 一张树冠在四季各用哪张贴图（夏季统一粉色樱花树冠，是设定原意） */
+/** 一张树冠在四季各用哪张贴图 */
 interface LeafSkin {
   id: number;
   spring: string;
@@ -24,13 +24,16 @@ interface LeafSkin {
 }
 
 const LEAF_SKINS: LeafSkin[] = [
-  { id: LEAVES,            spring: 'leaves',                 summer: 'leaves_sakura', autumn: 'leaves_plain_autumn',   winter: 'leaves_plain_winter' },
-  { id: APPLE_LEAVES,      spring: 'leaves_apple',           summer: 'leaves_sakura', autumn: 'leaves_apple_autumn',   winter: 'leaves_apple_winter' },
-  { id: PEACH_LEAVES,      spring: 'leaves_peach',           summer: 'leaves_sakura', autumn: 'leaves_peach_autumn',   winter: 'leaves_peach_winter' },
-  { id: ORANGE_LEAVES,     spring: 'leaves_orange',          summer: 'leaves_sakura', autumn: 'leaves_orange_autumn',  winter: 'leaves_orange_winter' },
-  { id: PEAR_LEAVES,       spring: 'leaves_pear',            summer: 'leaves_sakura', autumn: 'leaves_pear_autumn',    winter: 'leaves_pear_winter' },
-  { id: PERSIMMON_LEAVES,  spring: 'leaves_persimmon',       summer: 'leaves_sakura', autumn: 'leaves_persimmon_autumn', winter: 'leaves_persimmon_winter' },
-  { id: BANANA_LEAVES,     spring: 'leaves_banana',          summer: 'leaves_sakura', autumn: 'leaves_banana_autumn',  winter: 'leaves_banana_winter' },
+  // 普通树：夏天樱花叶、秋天黄叶、冬天树叶带细沙质感（2026-10-28 设定）
+  { id: LEAVES,            spring: 'leaves',                 summer: 'leaves_sakura', autumn: 'leaves_plain_autumn',   winter: 'leaves_plain_sand' },
+  // 六种果树：只有秋季、冬季树叶才变黄（共用一张黄叶），春夏保持本色
+  { id: APPLE_LEAVES,      spring: 'leaves_apple',           summer: 'leaves_apple',           autumn: 'leaves_fruit_yellow',   winter: 'leaves_fruit_yellow' },
+  { id: PEACH_LEAVES,      spring: 'leaves_peach',           summer: 'leaves_peach',           autumn: 'leaves_fruit_yellow',   winter: 'leaves_fruit_yellow' },
+  { id: ORANGE_LEAVES,     spring: 'leaves_orange',          summer: 'leaves_orange',          autumn: 'leaves_fruit_yellow',   winter: 'leaves_fruit_yellow' },
+  { id: PEAR_LEAVES,       spring: 'leaves_pear',            summer: 'leaves_pear',            autumn: 'leaves_fruit_yellow',   winter: 'leaves_fruit_yellow' },
+  { id: PERSIMMON_LEAVES,  spring: 'leaves_persimmon',       summer: 'leaves_persimmon',       autumn: 'leaves_fruit_yellow',   winter: 'leaves_fruit_yellow' },
+  { id: BANANA_LEAVES,     spring: 'leaves_banana',          summer: 'leaves_banana',          autumn: 'leaves_fruit_yellow',   winter: 'leaves_fruit_yellow' },
+  // 柳树：四季四态照旧（樱花夏、橙黄秋、积雪冬）
   { id: WILLOW_LEAVES,     spring: 'leaves_willow',          summer: 'leaves_sakura', autumn: 'leaves_willow_autumn',  winter: 'leaves_willow_winter' },
 ];
 

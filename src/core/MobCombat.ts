@@ -1,7 +1,7 @@
 /** 生物战斗 — 玩家挥拳/用玻璃锥/拿剑攻击，并处理羊的 M 键互动 */
 
 import { ANIMAL, CONE, WARRIOR } from '../config';
-import { BLOCKS, GLASS_CONE, SWORD_OF } from '../world/Block';
+import { BLOCKS, GLASS_CONE, ROPE, SWORD_OF } from '../world/Block';
 import { PlayerBody } from '../player/Physics';
 import { Controller } from '../player/Controller';
 import { Inventory } from '../player/Inventory';
@@ -23,7 +23,10 @@ export class MobCombat {
     private atkMult: () => number = () => 1,
   ) {}
 
-  update(mob: MobHit, body: PlayerBody, dt: number, useSheep: (sheep: Animal) => void): void {
+  update(
+    mob: MobHit, body: PlayerBody, dt: number, useSheep: (sheep: Animal) => void,
+    useAnimalRope?: (animal: Animal) => void,
+  ): void {
     this.hitCooldown = Math.max(0, this.hitCooldown - dt);
     if (this.controller.isDown('mine') && this.hitCooldown <= 0) {
       const held = this.inventory.hotbar[this.slot()];
@@ -66,6 +69,12 @@ export class MobCombat {
       // 记一笔：主人正在打这只怪，小战士会优先来帮忙（打羊也顺手记一下，不影响）
       if (mob.mob instanceof Zombie) mob.mob.hurtByPlayerT = WARRIOR.MEMORY;
       if (mob.mob.dead) this.mobs.kill(mob.mob);
+    }
+    // 手里拿绳索对准动物按 M：拴住/放开（所有动物都能拴，不等同于驯服）
+    if (useAnimalRope && mob.mob instanceof Animal && this.inventory.hotbar[this.slot()]?.id === ROPE
+        && this.controller.take('door')) {
+      useAnimalRope(mob.mob);
+      return;
     }
     if (mob.mob instanceof Animal && mob.mob.kind === 'sheep' && this.controller.take('door')) {
       useSheep(mob.mob);

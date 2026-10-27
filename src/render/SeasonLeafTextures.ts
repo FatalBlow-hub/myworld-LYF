@@ -23,7 +23,7 @@ const snowyLeaf = (base: string, spots: string[]): Painter => (c, x, y) => {
   }
 };
 
-/** 夏季统一樱花树冠：粉底 + 深浅粉噪点 + 五瓣花点 */
+/** 秋季统一樱花树冠：粉底 + 深浅粉噪点 + 五瓣花点 */
 const sakuraLeaf: Painter = (c, x, y) => {
   fill(c, x, y, '#e894bd');
   speckle(c, x, y, ['#d97fa9', '#f2aecf', '#d06b98'], 130);
@@ -34,9 +34,35 @@ const sakuraLeaf: Painter = (c, x, y) => {
   for (const [dx, dy] of petals) c.fillRect(x + dx, y + dy, 1, 1);
 };
 
+/** 普通树冬季：绿底树叶上铺一层细沙质感（灰黄颗粒 + 叶缘挂沙），不是积雪 */
+const sandyLeaf: Painter = (c, x, y) => {
+  fill(c, x, y, '#3f7a2a');
+  speckle(c, x, y, ['#356a22', '#4a8c32', '#2c5c1c'], 110);
+  c.fillStyle = '#cbb87a'; // 细沙颗粒
+  for (let i = 0; i < 40; i++) {
+    c.fillRect(x + Math.floor(Math.random() * TILE), y + Math.floor(Math.random() * TILE), 1, 1);
+  }
+  c.fillStyle = '#e0cfa0'; // 叶缘挂沙（顶边与两侧）
+  for (let i = 0; i < 16; i++) {
+    c.fillRect(x + Math.floor(Math.random() * TILE), y, 1, 1);
+    c.fillRect(x + Math.floor(Math.random() * TILE), y + TILE - 1, 1, 1);
+    c.fillRect(x, y + Math.floor(Math.random() * TILE), 1, 1);
+    c.fillRect(x + TILE - 1, y + Math.floor(Math.random() * TILE), 1, 1);
+  }
+};
+
+/** 果树秋/冬统一黄叶：金黄底 + 深黄斑点 + 边缘枯黄（设定：果树只有秋冬变黄，秋冬同色） */
+const fruitYellowLeaf: Painter = (c, x, y) => {
+  fill(c, x, y, '#e0b03a');
+  speckle(c, x, y, ['#c8901e', '#f0cc60', '#a87814'], 130);
+  c.fillStyle = '#b8802a'; // 叶脉方向的枯黄
+  for (let i = 0; i < 10; i++) c.fillRect(x + Math.floor(Math.random() * TILE), y + Math.floor(Math.random() * TILE), 2, 1);
+};
+
 export const SEASON_LEAF_TILE_NAMES = [
   'leaves_sakura',
-  'leaves_plain_autumn', 'leaves_plain_winter',
+  'leaves_plain_autumn', 'leaves_plain_winter', 'leaves_plain_sand',
+  'leaves_fruit_yellow',
   'leaves_apple_winter', 'leaves_peach_winter', 'leaves_orange_winter',
   'leaves_pear_winter', 'leaves_persimmon_winter', 'leaves_banana_winter',
   'leaves_willow_autumn', 'leaves_willow_winter',
@@ -45,13 +71,14 @@ export const SEASON_LEAF_TILE_NAMES = [
 
 export const SEASON_LEAF_PAINTERS: Record<string, Painter> = {
   leaves_sakura: sakuraLeaf,
-  // 普通树叶：秋天橙黄、冬天绿底带雪
+  // 普通树叶：秋天橙黄、冬天细沙质感（2026-10-28 起冬=沙，不再积雪）
   leaves_plain_autumn: (c, x, y) => {
     fill(c, x, y, '#d99a2a');
     speckle(c, x, y, ['#c47f1e', '#eeb84a', '#b06c14'], 120);
   },
-  leaves_plain_winter: snowyLeaf('#3f7a2a', ['#356a22', '#4a8c32', '#2c5c1c']),
-  // 六种果树冬天：各树原底色 + 积雪
+  leaves_plain_winter: sandyLeaf,
+  // 果树秋/冬共用一张黄叶（春夏走各自本色贴图）
+  leaves_fruit_yellow: fruitYellowLeaf,
   leaves_apple_winter:      snowyLeaf('#2f6119', ['#264f14', '#3d7a24', '#1e3f0e']),
   leaves_peach_winter:      snowyLeaf('#7cb85c', ['#8fc96e', '#a8d98a', '#6aa04c']),
   leaves_orange_winter:     snowyLeaf('#7a9e2e', ['#8fb03a', '#96b845', '#5f7a1e']),

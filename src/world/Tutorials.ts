@@ -9,7 +9,7 @@ import {
   DYE_DEEPGREEN, GLASS, GLASS_BOTTLE, GLASS_BUCKET, GLASS_CONE, GS_BUCKET_MID, HYDROGEN,
   HYDROGEN_FIRESTARTER, IRON_NUGGET, MANG_FIRESTARTER, MANG_SHARD, MELON, MELON_SLICE,
   POTION_BREATH, POTION_DEADLY, POTION_PHANTOM, POTION_POISON, PUMPKIN, PUMPKIN_SLICE,
-  RAW_MEAT, RICE_SEED, ROLLER_SKATES, RUBBER, SOUL_DYE, SOUL_FIRESTARTER,
+  RAW_MEAT, RICE_SEED, ROLLER_SKATES, ROPE, RUBBER, FOOD_TABLE, SOUL_DYE, SOUL_FIRESTARTER,
   STAR_DYE_TABLE, STAR_FIRESTARTER, STAR_SHARD, STAR_WOOL, STICK, SWAMP_DEEP, SWAMP_LIGHT,
   SWAMP_MID, SWAMP_PHANTOM, SWORD_WOOD, TANK, TANK_BULLET, WATER_BUCKET, WOOD,
   WOOL_IDS, WOOL_WHITE,
@@ -44,7 +44,8 @@ export const TUTORIALS: Tutorial[] = (() => {
     if (BED_IDS.includes(r.out) || r.quiet) continue;
     const needs = r.needs.map(([id, n]) => `${name(id)}×${n}`).join(' + ');
     // 材料种类超过 4 种的，2×2 小格子摆不下，得用工作台开 3×3 大合成台
-    const big = r.needs.length > 4 ? '（要 3×3 大合成台）' : '';
+    // 美食配方只能放在美食工作台上做（2026-10-28 起）
+    const big = r.bench === 'food' ? '（要美食工作台）' : r.needs.length > 4 ? '（要 3×3 大合成台）' : '';
     const batch = r.scale ? '（放几个出几个）' : '';
     (swampRecipes.has(r.out) ? swampEntries : list).push({
       text: `合成：${needs} → ${name(r.out)}×${r.outCount}${big}${batch}`,
@@ -102,6 +103,9 @@ export const TUTORIALS: Tutorial[] = (() => {
   list.push({ text: `装备：${name(WOOL_WHITE)}×4 + ${name(STICK)}×1 → ${name(BAG_WOOL)}（8格，穿在装备栏第二格；光放羊毛会变成地毯，记得加根木棍当包带）；羊毛腰包 + 任意颜料×1 染成同颜色的腰包，+ 玻璃/杂草/树叶/竹子/白羽毛/橡胶/芒星碎片/星星碎片 包出对应材质的腰包`, icon: BAG_WOOL, needs: [[WOOL_WHITE, 4], [STICK, 1]], cat: 'equip' });
   // 白萝卜炒股追加在最后，别打乱以前学会的方法编号
   list.push({ text: `使用：黑色售卖机每周一卖白萝卜（每个人的价格不一样，50~666 随机）；买回来盯着每天的回收价，哪天高了全部卖出赚差价——到了下周一还没卖，萝卜会全烂掉`, icon: WHITE_RADISH, cat: 'misc' });
+  // 绳索与美食工作台追加在最后，别打乱以前学会的方法编号
+  list.push({ text: `使用：拿着${name(ROPE)}对准牛/猪/羊/鸟按 M 拴住，动物会跟着你走；再按 M 一次就放开（蒲公英驯服那套不受影响）`, icon: ROPE, cat: 'small' });
+  list.push({ text: `使用：${name(FOOD_TABLE)}是独立的功能台——只能做美食配方，普通工作台做不了美食；它也做不了道具配方。只在自由岛能用，带不进大赛`, icon: FOOD_TABLE, cat: 'build' });
   // 兜底：说明文字一模一样的只留一条
   return [...new Map([...list, ...swampEntries].map((t) => [t.text, t])).values()];
 })();

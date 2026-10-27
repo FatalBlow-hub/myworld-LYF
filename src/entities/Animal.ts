@@ -66,6 +66,8 @@ export class Animal {
   tamed = false;
   /** 等待模式：站着不动，不跟玩家 */
   waiting = false;
+  /** 被绳索拴住了：也会跟着玩家走（和驯服互不影响，喂蒲公英照样能驯服） */
+  leashed = false;
   /** 成长计时：长够 GROW_SECONDS 秒就是成年（刚生出来是 0） */
   growT = ANIMAL.GROW_SECONDS;
   /** 生宝宝倒计时：成年后开始走，到 0 生一只 */
@@ -152,9 +154,9 @@ export class Animal {
       this.applyScale();
     }
 
-    if (this.tamed && px !== undefined && py !== undefined && pz !== undefined) {
-      // 驯服的羊：等待中就钉在原地；不是等待时离玩家超过 5 格就跟上去，太远跟丢直接传送
-      if (!this.waiting) {
+    if ((this.tamed || this.leashed) && px !== undefined && py !== undefined && pz !== undefined) {
+      // 驯服的羊/拴住的动物：等待（仅驯服）时钉在原地；离玩家超过 5 格就跟上去，太远跟丢直接传送
+      if (!this.waiting || this.leashed) {
         const dist = Math.hypot(px - this.x, pz - this.z);
         if (dist > ANIMAL.TELEPORT_DIST) {
           for (const [ox, oz] of [[1.2, 0], [-1.2, 0], [0, 1.2], [0, -1.2]] as const) {
