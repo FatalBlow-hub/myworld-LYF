@@ -117,6 +117,13 @@ export interface FoodEffect {
   glowSeconds?: number;
   /** 解毒（蒲公英凉茶）：把身上中的毒一次清掉 */
   curePoison?: boolean;
+  /** 春卷：接下来几秒完全不掉血，也不消耗饥饿 */
+  godSeconds?: number;
+  /** 负面豁免秒数（春卷 30 秒 / 圣诞甜饼 60 秒）：沼泽/幻泽液扣血与星空尸主动攻击都失效 */
+  cleanseSeconds?: number;
+  /** 攻击倍率持续秒数与倍率（丰收拼盘 ×1.25） */
+  atkSeconds?: number;
+  atkMult?: number;
 }
 
 /** 吃东西的效果：物品ID → { hunger: 回饥饿, hp: 回血（负数=扣血，生肉难吃！） } */
@@ -163,6 +170,10 @@ export const EAT_HP: Record<number, FoodEffect> = {
   312: { hunger: 1, hp: 0, flipSeconds: 8 },                              // 颠倒香蕉液：+1 饥饿，方向反 8 秒
   313: { hunger: 5, hp: 0, boostSeconds: 6, boostMult: 1.3, hasteSeconds: 6, slowHeal: { seconds: 6, hp: 2 } }, // 水果拼盘
   314: { hunger: 4, hp: 0, boostSeconds: 6, boostMult: 1.3, glowSeconds: 6 }, // 蘑菇拼盘
+  // —— 2026-10-27 四季节日食物 ——
+  359: { hunger: 1, hp: 0, godSeconds: 15, cleanseSeconds: 30 },                      // 春卷：15 秒免伤 + 不耗饥饿，30 秒负面豁免
+  363: { hunger: 2, hp: 0, atkSeconds: 10, atkMult: 1.25 },                           // 丰收拼盘：+2 饥饿，10 秒攻击 ×1.25
+  367: { hunger: 2, hp: 1, cleanseSeconds: 60 },                                      // 圣诞甜饼：+2 饥饿 +1 血，1 分钟负面豁免
 };
 
 /** 鱼：四种都住在海里（水里游来游去），下水按 P 打，打死掉对应的鱼物品 */
@@ -791,6 +802,17 @@ export const KNIFE = {
   GRAVITY: 8,       // 抛物线重力（比药瓶轻，飞得更直）
   RANGE: 18,        // 最多飞多远（格）
   STEP: 1 / 120,    // 分步碰撞的步长
+};
+
+/** 四季节日玩法：菖蒲香囊光环、冬季珠子掉率、菖蒲叶生成概率、旅者解锁价 */
+export const SEASON_FOOD = {
+  POUCH_RADIUS: 4,     // 菖蒲香囊：自身方圆几格内的怪物
+  POUCH_EVERY: 4,      // 每几秒扣一次血
+  POUCH_DAMAGE: 1,     // 每次扣几点
+  BEAD_CHANCE: 0.125,  // 冬季挖树叶掉装饰珠子的概率
+  CALAMUS_CHANCE: 0.125, // 夏季水面长出菖蒲叶的概率
+  UNLOCK_COST: 3,      // 旅者对话里收费解锁的那几本（3 岛币）
+  TALK_DIST: 3,        // 站多近能跟旅者说话（格）
 };
 
 /** 柳条陷阱：踩上去禁锢 3 秒后陷阱自毁；挖掉能捡回本体 */

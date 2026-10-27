@@ -19,6 +19,8 @@ export class MobCombat {
     private slot: () => number,
     private hud: Hud,
     private mobs: Mobs,
+    /** 当前攻击倍率（丰收拼盘 10 秒 ×1.25；没有加成时返回 1） */
+    private atkMult: () => number = () => 1,
   ) {}
 
   update(mob: MobHit, body: PlayerBody, dt: number, useSheep: (sheep: Animal) => void): void {
@@ -31,7 +33,7 @@ export class MobCombat {
       // 樱花剑只够得到 3 格：够不着算空挥——不掉耐久、也不伤怪
       const outOfReach = !!sword && sword.reach !== undefined && mob.dist > sword.reach;
       if (sword && !outOfReach) {
-        let dmg = ANIMAL.PUNCH_DAMAGE * sword.mult;
+        let dmg = ANIMAL.PUNCH_DAMAGE * sword.mult * this.atkMult();
         // 血腥之剑：20% 概率这一刀变 4 倍
         if (sword.critChance && sword.critMult && Math.random() < sword.critChance) {
           dmg *= sword.critMult;
@@ -49,7 +51,7 @@ export class MobCombat {
           }
         }
       } else if (held?.id === GLASS_CONE) {
-        mob.mob.hurt(ANIMAL.PUNCH_DAMAGE * CONE.DMG_MULT, body.yaw);
+        mob.mob.hurt(ANIMAL.PUNCH_DAMAGE * CONE.DMG_MULT * this.atkMult(), body.yaw);
         if (!this.inventory.infinite) {
           if (Math.random() < CONE.SURVIVE) this.hud.showMessage('玻璃锥没碎，还能再用！');
           else {
@@ -59,7 +61,7 @@ export class MobCombat {
           }
         }
       } else {
-        mob.mob.hurt(ANIMAL.PUNCH_DAMAGE, body.yaw);
+        mob.mob.hurt(ANIMAL.PUNCH_DAMAGE * this.atkMult(), body.yaw);
       }
       // 记一笔：主人正在打这只怪，小战士会优先来帮忙（打羊也顺手记一下，不影响）
       if (mob.mob instanceof Zombie) mob.mob.hurtByPlayerT = WARRIOR.MEMORY;

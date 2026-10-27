@@ -29,6 +29,8 @@ export class Mobs {
   /** 僵尸攻击开关：关掉后僵尸只会瞎逛，不追人也不挠人 */
   zombieAttack = true;
   zombieSpawn = true;
+  /** 负面豁免期间（春卷/圣诞甜饼）让星空尸不主动追人 */
+  calmStars = false;
   private timer = 0; // 补刷倒计时
 
   constructor(
@@ -140,7 +142,9 @@ export class Mobs {
     for (const z of this.zombies) {
       // 怪优先打小战士：身边有小战士就把目标换成它，没有才是玩家；挑战房的怪只认玩家
       const guard = this.zombieAttack && !z.inChallenge ? this.nearestWarrior(z.x, z.z) : null;
-      if (z.update(dt, this.world, guard ? guard.x : px, guard ? guard.z : pz, this.zombieAttack)) {
+      // 春卷/圣诞甜饼的负面豁免期间：星空尸不主动追人（其他怪照常）
+    const starCalm = this.calmStars && z.kind === 'star';
+    if (z.update(dt, this.world, guard ? guard.x : px, guard ? guard.z : pz, this.zombieAttack && !starCalm)) {
         if (guard) guard.hurt(z.damage);
         else {
           z.hurtOwnerT = WARRIOR.MEMORY; // 记一笔：这只怪正在打主人，小战士优先揍它

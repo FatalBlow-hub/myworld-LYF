@@ -1,7 +1,7 @@
 /** 游戏主循环 — 把所有模块装配起来，每帧按固定顺序驱动它们 */
 
 import * as THREE from 'three';
-import { ARENA, ISLAND_RULES, CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PORTAL, PVP, SAVE, SNOWFALL, TRAP, VIEW_DISTANCE, VOID_REALM, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
+import { ARENA, ISLAND_RULES, CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PORTAL, PVP, SAVE, SEASON_FOOD, SNOWFALL, TRAP, VIEW_DISTANCE, VOID_REALM, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
 import { World } from '../world/World';
 import { buildHall } from '../world/HallMap';
 import { buildVoidRealm, VOID_SPAWN, voidPlatformSpot } from '../world/VoidRealm';
@@ -10,6 +10,9 @@ import { Arena, ArenaKind, ArenaResult } from './Arena';
 import { ArenaPanel } from '../ui/ArenaPanel';
 import { Knife } from '../entities/Knife';
 import { TrapPanel, trapFormName } from '../ui/TrapPanel';
+import { Traveler, TRAVELERS } from '../entities/Traveler';
+import { TravelerOffer, TravelerPanel } from '../ui/TravelerPanel';
+import { Fireworks } from '../render/Fireworks';
 import { findGrassSpawn, heightAt, randomGrassSpawn, setIslandProfile, setActiveSeason, setTerrainConfig } from '../world/TerrainGen';
 import { ALL_MUSHROOM_IDS, PLANT_TO_MUSHROOM } from '../world/mushrooms';
 import { createAtlas, Atlas } from '../render/Textures';
@@ -69,7 +72,8 @@ import { MobCombat } from './MobCombat';
 import { Vehicles } from './Vehicles';
 import { Challenge } from './Challenge';
 import { Potions } from '../entities/Potions';
-import { AIR, BAG_GLASS, BLOCKS, isPlant, isSolid, SNOW, SNOWFLAKE, SOUL_PORTAL, Slots, TRAP_BLOCK_IDS, WAISTBAG_SLOT, WILLOW_FLUFF, WILLOW_LEAVES } from '../world/Block';
+import { AIR, BAG_GLASS, BLOCKS, isPlant, isSolid, SNOW, SNOWFLAKE, SOUL_PORTAL, Slots, TRAP_BLOCK_IDS, WAISTBAG_SLOT, WILLOW_FLUFF, WILLOW_LEAVES,
+  BEAD_FIREWORK, CHUNK_ROLL, HARVEST_PLATTER, POUCH_CALAMUS, SHIELD_CALAMUS, XMAS_COOKIE } from '../world/Block';
 import { DIY_GOLD_PICKAXE } from '../world/GoldenItems';
 import { spawnDrop } from '../entities/drops';
 import { ZOMBIE_NAMES, Zombie } from '../entities/Zombie';
@@ -155,6 +159,11 @@ export class Game {
   private traps = new Map<string, { x: number; y: number; z: number; t: number }>();
   /** 玩家被陷阱困住时锁住的落脚点 */
   private trapLock = { x: 0, z: 0, t: 0 };
+  /** 四季节日：旅者 NPC、礼花特效、菖蒲香囊光环计时 */
+  private traveler: Traveler | null = null;
+  private travelerPanel: TravelerPanel | null = null;
+  private fireworks: Fireworks | null = null;
+  private pouchT = 0;
   /** 大厅留言板 / 信箱（B / V 打开，登录后才有内容） */
   private boardPanel: BoardPanel | null = null;
   private settingsPanel: SettingsPanel | null = null;
@@ -343,6 +352,8 @@ export class Game {
     this.shopPanel = new ShopPanel(this.atlas, () => this.coins, (good) => this.buyGood(good));
     this.arenaPanel = new ArenaPanel(this.atlas, () => this.coins, () => seasonOf(this.day.date), (kind) => this.enterArena(kind));
     this.trapPanel = new TrapPanel(this.atlas, (id) => this.placeTrap(id), () => { this.trapHit = null; });
+    this.travelerPanel = new TravelerPanel(this.atlas, () => this.coins, (offer) => this.unlockFromTraveler(offer));
+    this.fireworks = new Fireworks(this.renderer.scene);
     this.knife = new Knife(this.renderer.scene, this.mobs, (msg) => this.hud?.showMessage(msg, 1.2));
     this.arena = new Arena(this.renderer.scene, this.mobs, () => this.inventory!, () => this.hud, {
       addCoins: (n) => this.addCoins(n),
@@ -391,6 +402,7 @@ export class Game {
     this.panels.register({ name: 'shop', isOpen: () => this.shopPanel!.visible, close: () => this.shopPanel!.close() });
     this.panels.register({ name: 'arena', isOpen: () => this.arenaPanel!.visible, close: () => this.arenaPanel!.close(), closeKeys: ['door'] });
     this.panels.register({ name: 'trap', isOpen: () => this.trapPanel!.visible, close: () => { this.trapPanel!.close(); this.trapHit = null; } });
+    this.panels.register({ name: 'traveler', isOpen: () => this.travelerPanel!.visible, close: () => this.travelerPanel!.close() });
     this.panels.register({ name: 'book', isOpen: () => this.book.visible, close: () => this.book.close(), closeKeys: ['book'] });
     this.boardPanel = new BoardPanel();
     this.panels.register({ name: 'board', isOpen: () => this.boardPanel!.visible, close: () => this.boardPanel!.close(), closeKeys: ['board', 'mail'] });
@@ -418,11 +430,13 @@ export class Game {
       openBuyBox: () => this.openBuyBox(),
       openArena: () => this.openArena(),
       openTrapPicker: (hit) => this.openTrapPicker(hit),
+      launchFirework: (x, y, z) => this.fireworks?.burst(x, y, z),
       summonWarrior: (eggId, x, y, z) => this.summonWarrior(eggId, x, y, z),
       summonArcher: (bowId, x, y, z) => this.summonArcher(bowId, x, y, z),
       body: () => this.body!,
     });
-    this.combat = new MobCombat(this.controller, this.inventory, () => this.slot, this.hud, this.mobs);
+    this.combat = new MobCombat(this.controller, this.inventory, () => this.slot, this.hud, this.mobs,
+      () => this.health!.attackMultiplier); // 丰收拼盘的 10 秒攻击 ×1.25
     // 读档会立刻按存档坐标生成区块，得先把本岛果树品种喂给地形生成器，不然家门口不长果树
     if (save?.islandType && save.islandType in ISLAND_TYPES) {
       setTerrainConfig(WORLD_SEED, false, ISLAND_TYPES[save.islandType].leafId);
@@ -878,6 +892,8 @@ export class Game {
     this.fires.clear(); this.challenge = this.createChallenge();
     this.fluff?.clear(); // 柳絮是场景内的粒子，换场景必须清干净
     this.traps.clear(); this.trapLock.t = 0; // 陷阱跟着旧世界一起作废
+    this.fireworks?.clear();
+    this.hideTraveler();
     this.world.clear(); this.chunkMeshes.clear();
   }
 
@@ -1016,6 +1032,11 @@ export class Game {
 
   /** 有人踩上陷阱：登记 3 秒后自毁；玩家额外把位置锁住（怪走 Zombie.trapT 那条路） */
   private springTrap(x: number, y: number, z: number, body?: PlayerBody): void {
+    // 戴着菖蒲护盾的玩家踩上去不触发（陷阱留着坑别人/怪）
+    if (body && this.inventory?.armor[0]?.id === SHIELD_CALAMUS) {
+      this.hud?.showMessage('菖蒲护盾挡住了陷阱', 1.2);
+      return;
+    }
     const key = `${x},${y},${z}`;
     if (this.traps.has(key)) return;
     this.traps.set(key, { x, y, z, t: TRAP.FREEZE });
@@ -1045,6 +1066,86 @@ export class Game {
     for (const [key, t] of this.traps) {
       t.t -= dt;
       if (t.t <= 0) { this.world.setBlock(t.x, t.y, t.z, AIR); this.traps.delete(key); }
+    }
+  }
+
+  /** 菖蒲香囊：戴着它时，自身方圆 4 格内的怪每 4 秒扣 1 血 */
+  private pouchTick(dt: number, body: PlayerBody): void {
+    this.pouchT -= dt;
+    if (this.pouchT > 0) return;
+    this.pouchT = SEASON_FOOD.POUCH_EVERY;
+    if (this.inventory?.armor[0]?.id !== POUCH_CALAMUS) return;
+    for (const z of this.mobs.zombies) {
+      if (z.dead) continue;
+      if (Math.hypot(z.x - body.x, z.z - body.z) > SEASON_FOOD.POUCH_RADIUS) continue;
+      z.hp = Math.max(0, z.hp - SEASON_FOOD.POUCH_DAMAGE);
+      if (z.hp <= 0) { z.dead = true; this.mobs.kill(z); }
+    }
+  }
+
+  /** 每帧：旅者只在「自己的岛 + 对应季节」出现，换季/换场景即时换人 */
+  private travelerTick(dt: number): void {
+    const want = this.scene === 'island' ? seasonOf(this.day.date) : null;
+    if (this.traveler && this.traveler.season !== want) this.hideTraveler();
+    if (!this.traveler && want && this.body) {
+      const x = this.spawn.x + 2.5, z = this.spawn.z + 0.5;
+      this.traveler = new Traveler(want, x, this.groundAt(x, z, this.spawn.y + 3), z);
+      this.renderer.scene.add(this.traveler.group);
+    }
+    this.traveler?.update(dt, this.body?.x ?? 0, this.body?.z ?? 0);
+  }
+
+  private hideTraveler(): void {
+    if (!this.traveler) return;
+    this.renderer.scene.remove(this.traveler.group);
+    this.traveler.dispose();
+    this.traveler = null;
+  }
+
+  /** 从 (fromY) 往下找第一个实心方块，返回它上面那格的 y（放 NPC 用） */
+  private groundAt(x: number, z: number, fromY: number): number {
+    const bx = Math.floor(x), bz = Math.floor(z);
+    for (let y = Math.min(CHUNK.HEIGHT - 1, Math.floor(fromY)); y >= 0; y--) {
+      if (isSolid(this.world.getBlock(bx, y, bz))) return y + 1;
+    }
+    return fromY;
+  }
+
+  /** 跟旅者说话：按当季列出可解锁的配方 */
+  private talkToTraveler(): void {
+    const season = this.traveler?.season;
+    if (!season) return;
+    const info = TRAVELERS[season];
+    this.travelerPanel?.open(info.name, info.greet, this.travelerOffers(season));
+  }
+
+  /** 当季旅者能解锁的东西（收费的那几本要岛币） */
+  private travelerOffers(season: 'spring' | 'summer' | 'autumn' | 'winter'): TravelerOffer[] {
+    const cost = SEASON_FOOD.UNLOCK_COST;
+    const list: { id: number; keyword: string; cost: number }[] = [];
+    if (season === 'spring') list.push({ id: CHUNK_ROLL, keyword: '春卷', cost: 0 });
+    if (season === 'summer') list.push({ id: POUCH_CALAMUS, keyword: '菖蒲香囊', cost: 0 },
+      { id: SHIELD_CALAMUS, keyword: '菖蒲护盾', cost });
+    if (season === 'autumn') list.push({ id: HARVEST_PLATTER, keyword: '丰收拼盘', cost: 0 });
+    if (season === 'winter') list.push({ id: XMAS_COOKIE, keyword: '圣诞甜饼', cost: 0 },
+      { id: BEAD_FIREWORK, keyword: '彩珠礼花', cost });
+    return list.map((o) => ({ ...o, done: this.book.hasMatching(o.keyword) }));
+  }
+
+  /** 旅者解锁：免费直接学，收费的先扣岛币 */
+  private unlockFromTraveler(offer: TravelerOffer): void {
+    const hud = this.hud;
+    if (offer.done) return;
+    if (offer.cost > 0 && !this.inventory?.infinite) {
+      if (this.coins < offer.cost) { hud?.showMessage(`岛币不够，要 ${offer.cost} 个`, 2); return; }
+      this.addCoins(-offer.cost);
+    }
+    const n = this.book.learnMatching(offer.keyword);
+    hud?.showMessage(n > 0 ? `学会了${BLOCKS[offer.id].cn}的做法！` : `${BLOCKS[offer.id].cn}的做法早就学会了`, 3);
+    const season = this.traveler?.season;
+    if (season) {
+      const info = TRAVELERS[season];
+      this.travelerPanel?.refresh(info.name, info.greet, this.travelerOffers(season));
     }
   }
 
@@ -1292,6 +1393,13 @@ export class Game {
         if (this.visitSync.active) this.chatPanel?.open();
         else hud.showMessage('身边没有人，说了也听不见', 2);
       }
+      // 站在旅者旁边按 M 对话（先把 door 键吃掉，免得同时触发方块的"使用"）
+      if (this.traveler && this.scene === 'island' && this.controller.isDown('door')) {
+        const t = this.traveler.group.position;
+        if (Math.hypot(this.body!.x - t.x, this.body!.z - t.z) < SEASON_FOOD.TALK_DIST && this.controller.take('door')) {
+          this.talkToTraveler();
+        }
+      }
       this.survival!.toggleHungerKey();
       if (this.controller.take('toggleZombieSpawn')) {
         if (!this.mobs.zombieAttack) {
@@ -1322,7 +1430,8 @@ export class Game {
       const hev = health.update(dt, body, pev.fallDistance);
       if (hev.hurt) hud.showMessage('哎呀！', 0.6);
       if (hev.died) this.respawn();
-      const starveDmg = this.hunger!.update(dt);
+      // 春卷的 15 秒里不消耗饥饿（连同饥饿扣血一起跳过）
+      const starveDmg = health.noHungerT > 0 ? 0 : this.hunger!.update(dt);
       if (starveDmg > 0) {
         const sr = hurtPlayer(health, starveDmg);
         if (sr.hurt) hud.showMessage('好饿！快吃东西！', 0.8);
@@ -1396,6 +1505,10 @@ export class Game {
         this.mobs.update(dt, body.x, body.y, body.z, this.scene === 'island' && this.day.time >= DAY.NIGHT_FROM, this.day.time);
       }
       this.potions.update(dt, this.world); this.knife!.update(dt, this.world); this.fires.update(dt);
+      this.fireworks!.update(dt);
+      this.travelerTick(dt);
+      this.mobs.calmStars = health.isCleanse; // 春卷/甜饼的负面豁免期间星空尸不主动
+      this.pouchTick(dt, body);
       this.snowTick(dt, body);
       this.fluffTick(dt, body);
       this.visitAvatar.update(dt, body.x, body.z);

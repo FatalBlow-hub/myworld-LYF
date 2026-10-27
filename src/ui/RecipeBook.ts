@@ -97,6 +97,22 @@ export class RecipeBook {
   }
 
   /** 捡到普通手册：优先学没学过的方法；全学会了就随机温习一条 */
+  /** 按关键词把手册里相关条目直接学会（旅者对话解锁用），返回新学会几条 */
+  learnMatching(keyword: string): number {
+    let n = 0;
+    TUTORIALS.forEach((t, i) => {
+      if (!t.text.includes(keyword) || this.learned.has(i)) return;
+      this.learned.add(i);
+      n++;
+    });
+    return n;
+  }
+
+  /** 这一条学会了没有（旅者面板显示"已解锁/未解锁"用） */
+  hasMatching(keyword: string): boolean {
+    return TUTORIALS.some((t, i) => t.text.includes(keyword) && this.learned.has(i));
+  }
+
   learn(): { text: string; isNew: boolean } {
     const unknown = TUTORIALS.map((_, i) => i).filter((i) => !this.learned.has(i));
     const pool = unknown.length > 0 ? unknown : TUTORIALS.map((_, i) => i);

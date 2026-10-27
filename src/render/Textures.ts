@@ -22,6 +22,7 @@ import { SWORD_PAINTERS, SWORD_TILE_NAMES } from './SwordTextures';
 import { SEASON_LEAF_PAINTERS, SEASON_LEAF_TILE_NAMES } from './SeasonLeafTextures';
 import { WILLOW_PAINTERS, WILLOW_TILE_NAMES } from './WillowTextures';
 import { ARENA_PAINTERS, ARENA_TILE_NAMES } from './ArenaTextures';
+import { SEASON_FOOD_PAINTERS, SEASON_FOOD_TILE_NAMES } from './SeasonFoodTextures';
 import { Painter, TILE, fill, shade, speckle } from './TextureUtils';
 export type { Painter } from './TextureUtils';
 
@@ -115,6 +116,8 @@ const TILE_NAMES = [
   ...WILLOW_TILE_NAMES,
   // —— 红焰大赛箱（两格高，正面带火焰纹）——
   ...ARENA_TILE_NAMES,
+  // —— 四季节日道具（春卷/菖蒲叶/香囊/护盾/拼盘/三色珠子/甜饼/礼花）——
+  ...SEASON_FOOD_TILE_NAMES,
 ];
 
 const PAINTERS: Record<string, Painter> = { ...BASE_PAINTERS };
@@ -438,7 +441,7 @@ PAINTERS.soul_portal = (c, x, y) => {
 };
 
 // 庄稼/羽毛/煤贴图拆出去了（CropTextures / BirdTextures / CoalTextures），合并进大表
-Object.assign(PAINTERS, CROP_PAINTERS, FEATHER_PAINTERS, COAL_PAINTERS, LAMP_PAINTERS, FIRE_PAINTERS, GOLDEN_PAINTERS, BAG_PAINTERS, BAMBOO_PAINTERS, ISLAND_PAINTERS, SHOP_PAINTERS, FISH_PAINTERS, MUSHROOM_PAINTERS, BLACKMARKET_PAINTERS, SWORD_PAINTERS, SEASON_LEAF_PAINTERS, WILLOW_PAINTERS, ARENA_PAINTERS);
+Object.assign(PAINTERS, CROP_PAINTERS, FEATHER_PAINTERS, COAL_PAINTERS, LAMP_PAINTERS, FIRE_PAINTERS, GOLDEN_PAINTERS, BAG_PAINTERS, BAMBOO_PAINTERS, ISLAND_PAINTERS, SHOP_PAINTERS, FISH_PAINTERS, MUSHROOM_PAINTERS, BLACKMARKET_PAINTERS, SWORD_PAINTERS, SEASON_LEAF_PAINTERS, WILLOW_PAINTERS, ARENA_PAINTERS, SEASON_FOOD_PAINTERS);
 
 export interface Atlas {
   texture: THREE.CanvasTexture;

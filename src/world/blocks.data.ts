@@ -9,6 +9,10 @@ import { FOOD_BLOCKS, FOOD_IDS } from './blocks.food';
 import { BLACK_BLOCKS, BLACK_PICKAXE, WARRIOR_BOW, WARRIOR_BOW_FIRE, WARRIOR_BOW_ICE } from './blocks.black';
 import { ALL_SWORD_IDS, SWORD_BLOCKS } from './blocks.swords';
 import { BAG_MAPLE, BAG_SAKURA, KNIFE_MAPLE, NEWGEAR_BLOCKS, TRAP_BLOCK_IDS, WILLOW_TRAP } from './blocks.newgear';
+import {
+  BEAD_FIREWORK, BEAD_IDS, CALAMUS, CHUNK_ROLL,
+  HARVEST_PLATTER, POUCH_CALAMUS, SEASON_FOOD_BLOCKS, SHIELD_CALAMUS, XMAS_COOKIE,
+} from './blocks.seasonfood';
 import { PLANK_BLOCKS, DYED_PLANK_IDS } from './blocks.planks';
 import { BOTTLE_BLOCKS, BOTTLE_SW_DEEP, BOTTLE_SW_DROWN, BOTTLE_SW_LIGHT, BOTTLE_SW_MID, BOTTLE_SW_PHANTOM, BOTTLE_WATER } from './blocks.bottles';
 import { DECO_BLOCKS, VINE_LADDER } from './blocks.deco';
@@ -31,6 +35,7 @@ export * from './blocks.willow'; // 柳树一族（blocks.willow.ts：柳树干/
 export * from './blocks.leafdrops'; // 树冠季节产物（blocks.leafdrops.ts：樱花花瓣/枫叶）同样转发
 export * from './blocks.arena'; // 红焰大赛箱（blocks.arena.ts）同样转发
 export * from './blocks.newgear'; // 四季 DIY 道具（blocks.newgear.ts：樱花药包/枫叶腰包/飞刀/柳条陷阱）同样转发
+export * from './blocks.seasonfood'; // 四季节日道具（blocks.seasonfood.ts：春卷/菖蒲叶/香囊/护盾/拼盘/珠子/甜饼/礼花）同样转发
 export * from './radish'; // 白萝卜（radish.ts：物品 + 价格逻辑）同样转发
 
 export const AIR = 0;
@@ -495,6 +500,7 @@ export const BLOCKS: Record<number, BlockDef> = {
   ...LEAF_DROP_BLOCKS, // 树冠季节产物（blocks.leafdrops.ts）：樱花花瓣/枫叶
   ...ARENA_BLOCKS,    // 红焰大赛箱（blocks.arena.ts）：大厅赛事入口
   ...NEWGEAR_BLOCKS,  // 四季 DIY 道具（blocks.newgear.ts）：两个腰包/飞刀/柳条陷阱五态
+  ...SEASON_FOOD_BLOCKS, // 四季节日道具（blocks.seasonfood.ts）：春卷/菖蒲叶/香囊/护盾/拼盘/珠子/甜饼/礼花
   [AIR]:         { cn: '空气',   tex: { top: '', side: '' }, solid: false, seeThrough: true, hardness: 0 },
   [GRASS]:       { cn: '草方块', tex: { top: 'grass_top', side: 'grass_side', bottom: 'dirt' }, solid: true, seeThrough: false, hardness: 0.6, drop: DIRT },
   [DIRT]:        { cn: '泥土',   tex: { top: 'dirt', side: 'dirt' }, solid: true, seeThrough: false, hardness: 0.5 },
@@ -831,6 +837,8 @@ export const ALL_ITEMS = [
   ARENA_BOX,
   // 四季 DIY 道具（2026-10-27）：樱花药包 / 枫叶腰包 / 枫叶飞刀 / 柳条陷阱（含五种伪装）
   BAG_SAKURA, BAG_MAPLE, KNIFE_MAPLE, WILLOW_TRAP, ...TRAP_BLOCK_IDS,
+  // 四季节日道具（2026-10-27）：春卷/菖蒲叶/香囊/护盾/拼盘/三色珠子/甜饼/礼花
+  CHUNK_ROLL, CALAMUS, POUCH_CALAMUS, SHIELD_CALAMUS, HARVEST_PLATTER, ...BEAD_IDS, XMAS_COOKIE, BEAD_FIREWORK,
 ];
 
 /** 庄稼生长链：每 60 秒走一级（水稻/胡萝卜/南瓜/西瓜共用）；最后一级不在表里 = 熟透了不再长 */

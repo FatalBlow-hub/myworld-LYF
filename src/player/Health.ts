@@ -35,6 +35,12 @@ export class Health {
   private slowRate = 0;                 // 缓慢回血每秒回多少
   private slowAcc = 0;                  // 攒够 1 点再回，别把血算成小数
   private swampId = 0;
+  /** 春节卷：免伤期间也不消耗饥饿 */
+  noHungerT = 0;
+  /** 负面豁免剩余秒数（春卷/圣诞甜饼）：沼泽扣血与星空尸主动攻击都失效 */
+  cleanseT = 0;
+  private atkT = 0;
+  private atkMult = 1;
 
   constructor(private mode: GameMode, private onRespawn?: () => void) {}
 
@@ -56,12 +62,15 @@ export class Health {
   update(dt: number, body: PlayerBody, fallDistance: number): HealthEvents {
     const ev: HealthEvents = { died: false, hurt: false };
     this.invincible = Math.max(0, this.invincible - dt);
+    this.noHungerT = Math.max(0, this.noHungerT - dt);
+    this.cleanseT = Math.max(0, this.cleanseT - dt);
+    this.atkT = Math.max(0, this.atkT - dt);
 
-    // 泡在泽液里按各自的节奏掉血（离开泽液计时清零）
+    // 泡在泽液里按各自的节奏掉血（离开泽液计时清零；春卷/甜饼的负面豁免期间不掉）
     if (this.swampId !== body.swampId) this.swampT = 0;
     this.swampId = body.swampId;
     const rule = SWAMP_RULE[body.swampId];
-    if (rule) {
+    if (rule && this.cleanseT <= 0) {
       this.swampT += dt;
       while (this.swampT + 1e-9 >= rule.every) {
         this.swampT = Math.max(0, this.swampT - rule.every);
@@ -150,6 +159,29 @@ export class Health {
   /** 现在是不是夜视生效中（Game 用来把世界调亮） */
   get isNightVision(): boolean {
     return this.nightT > 0;
+  }
+
+  /** 春卷 / 圣诞甜饼：seconds 秒免伤、noHunger 秒不消耗饥饿、cleanse 秒负面豁免 */
+  seasonShield(seconds: number, noHunger: number, cleanse: number): void {
+    this.invincible = Math.max(this.invincible, seconds);
+    this.noHungerT = Math.max(this.noHungerT, noHunger);
+    this.cleanseT = Math.max(this.cleanseT, cleanse);
+  }
+
+  /** 丰收拼盘：接下来 seconds 秒里攻击力乘 mult */
+  attackBoost(seconds: number, mult: number): void {
+    this.atkT = Math.max(this.atkT, seconds);
+    this.atkMult = Math.max(this.atkMult, mult);
+  }
+
+  /** 当前攻击倍率（MobCombat 用；没加成时是 1） */
+  get attackMultiplier(): number {
+    return this.atkT > 0 ? this.atkMult : 1;
+  }
+
+  /** 负面豁免生效中：沼泽/幻泽液扣血与星空尸主动攻击都不生效 */
+  get isCleanse(): boolean {
+    return this.cleanseT > 0;
   }
 
   /** 吃东西：按 EAT_HP 表回血/扣血，返回食物效果（不能吃返回 null） */

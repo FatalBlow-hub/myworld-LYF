@@ -2,7 +2,7 @@
  *  留在 core 层是因为这些动作会直接开 UI 面板（工作台、染色台），按依赖铁律下层不能反向依赖 ui。 */
 
 import * as THREE from 'three';
-import { BLACK_PICK, GOLDEN, HASTE, ISLAND, RUBBER_DROP, SNOWFLAKE_DROP, STACK_MAX, VisitPerm } from '../config';
+import { BLACK_PICK, GOLDEN, HASTE, ISLAND, RUBBER_DROP, SEASON_FOOD, SNOWFLAKE_DROP, STACK_MAX, VisitPerm } from '../config';
 import { FireSystem } from '../entities/Fire';
 import { ItemDrop } from '../entities/ItemDrop';
 import { BOW_FORM_OF } from '../entities/Archer';
@@ -24,6 +24,7 @@ import {
   LEAVES, MAPLE_LEAF, MELON_SEED, MELON_STAGE1, PETAL_SAKURA, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT, WILLOW_LEAVES,
   RICE_GRAIN, RUBBER, SAND, SAPLING_IDS, SEAWEED, SNOW, SNOWFLAKE, SOUL_CHEST, SOUL_FIRESTARTER, SPECIES_BY_SAPLING, STAR_DYE_TABLE, STAR_TABLE, LIQUID_FILL,
   TANK, TRAP_BLOCK_IDS, VENDING_BLACK, VENDING_DRINK, VENDING_SPECIAL, VENDING_STORE, VISIT_LIST_BLOCKS, WATER_BUCKET, WILLOW_TRAP, WOOD,
+  BEAD_IDS, BEAD_FIREWORK,
   dropCountOf, isBed, isChest, isDoor, isFurnace,
 } from '../world/Block';
 import { GOLD_CHEM_DECOMP, GOLD_DYE_TABLE, GOLD_PICKAXE, ICE_MOLECULE } from '../world/GoldenItems';
@@ -79,6 +80,8 @@ export interface PlayerActionDeps {
   openArena: () => void;
   /** 手持柳条陷阱按 L：先选伪装成什么方块，再落地 */
   openTrapPicker: (hit: BlockHit) => void;
+  /** 放下彩珠礼花：在世界坐标处炸一束烟花（无伤害） */
+  launchFirework: (x: number, y: number, z: number) => void;
   /** 拿着小战士召唤蛋对地按 M：召唤保镖（扣蛋由外面负责） */
   summonWarrior: (eggId: number, x: number, y: number, z: number) => void;
   /** 拿着小战士弓对地按 M：召唤弓箭手哨兵（扣弓由外面负责） */
@@ -195,6 +198,12 @@ export class PlayerActions {
       } else if (!wasTrap && drop !== AIR && !creative) {
         inventory.add(drop, dropCountOf(id)); // 创造模式挖了不进包
       }
+      // 冬季挖树冠：12.5% 掉一颗红/黄/蓝装饰珠子（设定：挖桦树叶掉，现用普通树叶代替）
+      if (canopy && season === 'winter' && !creative && Math.random() < SEASON_FOOD.BEAD_CHANCE) {
+        const beadId = BEAD_IDS[Math.floor(Math.random() * BEAD_IDS.length)];
+        inventory.add(beadId, 1);
+        hud.showMessage(`叶子里藏着一颗${BLOCKS[beadId].cn}！`);
+      }
       if (bambooFallen > 0 && !creative) inventory.add(BAMBOO, bambooFallen);
       // 砍树额外掉橡胶：每挖掉一块木头掷一次骰子，中了掉 1~2 个
       if (id === WOOD && !creative && Math.random() < RUBBER_DROP.CHANCE) {
@@ -260,6 +269,13 @@ export class PlayerActions {
     } else if (stack.id === WILLOW_TRAP) {
       // 柳条陷阱：先挑伪装（沙子/雪块/草方块/泥土/圆石），选完才落地
       this.d.openTrapPicker(hit);
+    } else if (stack.id === BEAD_FIREWORK) {
+      // 彩珠礼花：放下就炸开一束红黄蓝烟花，纯装饰不伤人
+      const x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz;
+      world.setBlock(x, y, z, AIR);
+      this.d.launchFirework(x + 0.5, y + 0.5, z + 0.5);
+      spend();
+      hud.showMessage('彩珠礼花炸开了！');
     } else if (FIRESTARTER_IDS.includes(stack.id)) {
       const blue = stack.id === SOUL_FIRESTARTER;
       // 灵魂打火石先试传送门：点火点在灵魂蓝木门框内腔里就把门框点亮

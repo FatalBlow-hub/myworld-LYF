@@ -35,6 +35,9 @@ import {
   // —— 四季 DIY（2026-10-27）：樱花剑/两个腰包/枫叶飞刀/柳条陷阱 ——
   SWORD_SAKURA, BAG_SAKURA, BAG_MAPLE, KNIFE_MAPLE, WILLOW_TRAP,
   WILLOW_FLUFF, WILLOW_BRANCH, WILLOW_SAP1, WILLOW_BAG, PETAL_SAKURA, MAPLE_LEAF,
+  // —— 四季节日（2026-10-27）——
+  CHUNK_ROLL, CALAMUS, POUCH_CALAMUS, SHIELD_CALAMUS, HARVEST_PLATTER,
+  BEAD_IDS, BEAD_RED, BEAD_YELLOW, BEAD_BLUE, XMAS_COOKIE, BEAD_FIREWORK,
   Slots,
 } from './Block';
 import {
@@ -53,6 +56,14 @@ export interface Recipe {
   /** 安静配方：手册里不单独列（比如"任意羊毛"展开成的 7 条），由手写说明代替 */
   quiet?: boolean;
   pattern?: (number | null)[];
+}
+
+/** 六种水果（春卷的「任意水果」与丰收拼盘的「两种不同水果」都按它们枚举） */
+const FRUITS = [APPLE, PEACH, ORANGE, PEAR, PERSIMMON, BANANA];
+/** 两两组合（15 条），丰收拼盘用 */
+const FRUIT_PAIRS: [number, number][] = [];
+for (let i = 0; i < FRUITS.length; i++) {
+  for (let j = i + 1; j < FRUITS.length; j++) FRUIT_PAIRS.push([FRUITS[i], FRUITS[j]]);
 }
 
 export const RECIPES: Recipe[] = [
@@ -230,6 +241,26 @@ export const RECIPES: Recipe[] = [
   { out: BAG_MAPLE,    outCount: 1, needs: [[MAPLE_LEAF, 5]] },                          // 枫叶 ×5 → 枫叶腰包
   { out: KNIFE_MAPLE,  outCount: 1, needs: [[MAPLE_LEAF, 3], [IRON_NUGGET, 1]] },        // 枫叶 ×3 + 铁粒 → 枫叶飞刀
   { out: WILLOW_TRAP,  outCount: 1, needs: [[WILLOW_BRANCH, 3], [TALL_GRASS, 1]] },      // 柳条 ×3 + 草 → 柳条陷阱
+  // —— 2026-10-27 四季节日（旅者 NPC 交谈解锁手册；材料多、都要 3×3 工作台）——
+  // 春卷：草 + 胡萝卜 + 麦粒×3 + 任意水果 + 熟肉。六种水果各一条，只有第一条进手册，其余 quiet
+  ...FRUITS.map((fruit, i) => ({
+    out: CHUNK_ROLL, outCount: 1, quiet: i > 0,
+    needs: [[TALL_GRASS, 1], [CARROT, 1], [RICE_GRAIN, 3], [fruit, 1], [COOKED_MEAT, 1]] as [number, number][],
+  })),
+  // 端午：菖蒲香囊（叶×3）/ 菖蒲护盾（叶×5）
+  { out: POUCH_CALAMUS,  outCount: 1, needs: [[CALAMUS, 3]] },
+  { out: SHIELD_CALAMUS, outCount: 1, needs: [[CALAMUS, 5]] },
+  // 丰收拼盘：两种不一样的水果 + 麦粒×5（15 种组合，只有第一条进手册）
+  ...FRUIT_PAIRS.map(([a, b], i) => ({
+    out: HARVEST_PLATTER, outCount: 1, quiet: i > 0,
+    needs: [[a, 1], [b, 1], [RICE_GRAIN, 5]] as [number, number][],
+  })),
+  // 冬季节日：圣诞甜饼（任意珠子×1 + 麦粒×3，三种珠子各一条）/ 彩珠礼花（三色齐全）
+  ...BEAD_IDS.map((beadId, i) => ({
+    out: XMAS_COOKIE, outCount: 1, quiet: i > 0,
+    needs: [[beadId, 1], [RICE_GRAIN, 3]] as [number, number][],
+  })),
+  { out: BEAD_FIREWORK, outCount: 1, needs: [[BEAD_RED, 1], [BEAD_YELLOW, 1], [BEAD_BLUE, 1]] },
 ];
 
 /** 星空染色台的颜料融合表：放进材料颜料 → 出新颜料（只有星空染色台能干这活） */

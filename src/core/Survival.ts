@@ -108,6 +108,16 @@ export class Survival {
         const cured = health.curePoison();
         notes.push(cured > 0 ? '毒解了' : '本来就没中毒');
       }
+      // 四季节日食物：春卷免伤+不饿、春卷/甜饼负面豁免、丰收拼盘攻击倍率
+      if (fx.godSeconds || fx.cleanseSeconds) {
+        health.seasonShield(fx.godSeconds ?? 0, fx.godSeconds ?? 0, fx.cleanseSeconds ?? 0);
+        if (fx.godSeconds) notes.push(`${fx.godSeconds} 秒不掉血也不饿`);
+        if (fx.cleanseSeconds) notes.push(`${fx.cleanseSeconds} 秒负面效果免疫`);
+      }
+      if (fx.atkSeconds && fx.atkMult) {
+        health.attackBoost(fx.atkSeconds, fx.atkMult);
+        notes.push(`${fx.atkSeconds} 秒攻击 ×${fx.atkMult}`);
+      }
       if (health.hp <= 0) this.d.respawn();
       // 红伞伞：设定是「每秒 4 血持续 10 秒」，但满血只有 20（10 颗心），照原样吃下去必死；
       // 这里按「10 秒里一共掉 4 血（2 颗心）」处理，仍然很吓人但不至于一口送命

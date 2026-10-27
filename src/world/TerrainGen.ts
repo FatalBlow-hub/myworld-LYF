@@ -1,7 +1,7 @@
 /** 地形生成 — 用噪声画出有山有水有树的世界（固定种子，每次进游戏都一样） */
 
 import { BAMBOO_FOREST, CHUNK, CROP, ISLAND, ORE, PALM, SEA_LEVEL, SPAWN, WILLOW, WORLD_SEED } from '../config';
-import { BAMBOO, BLUE_ORE, CACTUS, CARROT_MATURE, COAL_ORE, DANDELION, DIRT, GOLD_ORE, GRASS, ICE, IRON_ORE, LEAVES, MELON, PALM_LEAVES, POPPY, PUMPKIN, RICE_MATURE, SAND, SANDSTONE, SEAWEED, SNOW, SOUL_GRASS, SPECIES_BY_LEAF, STONE, TALL_GRASS, WATER, WOOD } from './Block';
+import { AIR, BAMBOO, BLUE_ORE, CACTUS, CARROT_MATURE, COAL_ORE, DANDELION, DIRT, GOLD_ORE, GRASS, ICE, IRON_ORE, LEAVES, MELON, PALM_LEAVES, POPPY, PUMPKIN, RICE_MATURE, SAND, SANDSTONE, SEAWEED, SNOW, SOUL_GRASS, SPECIES_BY_LEAF, STONE, TALL_GRASS, WATER, WOOD } from './Block';
 import { canRootIn } from './bamboo';
 import { Chunk } from './Chunk';
 import { resetSwampCache, swampAt } from './Swamp';
@@ -9,6 +9,7 @@ import { treeBlocks } from './Trees';
 import { GLOW_SHROOM_CHANCE, MUSHROOM_GROW_CHANCE, pickMushroom } from './mushrooms';
 import { GLOW_SHROOM } from './blocks.mushrooms';
 import { WILLOW_LEAVES } from './blocks.willow';
+import { CALAMUS } from './blocks.seasonfood';
 import type { TreeSpecies } from './blocks.trees';
 
 const sampleTerrain = (x: number, z: number) => ({ height: heightAt(x, z), biome: biomeAt(x, z) });
@@ -256,6 +257,14 @@ export function generateChunk(chunk: Chunk, opts?: { grassOnly?: boolean }): voi
           if (r < 0.25) chunk.data[Chunk.index(lx, h, lz)] = TALL_GRASS;
           else if (r < 0.29) chunk.data[Chunk.index(lx, h, lz)] = r < 0.27 ? DANDELION : POPPY;
         }
+      }
+
+      // 菖蒲叶：只有夏天，水面那一格正上方是空气就按 12.5% 冒一片（设定：夏季水面生成）
+      if (activeSeason === 'summer' && !swamp &&
+          chunk.data[Chunk.index(lx, SEA_LEVEL, lz)] === WATER &&
+          chunk.data[Chunk.index(lx, SEA_LEVEL + 1, lz)] === AIR &&
+          hash(wx * 53 + 7, wz * 53 + 21) < 0.125) {
+        chunk.data[Chunk.index(lx, SEA_LEVEL + 1, lz)] = CALAMUS;
       }
 
       // 水草：泡在水底的格子上偶尔冒一根（要头顶还有水压着，浅水塘水面不戳洞）
