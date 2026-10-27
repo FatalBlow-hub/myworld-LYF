@@ -19,9 +19,9 @@ import { Hud } from '../ui/Hud';
 import { Panel } from '../ui/Panel';
 import { RecipeBook } from '../ui/RecipeBook';
 import {
-  AIR, BAMBOO, BLACK_PICKAXE, BLOCKS, BOTTLE_WATER, BUCKET, BUY_BOX, CARROT, CHALLENGE_DOOR, CHALLENGE_HOUSE, CHEM_DECOMP, CRAFTING_TABLE,
+  AIR, ARENA_BOX, BAMBOO, BLACK_PICKAXE, BLOCKS, BOTTLE_WATER, BUCKET, BUY_BOX, CARROT, CHALLENGE_DOOR, CHALLENGE_HOUSE, CHEM_DECOMP, CRAFTING_TABLE,
   DIRT, DYE_TABLE, DYEABLE_CARPETS, FIRESTARTER_IDS, FRUIT_LEAF_IDS, FRUIT_OF_LEAF, GLASS_BOTTLE, GLASS_BUCKET, GRASS, HYDROGEN, ICE, IRON_NUGGET,
-  LEAVES, MELON_SEED, MELON_STAGE1, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT,
+  LEAVES, MAPLE_LEAF, MELON_SEED, MELON_STAGE1, PETAL_SAKURA, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT, WILLOW_LEAVES,
   RICE_GRAIN, RUBBER, SAND, SAPLING_IDS, SEAWEED, SNOW, SNOWFLAKE, SOUL_CHEST, SOUL_FIRESTARTER, SPECIES_BY_SAPLING, STAR_DYE_TABLE, STAR_TABLE, LIQUID_FILL,
   TANK, VENDING_BLACK, VENDING_DRINK, VENDING_SPECIAL, VENDING_STORE, VISIT_LIST_BLOCKS, WATER_BUCKET, WOOD,
   dropCountOf, isBed, isChest, isDoor, isFurnace,
@@ -75,6 +75,8 @@ export interface PlayerActionDeps {
   openShop: (kind: 'special' | 'drink' | 'store' | 'black') => void;
   /** 对着收购箱按 M：打开收购界面 */
   openBuyBox: () => void;
+  /** 对着红焰大赛箱按 M：打开大赛面板（极限季节挑战 / CS 大赛） */
+  openArena: () => void;
   /** 拿着小战士召唤蛋对地按 M：召唤保镖（扣蛋由外面负责） */
   summonWarrior: (eggId: number, x: number, y: number, z: number) => void;
   /** 拿着小战士弓对地按 M：召唤弓箭手哨兵（扣弓由外面负责） */
@@ -175,7 +177,16 @@ export class PlayerActions {
       // 竹子在挖断前先数一下上面还接着几节：断了下半截没支撑，整根会跟着倒，这些照数进包
       const bambooFallen = id === BAMBOO ? bambooAbove(world, hitX!, hitY!, hitZ!) : 0;
       const drop = mine(world, { x: hitX!, y: hitY!, z: hitZ!, nx: 0, ny: 0, nz: 0 });
-      if (drop !== AIR && !creative) inventory.add(drop, dropCountOf(id)); // 创造模式挖了不进包
+      // 树冠按季节给你东西：夏天攒樱花花瓣、秋天攒枫叶，春天/冬天还是掉树叶本体（2026-10-27 设定）
+      const season = seasonOf(this.d.day.date);
+      const canopy = id === LEAVES || id === WILLOW_LEAVES || id in FRUIT_OF_LEAF;
+      const seasonPick = canopy && season === 'summer' ? PETAL_SAKURA
+        : canopy && season === 'autumn' ? MAPLE_LEAF : AIR;
+      if (seasonPick !== AIR) {
+        if (!creative) inventory.add(seasonPick, 1); // 花瓣/枫叶必掉 1 个，树叶本体就不给了
+      } else if (drop !== AIR && !creative) {
+        inventory.add(drop, dropCountOf(id)); // 创造模式挖了不进包
+      }
       if (bambooFallen > 0 && !creative) inventory.add(BAMBOO, bambooFallen);
       // 砍树额外掉橡胶：每挖掉一块木头掷一次骰子，中了掉 1~2 个
       if (id === WOOD && !creative && Math.random() < RUBBER_DROP.CHANCE) {
@@ -355,6 +366,10 @@ export class PlayerActions {
     }
     if (id === VENDING_BLACK) {
       this.d.openShop('black');         // 黑色售卖机：每天只随机卖一种货，卖完等明天
+      return;
+    }
+    if (id === ARENA_BOX) {
+      this.d.openArena();               // 红焰大赛箱：极限季节挑战 / CS 大赛
       return;
     }
     if (id === CHALLENGE_DOOR) {

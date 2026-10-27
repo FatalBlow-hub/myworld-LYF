@@ -113,6 +113,12 @@ function guessColor(id: number): number {
     [COBBLE_SHARD]: 0x8d8d8d, // 圆石碎
     [COAL_FIRESTARTER]: 0x303034, [MANG_FIRESTARTER]: 0xd5bd65,
     [STAR_FIRESTARTER]: 0x8c8cf0, [SOUL_FIRESTARTER]: 0x5989e8, [HYDROGEN_FIRESTARTER]: 0x5fc4d8,
+    // 四季树冠产物与柳树一族
+    338: 0xf2aecf, // 樱花花瓣：粉色
+    339: 0xc8422a, // 枫叶：红橙
+    345: 0xf7f4dc, // 柳絮孢子：奶白
+    346: 0xb8a44a, // 柳条：黄绿
+    347: 0xcfe88a, // 柳絮腰包：浅黄绿
   };
   return colors[id] ?? 0xcccccc;
 }

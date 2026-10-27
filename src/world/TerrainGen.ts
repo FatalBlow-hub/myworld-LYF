@@ -1,6 +1,6 @@
 /** 地形生成 — 用噪声画出有山有水有树的世界（固定种子，每次进游戏都一样） */
 
-import { BAMBOO_FOREST, CHUNK, CROP, ISLAND, ORE, PALM, SEA_LEVEL, SPAWN, WORLD_SEED } from '../config';
+import { BAMBOO_FOREST, CHUNK, CROP, ISLAND, ORE, PALM, SEA_LEVEL, SPAWN, WILLOW, WORLD_SEED } from '../config';
 import { BAMBOO, BLUE_ORE, CACTUS, CARROT_MATURE, COAL_ORE, DANDELION, DIRT, GOLD_ORE, GRASS, ICE, IRON_ORE, LEAVES, MELON, PALM_LEAVES, POPPY, PUMPKIN, RICE_MATURE, SAND, SANDSTONE, SEAWEED, SNOW, SOUL_GRASS, SPECIES_BY_LEAF, STONE, TALL_GRASS, WATER, WOOD } from './Block';
 import { canRootIn } from './bamboo';
 import { Chunk } from './Chunk';
@@ -8,6 +8,7 @@ import { resetSwampCache, swampAt } from './Swamp';
 import { treeBlocks } from './Trees';
 import { GLOW_SHROOM_CHANCE, MUSHROOM_GROW_CHANCE, pickMushroom } from './mushrooms';
 import { GLOW_SHROOM } from './blocks.mushrooms';
+import { WILLOW_LEAVES } from './blocks.willow';
 import type { TreeSpecies } from './blocks.trees';
 
 const sampleTerrain = (x: number, z: number) => ({ height: heightAt(x, z), biome: biomeAt(x, z) });
@@ -231,6 +232,13 @@ export function generateChunk(chunk: Chunk, opts?: { grassOnly?: boolean }): voi
           lx >= 2 && lx <= CHUNK.SIZE - 3 && lz >= 2 && lz <= CHUNK.SIZE - 3 &&
           chunk.data[Chunk.index(lx, h, lz)] === 0) {
         plantSpecies(chunk, lx, h, lz, SPECIES_BY_LEAF[PALM_LEAVES]);
+      }
+
+      // 柳树：同样只认沙滩窄带，和椰子树各掷各的骰子（春季在树冠旁飘柳絮，四季换叶色）
+      if (!swamp && beachSand && hash(wx * 47 + 19, wz * 47 + 31) < WILLOW.CHANCE &&
+          lx >= 2 && lx <= CHUNK.SIZE - 3 && lz >= 2 && lz <= CHUNK.SIZE - 3 &&
+          chunk.data[Chunk.index(lx, h, lz)] === 0) {
+        plantSpecies(chunk, lx, h, lz, SPECIES_BY_LEAF[WILLOW_LEAVES]);
       }
 
       // 花草与作物点缀：草方块/泥土顶上是空格才长；稀稀拉拉，不铺满

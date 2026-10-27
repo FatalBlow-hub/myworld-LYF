@@ -13,14 +13,17 @@ export interface TreeBlock { x: number; y: number; z: number; id: number }
 
 /** 一棵树的全部方块（相对树苗格）。rand 决定椰子树高矮和挂几个椰子 */
 export function treeBlocks(sp: TreeSpecies, rand: () => number): TreeBlock[] {
-  return sp.palm ? palmBlocks(sp, rand) : fruitBlocks(sp);
+  if (sp.palm) return palmBlocks(sp, rand);
+  if (sp.key === 'willow') return willowBlocks(sp, rand);
+  return fruitBlocks(sp);
 }
 
 /** 普通果树：一格木干 + 顶上按曼哈顿距离收出来的一坨树叶（参数在物种表里） */
 function fruitBlocks(sp: TreeSpecies): TreeBlock[] {
   const out: TreeBlock[] = [];
   const top = sp.trunk;
-  for (let y = 0; y < top; y++) out.push({ x: 0, y, z: 0, id: WOOD });
+  const wood = sp.wood ?? WOOD;
+  for (let y = 0; y < top; y++) out.push({ x: 0, y, z: 0, id: wood });
   const R = Math.min(sp.canopyR, 3); // 树冠横向最多伸 3 格，再大就没边了
   for (let dy = sp.dyMin; dy <= sp.dyMax; dy++) {
     for (let dx = -R; dx <= R; dx++) {
@@ -30,6 +33,34 @@ function fruitBlocks(sp: TreeSpecies): TreeBlock[] {
           out.push({ x: dx, y: top + dy, z: dz, id: sp.leaf });
         }
       }
+    }
+  }
+  return out;
+}
+
+/** 柳树：树干 + 一坨柳叶树冠 + 冠下 8 个方位垂挂 2~3 格柳条（沙滩专属，春天飘柳絮） */
+function willowBlocks(sp: TreeSpecies, rand: () => number): TreeBlock[] {
+  const out: TreeBlock[] = [];
+  const wood = sp.wood ?? WOOD;
+  const top = sp.trunk;
+  for (let y = 0; y < top; y++) out.push({ x: 0, y, z: 0, id: wood });
+  const R = Math.min(sp.canopyR, 3);
+  for (let dy = sp.dyMin; dy <= sp.dyMax; dy++) {
+    for (let dx = -R; dx <= R; dx++) {
+      for (let dz = -R; dz <= R; dz++) {
+        const r = Math.abs(dx) + Math.abs(dz) + Math.abs(dy);
+        if (r <= sp.canopyR && !(dx === 0 && dz === 0 && dy < 1)) {
+          out.push({ x: dx, y: top + dy, z: dz, id: sp.leaf });
+        }
+      }
+    }
+  }
+  // 垂枝：八个方位各往下垂 2~3 格（从树冠底下两层开始，避免和树冠重叠）
+  const dirs: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+  for (const [dx, dz] of dirs) {
+    const len = 2 + Math.floor(rand() * 2);
+    for (let i = 0; i < len; i++) {
+      out.push({ x: dx * 2, y: top - 2 - i, z: dz * 2, id: sp.leaf });
     }
   }
   return out;

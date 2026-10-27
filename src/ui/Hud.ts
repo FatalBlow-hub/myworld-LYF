@@ -17,6 +17,7 @@ export class Hud {
   private netEl: HTMLElement;
   private visitEl: HTMLElement;
   private dateEl: HTMLElement;
+  private arenaEl: HTMLElement | null = null;
   private netStatus: NetStatus = 'disconnected';
   private onlineList: string[] = [];
   private hotbarEl = document.getElementById('hotbar')!;
@@ -187,6 +188,21 @@ export class Hud {
   /** 刷新左上角的日期 + 季节（跨天、睡醒、读档时调） */
   setDate(text: string): void {
     this.dateEl.textContent = text;
+  }
+
+  /** 竞技场倒计时：传秒数显示在顶部正中，传 null 收起（大厅/岛上不显示） */
+  setArenaTimer(sec: number | null): void {
+    if (!this.arenaEl) {
+      const el = document.createElement('div');
+      el.id = 'arena-timer';
+      el.style.cssText = 'position:absolute;top:10px;left:50%;transform:translateX(-50%);'
+        + 'font-size:20px;font-weight:bold;color:#ffd24a;text-shadow:1px 1px 3px #000;display:none;';
+      this.root.appendChild(el);
+      this.arenaEl = el;
+    }
+    if (sec === null) { this.arenaEl.style.display = 'none'; return; }
+    this.arenaEl.style.display = 'block';
+    this.arenaEl.textContent = `⏳ ${sec} 秒`;
   }
 
   /** force=必须显示（玩家自己选的手册提示这种），普通提示语会被设置里的开关拦掉 */

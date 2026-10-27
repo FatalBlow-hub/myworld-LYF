@@ -34,9 +34,11 @@ export function buildHall(world: World): void {
   chunk.data[Chunk.index(tx1, floorY + 2, tz)] = PLANKS;
   chunk.data[Chunk.index(tx2, floorY + 2, tz)] = PLANKS;
 
-  // 角落三台机器：特殊物品售卖机 / 饮料售卖机 / 收购箱，对着按 M 使用
+  // 沿北墙一排机器（售卖机/收购箱/杂货铺/黑市/红焰大赛箱），对着按 M 使用；
+  // 标了 tall 的机器占两格高（红焰大赛箱就是这种）
   for (const m of HALL.MACHINES) {
     chunk.data[Chunk.index(m.x, floorY + 1, m.z)] = m.id;
+    if (m.tall) chunk.data[Chunk.index(m.x, floorY + 2, m.z)] = m.id;
   }
 
   chunk.dirty = true;

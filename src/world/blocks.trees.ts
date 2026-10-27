@@ -5,6 +5,7 @@
  *  注意：本文件不许 import blocks.data 的运行时值（会形成循环），ID 一律写字面量。 */
 
 import type { BlockDef } from './blocks.data';
+import { WILLOW_LEAVES, WILLOW_SAP1, WILLOW_SAP2, WILLOW_SAP3, WILLOW_WOOD } from './blocks.willow';
 
 // —— 新水果（259~260）：梨 +3 饥饿、柿子 +2.5 血 ——
 export const PEAR = 259;
@@ -46,7 +47,9 @@ export const BANANA_SAP3 = 290;
 /** 一个树种的所有静态信息：树叶/果实/三阶段树苗 + 树冠参数 + 种植限制 */
 export interface TreeSpecies {
   /** 英文 key，也当贴图前缀用（leaves_apple / sap_apple_1…） */
-  key: 'apple' | 'peach' | 'orange' | 'pear' | 'persimmon' | 'coconut' | 'banana';
+  key: 'apple' | 'peach' | 'orange' | 'pear' | 'persimmon' | 'coconut' | 'banana' | 'willow';
+  /** 树干方块（缺省用 WOOD；柳树用自己的柳树干） */
+  wood?: number;
   /** 树苗物品名，比如「苹果树苗」 */
   cn: string;
   /** 树叶方块 ID（4 片合 1 树苗；椰子树用已有的 243 椰子叶） */
@@ -77,6 +80,8 @@ export const TREE_SPECIES: TreeSpecies[] = [
   { key: 'persimmon', cn: '柿子树苗',   leaf: PERSIMMON_LEAVES, fruit: PERSIMMON,          stages: [PERSIMMON_SAP1, PERSIMMON_SAP2, PERSIMMON_SAP3], trunk: 4, dyMin: -1, dyMax: 1, canopyR: 3 },
   { key: 'banana',    cn: '香蕉树苗',   leaf: BANANA_LEAVES,    fruit: BANANA,             stages: [BANANA_SAP1, BANANA_SAP2, BANANA_SAP3],      trunk: 3, dyMin: -1, dyMax: 1, canopyR: 4 },
   { key: 'coconut',   cn: '椰子树苗',   leaf: 243 /* PALM_LEAVES */, fruit: 244 /* COCONUT */, stages: [COCONUT_SAP1, COCONUT_SAP2, COCONUT_SAP3], trunk: 6, dyMin: 0, dyMax: 0, canopyR: 0, palm: true, sandOnly: true },
+  // 柳树：沙滩专属，树干用自己的柳树干，不结正常果实（fruit = 0 表示"挖树叶不掉果"）
+  { key: 'willow',    cn: '柳树苗',     leaf: WILLOW_LEAVES,    fruit: 0,                  stages: [WILLOW_SAP1, WILLOW_SAP2, WILLOW_SAP3],        trunk: 4, dyMin: -1, dyMax: 1, canopyR: 3, sandOnly: true, wood: WILLOW_WOOD },
 ];
 
 /** 树叶 → 对应的树（地形生成按岛型查它） */
@@ -94,7 +99,8 @@ export const SAPLING_IDS = TREE_SPECIES.map((s) => s.stages[0]);
 
 /** 树叶 → 它结的果实（挖树叶掉水果用；椰子叶不算，椰子挂树上直接摘） */
 export const FRUIT_OF_LEAF: Record<number, number> = Object.fromEntries(
-  TREE_SPECIES.filter((s) => !s.palm).map((s) => [s.leaf, s.fruit]),
+  // fruit = 0 的树种（柳树）不结正常果实，不进这张表，否则会映射到空气
+  TREE_SPECIES.filter((s) => !s.palm && s.fruit > 0).map((s) => [s.leaf, s.fruit]),
 );
 
 /** 小苗生长链：小苗 → 幼树，幼树 → 半成熟树；半成熟树不在表里，要建树看 SAPLING_MATURE */
@@ -127,8 +133,8 @@ export const TREE_BLOCKS: Record<number, BlockDef> = {
   [PEAR_LEAVES]:      leafDef('梨树叶',   'leaves_pear'),
   [PERSIMMON_LEAVES]: leafDef('柿子树叶', 'leaves_persimmon'),
   [BANANA_LEAVES]:    leafDef('香蕉树叶', 'leaves_banana'),
-  // —— 树苗三阶段：交叉薄片小花苗，打掉都退回一棵小苗 ——
-  ...Object.fromEntries(TREE_SPECIES.flatMap((s) => {
+  // —— 树苗三阶段：交叉薄片小花苗，打掉都退回一棵小苗（柳树的三阶段在 blocks.willow.ts 里，这里跳过） ——
+  ...Object.fromEntries(TREE_SPECIES.filter((s) => s.key !== 'willow').flatMap((s) => {
     const [s1, s2, s3] = s.stages;
     const base = s.cn.replace('树苗', '');
     return [

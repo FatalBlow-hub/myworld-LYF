@@ -1,16 +1,20 @@
 /** 游戏主循环 — 把所有模块装配起来，每帧按固定顺序驱动它们 */
 
 import * as THREE from 'three';
-import { ISLAND_RULES, CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PORTAL, PVP, SAVE, SNOWFALL, VIEW_DISTANCE, VOID_REALM, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
+import { ARENA, ISLAND_RULES, CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PORTAL, PVP, SAVE, SNOWFALL, VIEW_DISTANCE, VOID_REALM, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
 import { World } from '../world/World';
 import { buildHall } from '../world/HallMap';
 import { buildVoidRealm, VOID_SPAWN, voidPlatformSpot } from '../world/VoidRealm';
+import { SNOW_SPAWN, VOID_ARENA_SPAWN, arenaOpen, buildSnowArena, buildVoidArena } from '../world/ArenaMaps';
+import { Arena, ArenaKind, ArenaResult } from './Arena';
+import { ArenaPanel } from '../ui/ArenaPanel';
 import { findGrassSpawn, heightAt, randomGrassSpawn, setIslandProfile, setActiveSeason, setTerrainConfig } from '../world/TerrainGen';
 import { ALL_MUSHROOM_IDS, PLANT_TO_MUSHROOM } from '../world/mushrooms';
 import { createAtlas, Atlas } from '../render/Textures';
 import { ChunkMeshCache } from '../render/ChunkMeshCache';
 import { Renderer } from '../render/Renderer';
 import { Snowfall } from '../render/Snowfall';
+import { Fluff } from '../render/Fluff';
 import { applySeasonLeaves } from '../world/SeasonLeaves';
 import { Controller } from '../player/Controller';
 import { PlayerBody, createBody, stepPhysics } from '../player/Physics';
@@ -63,7 +67,7 @@ import { MobCombat } from './MobCombat';
 import { Vehicles } from './Vehicles';
 import { Challenge } from './Challenge';
 import { Potions } from '../entities/Potions';
-import { AIR, BAG_GLASS, BLOCKS, isSolid, SNOW, SNOWFLAKE, SOUL_PORTAL, Slots, WAISTBAG_SLOT } from '../world/Block';
+import { AIR, BAG_GLASS, BLOCKS, isSolid, SNOW, SNOWFLAKE, SOUL_PORTAL, Slots, WAISTBAG_SLOT, WILLOW_FLUFF, WILLOW_LEAVES } from '../world/Block';
 import { DIY_GOLD_PICKAXE } from '../world/GoldenItems';
 import { spawnDrop } from '../entities/drops';
 import { ZOMBIE_NAMES, Zombie } from '../entities/Zombie';
@@ -72,7 +76,7 @@ import { hurtPlayer } from '../player/damage';
 import { NetClient } from '../net/Client';
 import { probeAuth } from '../ui/Auth';
 
-export type SceneMode = 'island' | 'hall' | 'visit' | 'void'; // void=灵魂虚空：灵魂蓝传送门过去的 9×9 平台世界
+export type SceneMode = 'island' | 'hall' | 'visit' | 'void' | 'arena'; // arena=红焰大赛的极限挑战场地（雪原/虚空）
 
 /** 访岛时岛主的小人站在重生点前面多少格（太近会怼脸，太远看不清是谁） */
 const VISIT_AVATAR_DIST = 3.2;
@@ -132,6 +136,14 @@ export class Game {
   /** 冬季降雪粒子（构造时场景一建好就挂上，平时看不见） */
   private snow: Snowfall | null = null;
   private snowTimer = 0;
+  /** 春季柳絮孢子粒子（站在柳树旁才飘） */
+  private fluff: Fluff | null = null;
+  private fluffTimer = 0;
+  /** 红焰大赛：极限季节挑战（进图快照背包、倒计时、刷怪、结算） */
+  private arena: Arena | null = null;
+  private arenaPanel: ArenaPanel | null = null;
+  /** 进竞技场前饥饿开关是什么状态，出来要还原 */
+  private hungerWasOn = false;
   /** 大厅留言板 / 信箱（B / V 打开，登录后才有内容） */
   private boardPanel: BoardPanel | null = null;
   private settingsPanel: SettingsPanel | null = null;
@@ -156,6 +168,15 @@ export class Game {
       landingAt: (x, z, fromY) => this.flakeLanding(x, z, fromY),
       onFlakeLand: (x, y, z) => this.dropAt(SNOWFLAKE, 1, x, y, z), // 蓝雪花落地→变成一个能捡的雪花
     }); // 雪花粒子平时隐藏，冬季站在雪地上才开
+    this.fluff = new Fluff(this.renderer.scene, {
+      collect: () => {
+        const inv = this.inventory;
+        if (!inv || inv.roomFor(WILLOW_FLUFF) < 1) return false; // 背包满了就留在原地
+        inv.add(WILLOW_FLUFF, 1);
+        return true;
+      },
+      solidAt: (x, y, z) => isSolid(this.world.getBlock(x, y, z)),
+    }, (text) => this.hud?.showMessage(text, 2)); // 柳絮：春季柳树旁飘，玩家靠近自动入包
     const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002));
     this.highlight = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x111111 }));
     this.highlight.visible = false;
@@ -309,6 +330,11 @@ export class Game {
       swap: () => this.swapCharacter(),
     });
     this.shopPanel = new ShopPanel(this.atlas, () => this.coins, (good) => this.buyGood(good));
+    this.arenaPanel = new ArenaPanel(this.atlas, () => this.coins, () => seasonOf(this.day.date), (kind) => this.enterArena(kind));
+    this.arena = new Arena(this.renderer.scene, this.mobs, () => this.inventory!, () => this.hud, {
+      addCoins: (n) => this.addCoins(n),
+      onEnd: (result) => this.leaveArena(result),
+    });
     this.container = new ContainerPanel(this.inventory, this.atlas);
     this.dyePanel = new DyePanel(this.inventory, (t) => this.hud!.showMessage(t));
     this.hallMenu = new HallMenu({
@@ -350,6 +376,7 @@ export class Game {
     this.panels.register({ name: 'container', isOpen: () => this.container!.visible, close: () => this.container!.close(), closeKeys: ['door'], update: (dt) => { this.world.updateFurnaces(dt); this.container!.refresh(); } });
     this.panels.register({ name: 'dye', isOpen: () => this.dyePanel!.visible, close: () => this.dyePanel!.close() });
     this.panels.register({ name: 'shop', isOpen: () => this.shopPanel!.visible, close: () => this.shopPanel!.close() });
+    this.panels.register({ name: 'arena', isOpen: () => this.arenaPanel!.visible, close: () => this.arenaPanel!.close(), closeKeys: ['door'] });
     this.panels.register({ name: 'book', isOpen: () => this.book.visible, close: () => this.book.close(), closeKeys: ['book'] });
     this.boardPanel = new BoardPanel();
     this.panels.register({ name: 'board', isOpen: () => this.boardPanel!.visible, close: () => this.boardPanel!.close(), closeKeys: ['board', 'mail'] });
@@ -375,6 +402,7 @@ export class Game {
       inHall: () => this.scene === 'hall',
       openShop: (kind) => this.openShop(kind),
       openBuyBox: () => this.openBuyBox(),
+      openArena: () => this.openArena(),
       summonWarrior: (eggId, x, y, z) => this.summonWarrior(eggId, x, y, z),
       summonArcher: (bowId, x, y, z) => this.summonArcher(bowId, x, y, z),
       body: () => this.body!,
@@ -507,6 +535,32 @@ export class Game {
       for (let dx = -2; dx <= 2; dx++) {
         for (let dz = -2; dz <= 2; dz++) {
           if (this.world.getBlock(bx + dx, by + dy, bz + dz) === SNOW) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /** 柳絮：春天 + 站在柳树旁才飘，每隔 0.5 秒重新判断一次（别每帧扫方块） */
+  private fluffTick(dt: number, body: PlayerBody): void {
+    this.fluffTimer -= dt;
+    if (this.fluffTimer <= 0) {
+      this.fluffTimer = 0.5;
+      const on = seasonOf(this.day.date) === 'spring'
+        && (this.scene === 'island' || this.scene === 'visit')
+        && this.nearWillow(body.x, body.y, body.z);
+      this.fluff?.setActive(on);
+    }
+    this.fluff?.update(dt, body.x, body.y, body.z);
+  }
+
+  /** 玩家周围 5×5、头上下各 4 层里有没有柳树叶（判断"站在柳树旁"） */
+  private nearWillow(x: number, y: number, z: number): boolean {
+    const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z);
+    for (let dy = -1; dy <= 4; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        for (let dz = -2; dz <= 2; dz++) {
+          if (this.world.getBlock(bx + dx, by + dy, bz + dz) === WILLOW_LEAVES) return true;
         }
       }
     }
@@ -740,6 +794,7 @@ export class Game {
   /** 把当前本岛状态打包存进浏览器（在大厅/副本岛时不覆盖本岛地形，只把随身收获并回存档） */
   private saveNow(): void {
     if (!this.started || !this.body || !this.inventory || !this.health || !this.hunger) return;
+    if (this.scene === 'arena') return; // 比赛里背包是空的，存档会把真档冲掉：这场不算，直接跳过
     if (this.scene !== 'island') { this.saveCarryOnly(); return; }
     if (this.inventory.mode === 'creative') this.everCreative = true;
     this.net?.setEverCreative(this.everCreative);
@@ -806,6 +861,7 @@ export class Game {
     for (const f of this.mobs.fish) this.renderer.scene.remove(f.group);
     this.mobs.fish.length = 0;       // 鱼不存档：回岛/串门之后海里重新刷
     this.fires.clear(); this.challenge = this.createChallenge();
+    this.fluff?.clear(); // 柳絮是场景内的粒子，换场景必须清干净
     this.world.clear(); this.chunkMeshes.clear();
   }
 
@@ -871,6 +927,52 @@ export class Game {
     body.vx = body.vy = body.vz = 0; body.fellFrom = body.y;
     this.portalCd = PORTAL.COOLDOWN; this.voidGhostT = 0;
     this.hud!.showMessage('来到了灵魂虚空！脚下是 9×9 的小平台，小心幽灵鬼，别掉下去', 4);
+  }
+
+  /** 对着红焰大赛箱按 M：打开大赛面板（季节门禁与余额都在面板里显示） */
+  private openArena(): void {
+    if (this.arena?.active) { this.hud?.showMessage('比赛进行中，先把这场打完', 2); return; }
+    this.arenaPanel?.open();
+  }
+
+  /** 报名进极限季节挑战：扣 2 岛币 → 建图 → 快照并清空背包 → 血量置 1 → 开表 */
+  private enterArena(kind: ArenaKind): void {
+    const inv = this.inventory, hud = this.hud, health = this.health, hunger = this.hunger;
+    if (!inv || !hud || !health || !hunger || !this.body) return;
+    if (!arenaOpen(kind, seasonOf(this.day.date))) { hud.showMessage('这个季节不开放这项挑战', 2.5); return; }
+    if (!inv.infinite && this.coins < ARENA.FEE) { hud.showMessage(`岛币不够，报名要 ${ARENA.FEE} 个`, 2.5); return; }
+    if (this.scene === 'island') this.saveNow(); // 先存本岛：比赛里不存档，出来照旧读这份
+    if (!inv.infinite) this.addCoins(-ARENA.FEE);
+    this.panels.closeAll(); this.clearScene();
+    setTerrainConfig(WORLD_SEED, false, ISLAND_TYPES[this.islandType].leafId);
+    if (kind === 'snow') buildSnowArena(this.world); else buildVoidArena(this.world);
+    this.chunkMeshes.rebuildDirty(this.world);
+    this.scene = 'arena';
+    this.arena!.begin(kind);
+    const spot = kind === 'snow' ? SNOW_SPAWN : VOID_ARENA_SPAWN;
+    const body = this.body;
+    body.x = spot.x; body.y = spot.y; body.z = spot.z;
+    body.vx = body.vy = body.vz = 0; body.fellFrom = body.y;
+    health.hp = 1;                 // 开局只剩 1 点血，靠吃东西回血
+    this.hungerWasOn = hunger.enabled;
+    hunger.enabled = false;        // 比赛里不消耗饥饿，免得饿死
+    hud.refreshHotbar(inv, this.slot);
+    hud.showMessage(kind === 'snow'
+      ? '冰天雪地挑战开始！撑满 120 秒就赢，死了报名费不退'
+      : '星空的世界挑战开始！掉下去会被拉回台面，撑满 120 秒就赢', 4);
+  }
+
+  /** 极限挑战结算（赢/死/放弃）：恢复血量饥饿 → 回大厅（背包已由 Arena 还原） */
+  private leaveArena(result: ArenaResult): void {
+    this.hud?.setArenaTimer(null);
+    this.health?.respawn();
+    if (this.hunger) { this.hunger.respawn(); this.hunger.enabled = this.hungerWasOn; }
+    const text = result === 'win'
+      ? `撑满 ${ARENA.SECONDS} 秒！奖励 ${ARENA.REWARD} 岛币已到账`
+      : result === 'lose' ? '挑战失败：报名费不退，背包原样还给你' : '放弃挑战：报名费不退，背包原样还给你';
+    this.enterHall();            // 比赛场地不留人，直接送回大厅
+    this.hud?.showMessage(text, 4);
+    this.hud?.refreshHotbar(this.inventory!, this.slot);
   }
 
   /** 从灵魂虚空回本岛：直接走大厅那套「读档+保背包」的回程，回来人还站在本岛传送门里（有传送冷却不怕被吸回去） */
@@ -1059,6 +1161,8 @@ export class Game {
     this.archersGoHome(); // 弓箭手哨兵不跟传送，但会把岗位挪到重生点，自己走过去
   }
   private respawn(): void {
+    // 竞技场里死掉：算这场失败，结算后送回大厅（不走本岛的死亡重生）
+    if (this.scene === 'arena') { this.arena?.onPlayerDeath(); return; }
     // 灵魂虚空里死掉/掉下去：先被拉回自己岛（读档+保背包），再在床边/复活点重生
     if (this.scene === 'void') this.leaveVoid();
     const body = this.body!; this.challenge.onPlayerDeath(this.hud!);
@@ -1104,6 +1208,7 @@ export class Game {
       if (this.controller.take('hall')) {
         if (this.scene === 'hall') this.leaveHall();
         else if (this.scene === 'void') this.leaveVoid(); // 虚空里按 H 也是回家
+        else if (this.scene === 'arena') this.arena?.abort(); // 比赛里按 H = 放弃（不退报名费）
         else this.enterHall();
       }
       if (this.controller.take('give')) {
@@ -1149,7 +1254,12 @@ export class Game {
         if (sr.hurt) hud.showMessage('好饿！快吃东西！', 0.8);
         if (sr.died) this.respawn();
       }
-      if (body.y < VOID_Y) { this.respawn(); hud.showMessage('掉出世界啦！', 1.2); }
+      // 竞技场「星空的世界」：掉下台面不判死，直接把人捞回台子中央
+      if (this.scene === 'arena' && this.arena?.kind === 'void' && body.y < ARENA.FLOOR_Y - ARENA.FALL_RESET) {
+        body.x = VOID_ARENA_SPAWN.x; body.y = VOID_ARENA_SPAWN.y; body.z = VOID_ARENA_SPAWN.z;
+        body.vx = body.vy = body.vz = 0; body.fellFrom = body.y;
+        hud.showMessage('掉下去啦，被拉回台面', 1.5);
+      } else if (body.y < VOID_Y) { this.respawn(); hud.showMessage('掉出世界啦！', 1.2); }
       const cp = Math.cos(body.pitch), dx = -Math.sin(body.yaw) * cp, dy = Math.sin(body.pitch), dz = -Math.cos(body.yaw) * cp;
       const mob = this.mobs.rayHit(body.x, body.y + PLAYER.EYE, body.z, dx, dy, dz, PLAYER.REACH);
       const hit = pick(this.world, body), waterHit = pickWater(this.world, body);
@@ -1204,16 +1314,18 @@ export class Game {
           this.mobs.zombies.push(g);
         }
       }
-      if (this.scene === 'island' || this.scene === 'void') {
+      if (this.scene === 'island' || this.scene === 'void' || this.scene === 'arena') {
         // 虚空里 mobs 只更新已有的怪（spawn 的地面探测在虚空全落空，不会乱刷）
         this.mobs.update(dt, body.x, body.y, body.z, this.scene === 'island' && this.day.time >= DAY.NIGHT_FROM, this.day.time);
       }
       this.potions.update(dt, this.world); this.fires.update(dt);
       this.snowTick(dt, body);
+      this.fluffTick(dt, body);
       this.visitAvatar.update(dt, body.x, body.z);
       this.visitSync.update(dt, body, this.appearance.character, this.day.time);
       this.drops = this.pickup!.update(dt, body);
       if (this.scene === 'island') this.challenge.update(dt, body, this.inventory!, hud);
+      if (this.scene === 'arena') this.arena!.update(dt, body);
       if (this.scene !== 'hall') this.streamChunks(2);
       this.chunkMeshes.rebuildDirty(this.world); this.world.updateFurnaces(dt);
       hud.refreshHotbar(this.inventory!, this.slot);

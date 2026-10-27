@@ -12,6 +12,9 @@ import { PLANK_BLOCKS, DYED_PLANK_IDS } from './blocks.planks';
 import { BOTTLE_BLOCKS, BOTTLE_SW_DEEP, BOTTLE_SW_DROWN, BOTTLE_SW_LIGHT, BOTTLE_SW_MID, BOTTLE_SW_PHANTOM, BOTTLE_WATER } from './blocks.bottles';
 import { DECO_BLOCKS, VINE_LADDER } from './blocks.deco';
 import { RADISH_BLOCKS, WHITE_RADISH } from './radish';
+import { WILLOW_BAG, WILLOW_BLOCKS, WILLOW_BRANCH, WILLOW_FLUFF, WILLOW_LEAVES, WILLOW_SAP1, WILLOW_WOOD } from './blocks.willow';
+import { LEAF_DROP_BLOCKS, MAPLE_LEAF, PETAL_SAKURA } from './blocks.leafdrops';
+import { ARENA_BLOCKS, ARENA_BOX } from './blocks.arena';
 import { BUCKET_WATER_MAX } from '../config';
 
 export * from './blocks.trees'; // 果树一族（梨/柿子/果树叶/树苗）的 ID 与物种表也走这里转发，外部照旧只认 './Block'
@@ -23,6 +26,9 @@ export * from './blocks.swords'; // 六把剑（blocks.swords.ts）同样转发
 export * from './blocks.planks'; // 染色木板一族（blocks.planks.ts）同样转发
 export * from './blocks.bottles'; // 玻璃瓶装液体一族（blocks.bottles.ts）同样转发
 export * from './blocks.deco'; // 装饰方块一族（blocks.deco.ts）同样转发
+export * from './blocks.willow'; // 柳树一族（blocks.willow.ts：柳树干/柳叶/柳树苗/柳絮孢子/柳条/柳絮腰包）同样转发
+export * from './blocks.leafdrops'; // 树冠季节产物（blocks.leafdrops.ts：樱花花瓣/枫叶）同样转发
+export * from './blocks.arena'; // 红焰大赛箱（blocks.arena.ts）同样转发
 export * from './radish'; // 白萝卜（radish.ts：物品 + 价格逻辑）同样转发
 
 export const AIR = 0;
@@ -390,6 +396,7 @@ export const WOOL_BAG_DYES = [
 export const WAISTBAG_CAPACITY: Record<number, number> = {
   [BAG_WOOL]: 8, [BAG_MANG]: 10, [BAG_STAR]: 10, [BAG_GLASS]: 8,
   [BAG_GRASS]: 6, [BAG_LEAF]: 4, [BAG_BAMBOO]: 4, [BAG_FEATHER]: 6, [BAG_RUBBER]: 4, [BAG_GOLD]: 10,
+  [WILLOW_BAG]: 6,
   ...Object.fromEntries(WOOL_BAG_DYES.map(({ id }) => [id, 8])),
 };
 export const WAISTBAG_IDS = Object.keys(WAISTBAG_CAPACITY).map(Number);
@@ -398,6 +405,7 @@ export const WAISTBAG_TEXTURES: Record<number, string> = {
   [BAG_WOOL]: 'bag_wool', [BAG_MANG]: 'bag_mang', [BAG_STAR]: 'bag_star',
   [BAG_GLASS]: 'bag_glass', [BAG_GRASS]: 'bag_grass', [BAG_LEAF]: 'bag_leaf',
   [BAG_BAMBOO]: 'bag_bamboo', [BAG_FEATHER]: 'bag_feather', [BAG_RUBBER]: 'bag_rubber', [BAG_GOLD]: 'bag_gold',
+  [WILLOW_BAG]: 'bag_willow',
   ...Object.fromEntries(WOOL_BAG_DYES.map(({ id, texture }) => [id, texture])),
 };
 
@@ -481,6 +489,9 @@ export const BLOCKS: Record<number, BlockDef> = {
   ...BOTTLE_BLOCKS,   // 玻璃瓶装液体一族（blocks.bottles.ts）：一格一瓶
   ...DECO_BLOCKS,     // 装饰方块一族（blocks.deco.ts）：藤蔓梯子等
   ...RADISH_BLOCKS,   // 白萝卜（radish.ts）：黑色售卖机周一进货的炒股道具
+  ...WILLOW_BLOCKS,   // 柳树一族（blocks.willow.ts）：柳树干/柳叶/三阶段树苗/柳絮孢子/柳条/柳絮腰包
+  ...LEAF_DROP_BLOCKS, // 树冠季节产物（blocks.leafdrops.ts）：樱花花瓣/枫叶
+  ...ARENA_BLOCKS,    // 红焰大赛箱（blocks.arena.ts）：大厅赛事入口
   [AIR]:         { cn: '空气',   tex: { top: '', side: '' }, solid: false, seeThrough: true, hardness: 0 },
   [GRASS]:       { cn: '草方块', tex: { top: 'grass_top', side: 'grass_side', bottom: 'dirt' }, solid: true, seeThrough: false, hardness: 0.6, drop: DIRT },
   [DIRT]:        { cn: '泥土',   tex: { top: 'dirt', side: 'dirt' }, solid: true, seeThrough: false, hardness: 0.5 },
@@ -810,6 +821,11 @@ export const ALL_ITEMS = [
   VINE_LADDER,
   // 白萝卜（radish.ts）：周一黑市进货的炒股道具，下周一没卖会烂
   WHITE_RADISH,
+  // 四季树冠产物与柳树一族（2026-10-27）：夏挖樱花花瓣、秋挖枫叶、沙滩柳树
+  PETAL_SAKURA, MAPLE_LEAF,
+  WILLOW_WOOD, WILLOW_LEAVES, WILLOW_SAP1, WILLOW_FLUFF, WILLOW_BRANCH, WILLOW_BAG,
+  // 红焰大赛箱（大厅赛事入口，正常靠大厅里那台，创造面板也放一份方便摆）
+  ARENA_BOX,
 ];
 
 /** 庄稼生长链：每 60 秒走一级（水稻/胡萝卜/南瓜/西瓜共用）；最后一级不在表里 = 熟透了不再长 */

@@ -15,7 +15,7 @@ const bag = (cloth: string): Painter => (c, x, y) => {
 const BAG_CLOTH: Record<string, string> = {
   bag_wool: '#e8e8e8', bag_mang: '#f0cf3a', bag_star: '#4a48b8', bag_glass: '#9fdcf8',
   bag_grass: '#4e9e46', bag_leaf: '#2f7a2a', bag_bamboo: '#7ab04a', bag_feather: '#f5f5f0',
-  bag_rubber: '#2c2c30',
+  bag_rubber: '#2c2c30', bag_willow: '#cfe88a',
   bag_wool_red: '#b03a2e', bag_wool_yellow: '#f0cf3a', bag_wool_blue: '#3d5fb0',
   bag_wool_green: '#4e9e46', bag_wool_pink: '#e893b8', bag_wool_orange: '#d97b2e',
   bag_wool_black: '#2e2e2e', bag_wool_gray: '#9a9a9a', bag_wool_purple: '#7a3fa0',

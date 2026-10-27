@@ -542,7 +542,24 @@ export const HALL = {
     { id: 241, x: 3, z: 1 },        // 收购箱
     { id: 297, x: 4, z: 1 },        // 杂货铺
     { id: 315, x: 5, z: 1 },        // 黑色售卖机（315 = VENDING_BLACK，每天只随机卖一种货）
-  ],
+    { id: 348, x: 6, z: 1, tall: true }, // 红焰大赛箱（348 = ARENA_BOX，两格高）
+  ] as { id: number; x: number; z: number; tall?: boolean }[],
+};
+
+/** 红焰大赛箱（极限季节挑战）：报名费 / 奖励 / 时长 / 刷怪节奏与两张图的地形参数 */
+export const ARENA = {
+  FEE: 2,              // 报名费（岛币）：中途死亡不退
+  REWARD: 10,          // 撑满时间到点发的奖励（岛币）
+  SECONDS: 120,        // 每场存活时长（秒）
+  SPAWN_EVERY: 12,     // 每隔几秒刷一只怪
+  CONFIRM_SECONDS: 5,  // 面板上点一次后几秒内再点才真扣钱
+  FLOOR_Y: 20,         // 竞技场地板高度（和大厅一致）
+  SNOW_SIZE: 16,       // 雪原图边长（正好一个区块）
+  SNOW_WALL: 2,        // 雪原四周围墙高度
+  VOID_SIZE: 11,       // 虚空图石台边长
+  FALL_RESET: 8,       // 虚空图往下掉这么多格就传回台面（不死亡）
+  SPAWN_NEAR: 8,       // 刷怪离玩家多远（雪原）
+  SPAWN_NEAR_VOID: 3,  // 刷怪离玩家多远（虚空石台小，得凑近点）
 };
 
 export const SAVE = {
@@ -651,6 +668,23 @@ export const PALM = {
   HEIGHT_MAX: 7,
   COCONUT_MIN: 3,    // 树顶挂几个椰子
   COCONUT_MAX: 4,
+};
+
+/** 柳树（沙滩专属树）：只长在沙滩窄带，春天在树冠旁飘柳絮孢子 */
+export const WILLOW = {
+  CHANCE: 0.012,     // 每格沙滩长出柳树的概率（比椰子树略高一点，柳树矮、成排）
+  FLUFF_CHANCE: 1,   // 挖柳树叶必掉 1 个柳絮孢子（留给以后的采集设定用）
+};
+
+/** 柳絮孢子粒子：春季柳树附近生成，随风漂移、1 分钟后消散、玩家靠近直接入包 */
+export const FLUFF = {
+  MAX: 40,           // 同屏最多几颗
+  SPAWN_EVERY: 1.2,  // 每隔几秒补一颗
+  LIFE: 60,          // 每颗活多久（秒），到点消散
+  FALL: 0.15,        // 下落速度（格/秒）
+  DRIFT: 0.5,        // 水平漂移速度上限（格/秒）
+  PICK_DIST: 1.2,    // 玩家离多近能捡（格）
+  NEAR: 8,           // 多近有柳树叶才算"柳树附近"（格）
 };
 
 /** 小战士（保镖）：数值基准就是普通僵尸；血量三档再各放大三倍（12 → 36/72/108），外加各自的特技 */
