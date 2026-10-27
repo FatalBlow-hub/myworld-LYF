@@ -11,8 +11,8 @@ export const ISLAND_TILE_NAMES = [
   // —— 六种果树树叶（本色 + 秋叶版；香蕉叶只有外出探索的香蕉岛才有）——
   'leaves_apple', 'leaves_peach', 'leaves_orange', 'leaves_pear', 'leaves_persimmon', 'leaves_banana',
   'leaves_apple_autumn', 'leaves_peach_autumn', 'leaves_orange_autumn', 'leaves_pear_autumn', 'leaves_persimmon_autumn', 'leaves_banana_autumn',
-  // —— 六种树苗 × 三阶段（小苗/幼树/半成熟树） ——
-  ...['apple', 'peach', 'orange', 'pear', 'persimmon', 'coconut'].flatMap((k) => [`sap_${k}_1`, `sap_${k}_2`, `sap_${k}_3`]),
+  // —— 七种树苗 × 三阶段（小苗/幼树/半成熟树）；banana 之前漏了，香蕉苗会取到非法 UV ——
+  ...['apple', 'peach', 'orange', 'pear', 'persimmon', 'banana', 'coconut'].flatMap((k) => [`sap_${k}_1`, `sap_${k}_2`, `sap_${k}_3`]),
 ];
 
 export const ISLAND_PAINTERS: Record<string, Painter> = {
