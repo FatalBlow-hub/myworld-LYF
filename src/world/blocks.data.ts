@@ -13,6 +13,7 @@ import {
   BEAD_FIREWORK, BEAD_IDS, CALAMUS, CHUNK_ROLL,
   HARVEST_PLATTER, POUCH_CALAMUS, SEASON_FOOD_BLOCKS, SHIELD_CALAMUS, XMAS_COOKIE,
 } from './blocks.seasonfood';
+import { CS_BLOCKS } from './blocks.cs';
 import { PLANK_BLOCKS, DYED_PLANK_IDS } from './blocks.planks';
 import { BOTTLE_BLOCKS, BOTTLE_SW_DEEP, BOTTLE_SW_DROWN, BOTTLE_SW_LIGHT, BOTTLE_SW_MID, BOTTLE_SW_PHANTOM, BOTTLE_WATER } from './blocks.bottles';
 import { DECO_BLOCKS, VINE_LADDER } from './blocks.deco';
@@ -36,6 +37,7 @@ export * from './blocks.leafdrops'; // 树冠季节产物（blocks.leafdrops.ts�
 export * from './blocks.arena'; // 红焰大赛箱（blocks.arena.ts）同样转发
 export * from './blocks.newgear'; // 四季 DIY 道具（blocks.newgear.ts：樱花药包/枫叶腰包/飞刀/柳条陷阱）同样转发
 export * from './blocks.seasonfood'; // 四季节日道具（blocks.seasonfood.ts：春卷/菖蒲叶/香囊/护盾/拼盘/珠子/甜饼/礼花）同样转发
+export * from './blocks.cs'; // CS 大赛道具（blocks.cs.ts：手枪/弹药/闪光弹/手雷/步枪/毒药瓶/AK47）同样转发
 export * from './radish'; // 白萝卜（radish.ts：物品 + 价格逻辑）同样转发
 
 export const AIR = 0;
@@ -501,6 +503,7 @@ export const BLOCKS: Record<number, BlockDef> = {
   ...ARENA_BLOCKS,    // 红焰大赛箱（blocks.arena.ts）：大厅赛事入口
   ...NEWGEAR_BLOCKS,  // 四季 DIY 道具（blocks.newgear.ts）：两个腰包/飞刀/柳条陷阱五态
   ...SEASON_FOOD_BLOCKS, // 四季节日道具（blocks.seasonfood.ts）：春卷/菖蒲叶/香囊/护盾/拼盘/珠子/甜饼/礼花
+  ...CS_BLOCKS,          // CS 大赛道具（blocks.cs.ts）：七样比赛用品，不进创造面板
   [AIR]:         { cn: '空气',   tex: { top: '', side: '' }, solid: false, seeThrough: true, hardness: 0 },
   [GRASS]:       { cn: '草方块', tex: { top: 'grass_top', side: 'grass_side', bottom: 'dirt' }, solid: true, seeThrough: false, hardness: 0.6, drop: DIRT },
   [DIRT]:        { cn: '泥土',   tex: { top: 'dirt', side: 'dirt' }, solid: true, seeThrough: false, hardness: 0.5 },

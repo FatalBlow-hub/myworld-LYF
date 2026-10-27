@@ -804,6 +804,44 @@ export const KNIFE = {
   STEP: 1 / 120,    // 分步碰撞的步长
 };
 
+/** CS 大赛（本地 + AI 对手版）：报名费 / 奖励 / 五局三胜 / 枪械与投掷物数值 */
+export const CS = {
+  FEE: 2,               // 整套大赛只交一次（岛币）
+  REWARD: 10,           // 整套打赢每人得 10 岛币
+  WIN_ROUNDS: 3,        // 五局三胜：先赢 3 局
+  ROUND_WIN: 1500,      // 单小局胜利的 CS 币
+  ROUND_LOSS: 500,      // 单小局失败的 CS 币
+  PREP_SECONDS: 5,      // 每小局开打前的准备时间（能开商店买东西）
+  SWITCH_SECONDS: 3,    // 小局结束到下一小局的间隔
+  SUPPLY_AMMO: 32,      // 每小局自带的弹药补给（发）
+  KIT_AMMO: 32,         // 开赛赠送的子弹（发）
+  SOLDIER_HP: 20,       // AI 士兵血量（和玩家满血一样）
+  SOLDIER_SPEED: 3.2,   // AI 士兵移动速度（格/秒）
+  SOLDIER_DAMAGE: 4,    // AI 每发子弹的伤害
+  SOLDIER_EVERY: 1.6,   // AI 开枪间隔（秒）
+  SOLDIER_ACCURACY: 0.6, // AI 命中率（不然三个一起扫玩家几秒就倒）
+  SOLDIER_RANGE: 22,    // AI 多远才会开枪（格）
+  AIM_RADIUS: 0.55,     // 子弹打中身体的判定半径（格）
+  MUZZLE_LIGHT: 0.18,   // 开枪时视野亮一下的时长（秒）
+  // 三把枪：伤害与射速（手枪是开赛赠送的）
+  GUNS: {
+    [369]: { damage: 12, every: 0.8 },  // 手枪
+    [373]: { damage: 25, every: 1.5 },  // 步枪
+    [375]: { damage: 20, every: 0.5 },  // AK47
+  } as Record<number, { damage: number; every: number }>,
+  THROW_SPEED: 16,      // 手雷/闪光/毒瓶飞出去的速度
+  THROW_GRAVITY: 16,    // 投掷物重力
+  THROW_RANGE: 22,      // 投掷物最远飞多远
+  THROW_STEP: 1 / 120,  // 分步碰撞步长
+  GRENADE_DAMAGE: 20,   // 手雷爆炸伤害（满血一炸就倒）
+  GRENADE_RADIUS: 3,    // 手雷爆炸半径（格）
+  FLASH_SECONDS: 4,     // 闪光弹致盲时长（秒）
+  TOXIC_DAMAGE: 4,      // 毒药瓶命中扣血（用户拍板：400 是笔误，按 4）
+  // CS 商店价目（CS 币）
+  PRICES: { CONE: 100, AMMO: 100, FLASH: 200, GRENADE: 200, RIFLE: 500, TOXIC: 300, AK: 1000 },
+  AMMO_PER_PACK: 16,    // 买一次弹药给多少发
+};
+
 /** 四季节日玩法：菖蒲香囊光环、冬季珠子掉率、菖蒲叶生成概率、旅者解锁价 */
 export const SEASON_FOOD = {
   POUCH_RADIUS: 4,     // 菖蒲香囊：自身方圆几格内的怪物

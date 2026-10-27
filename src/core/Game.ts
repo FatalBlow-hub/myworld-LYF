@@ -1,7 +1,7 @@
 /** 游戏主循环 — 把所有模块装配起来，每帧按固定顺序驱动它们 */
 
 import * as THREE from 'three';
-import { ARENA, ISLAND_RULES, CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PORTAL, PVP, SAVE, SEASON_FOOD, SNOWFALL, TRAP, VIEW_DISTANCE, VOID_REALM, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
+import { ARENA, CS, ISLAND_RULES, CHUNK, DAY, HALL, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PORTAL, PVP, SAVE, SEASON_FOOD, SNOWFALL, TRAP, VIEW_DISTANCE, VOID_REALM, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
 import { World } from '../world/World';
 import { buildHall } from '../world/HallMap';
 import { buildVoidRealm, VOID_SPAWN, voidPlatformSpot } from '../world/VoidRealm';
@@ -13,6 +13,9 @@ import { TrapPanel, trapFormName } from '../ui/TrapPanel';
 import { Traveler, TRAVELERS } from '../entities/Traveler';
 import { TravelerOffer, TravelerPanel } from '../ui/TravelerPanel';
 import { Fireworks } from '../render/Fireworks';
+import { CsMatch, CsMode } from './CsMatch';
+import { CsGood, CsShopPanel } from '../ui/CsShopPanel';
+import { CS_SPAWN_ALLY, buildCsArena } from '../world/CsMaps';
 import { findGrassSpawn, heightAt, randomGrassSpawn, setIslandProfile, setActiveSeason, setTerrainConfig } from '../world/TerrainGen';
 import { ALL_MUSHROOM_IDS, PLANT_TO_MUSHROOM } from '../world/mushrooms';
 import { createAtlas, Atlas } from '../render/Textures';
@@ -82,7 +85,7 @@ import { hurtPlayer } from '../player/damage';
 import { NetClient } from '../net/Client';
 import { probeAuth } from '../ui/Auth';
 
-export type SceneMode = 'island' | 'hall' | 'visit' | 'void' | 'arena'; // arena=红焰大赛的极限挑战场地（雪原/虚空）
+export type SceneMode = 'island' | 'hall' | 'visit' | 'void' | 'arena' | 'cs'; // cs=红焰大赛的 CS 沙漠场地
 
 /** 访岛时岛主的小人站在重生点前面多少格（太近会怼脸，太远看不清是谁） */
 const VISIT_AVATAR_DIST = 3.2;
@@ -164,6 +167,13 @@ export class Game {
   private travelerPanel: TravelerPanel | null = null;
   private fireworks: Fireworks | null = null;
   private pouchT = 0;
+  /** CS 大赛：赛事状态机 + CS 商店面板 + 开枪时点亮视野的余时 */
+  private csMatch: CsMatch | null = null;
+  private csShopPanel: CsShopPanel | null = null;
+  private csLightT = 0;
+  /** CS 阵亡后钉住的落脚点 */
+  private csDownX = 0;
+  private csDownZ = 0;
   /** 大厅留言板 / 信箱（B / V 打开，登录后才有内容） */
   private boardPanel: BoardPanel | null = null;
   private settingsPanel: SettingsPanel | null = null;
@@ -350,7 +360,24 @@ export class Game {
       swap: () => this.swapCharacter(),
     });
     this.shopPanel = new ShopPanel(this.atlas, () => this.coins, (good) => this.buyGood(good));
-    this.arenaPanel = new ArenaPanel(this.atlas, () => this.coins, () => seasonOf(this.day.date), (kind) => this.enterArena(kind));
+    this.arenaPanel = new ArenaPanel(this.atlas, () => this.coins, () => seasonOf(this.day.date),
+      (kind) => this.enterArena(kind), (mode) => this.enterCs(mode));
+    this.csShopPanel = new CsShopPanel(this.atlas, () => this.csMatch?.cs ?? 0, (good) => this.buyCsGood(good));
+    this.csMatch = new CsMatch(this.renderer.scene, this.world, () => this.inventory!, () => this.hud, {
+      hurtPlayer: (dmg) => {
+        const r = hurtPlayer(this.health!, dmg);
+        if (r.hurt) this.hud?.showMessage('中弹了！', 0.6);
+        if (r.died) {
+          // 阵亡定点：本小局就钉在这，等下一小局复位
+          if (this.body) { this.csDownX = this.body.x; this.csDownZ = this.body.z; }
+          this.respawn();
+        }
+      },
+      muzzle: () => { this.csLightT = CS.MUZZLE_LIGHT; },
+      onEnd: (won) => this.leaveCs(won),
+      openStore: (open) => { if (open) this.csShopPanel?.open(); else this.csShopPanel?.close(); },
+      revivePlayer: () => { this.health?.respawn(); this.hunger?.respawn(); },
+    });
     this.trapPanel = new TrapPanel(this.atlas, (id) => this.placeTrap(id), () => { this.trapHit = null; });
     this.travelerPanel = new TravelerPanel(this.atlas, () => this.coins, (offer) => this.unlockFromTraveler(offer));
     this.fireworks = new Fireworks(this.renderer.scene);
@@ -403,6 +430,7 @@ export class Game {
     this.panels.register({ name: 'arena', isOpen: () => this.arenaPanel!.visible, close: () => this.arenaPanel!.close(), closeKeys: ['door'] });
     this.panels.register({ name: 'trap', isOpen: () => this.trapPanel!.visible, close: () => { this.trapPanel!.close(); this.trapHit = null; } });
     this.panels.register({ name: 'traveler', isOpen: () => this.travelerPanel!.visible, close: () => this.travelerPanel!.close() });
+    this.panels.register({ name: 'csShop', isOpen: () => this.csShopPanel!.visible, close: () => this.csShopPanel!.close() });
     this.panels.register({ name: 'book', isOpen: () => this.book.visible, close: () => this.book.close(), closeKeys: ['book'] });
     this.boardPanel = new BoardPanel();
     this.panels.register({ name: 'board', isOpen: () => this.boardPanel!.visible, close: () => this.boardPanel!.close(), closeKeys: ['board', 'mail'] });
@@ -823,7 +851,7 @@ export class Game {
   /** 把当前本岛状态打包存进浏览器（在大厅/副本岛时不覆盖本岛地形，只把随身收获并回存档） */
   private saveNow(): void {
     if (!this.started || !this.body || !this.inventory || !this.health || !this.hunger) return;
-    if (this.scene === 'arena') return; // 比赛里背包是空的，存档会把真档冲掉：这场不算，直接跳过
+    if (this.scene === 'arena' || this.scene === 'cs') return; // 比赛里背包是空的，存档会把真档冲掉：这场不算，直接跳过
     if (this.scene !== 'island') { this.saveCarryOnly(); return; }
     if (this.inventory.mode === 'creative') this.everCreative = true;
     this.net?.setEverCreative(this.everCreative);
@@ -894,6 +922,7 @@ export class Game {
     this.traps.clear(); this.trapLock.t = 0; // 陷阱跟着旧世界一起作废
     this.fireworks?.clear();
     this.hideTraveler();
+    this.csMatch?.abort(); // 换场景就把比赛收掉（没在比赛里时是个空操作）
     this.world.clear(); this.chunkMeshes.clear();
   }
 
@@ -963,8 +992,47 @@ export class Game {
 
   /** 对着红焰大赛箱按 M：打开大赛面板（季节门禁与余额都在面板里显示） */
   private openArena(): void {
-    if (this.arena?.active) { this.hud?.showMessage('比赛进行中，先把这场打完', 2); return; }
+    if (this.arena?.active || this.csMatch?.active) { this.hud?.showMessage('比赛进行中，先把这场打完', 2); return; }
     this.arenaPanel?.open();
+  }
+
+  /** 报名 CS 大赛：整套只交一次 2 岛币 → 建沙漠图 → 快照并清空背包 → 开打 */
+  private enterCs(mode: CsMode): void {
+    const inv = this.inventory, hud = this.hud;
+    if (!inv || !hud || !this.body || !this.health) return;
+    if (this.coins < CS.FEE && !inv.infinite) { hud.showMessage(`岛币不够，报名要 ${CS.FEE} 个`, 2.5); return; }
+    if (this.scene === 'island') this.saveNow(); // 先存本岛：比赛里不存档
+    if (!inv.infinite) this.addCoins(-CS.FEE);
+    this.panels.closeAll(); this.clearScene();
+    setTerrainConfig(WORLD_SEED, false, ISLAND_TYPES[this.islandType].leafId);
+    buildCsArena(this.world);
+    this.chunkMeshes.rebuildDirty(this.world);
+    this.scene = 'cs';
+    this.csMatch!.begin(mode);
+    const body = this.body;
+    body.x = CS_SPAWN_ALLY.x; body.y = CS_SPAWN_ALLY.y; body.z = CS_SPAWN_ALLY.z;
+    body.vx = body.vy = body.vz = 0; body.fellFrom = body.y;
+    this.health.respawn();   // 开局全员满血
+    this.hunger?.respawn();
+    hud.refreshHotbar(inv, this.slot);
+    hud.showMessage(`CS 大赛开始！${mode === '3v3' ? '3V3' : '1V1'} 五局三胜，准备阶段按 M 开商店`, 4);
+  }
+
+  /** CS 赛事结束：清掉比赛物品、还原背包，赢了整套发 10 岛币，然后回大厅 */
+  private leaveCs(won: boolean): void {
+    this.health?.respawn();
+    this.hunger?.respawn();
+    if (won) this.addCoins(CS.REWARD);
+    this.enterHall();
+    this.hud?.showMessage(won ? `整套打赢了！奖励 ${CS.REWARD} 岛币，比赛物品已清空` : '整套打输了，比赛物品已清空', 4);
+    this.hud?.refreshHotbar(this.inventory!, this.slot);
+  }
+
+  /** CS 商店买了东西：扣 CS 币由 CsMatch 管，这里只负责刷新面板 */
+  private buyCsGood(good: CsGood): void {
+    this.csMatch?.buy(good);
+    this.csShopPanel?.refresh();
+    this.hud?.refreshHotbar(this.inventory!, this.slot);
   }
 
   /** 报名进极限季节挑战：扣 2 岛币 → 建图 → 快照并清空背包 → 血量置 1 → 开表 */
@@ -1067,6 +1135,19 @@ export class Game {
       t.t -= dt;
       if (t.t <= 0) { this.world.setBlock(t.x, t.y, t.z, AIR); this.traps.delete(key); }
     }
+  }
+
+  /** CS 大赛每帧：推进赛事、开枪时点亮视野 */
+  private csTick(dt: number, body: PlayerBody): void {
+    this.csLightT = Math.max(0, this.csLightT - dt);
+    this.csMatch!.update(dt, body);
+    // 手持枪/投掷物时 P 是开枪或甩出去（比赛里按 M 开商店）
+    if (this.controller.take('mine') && this.csMatch!.fire(body, this.slot)) {
+      this.hud!.setProgress(0);
+    }
+    if (this.controller.take('door')) this.csMatch!.toggleStore();
+    // 比赛里禁止挖/放/捡方块：把这两个键吃掉（沙漠图的掩体是死的）
+    if (this.controller.take('place')) this.hud!.showMessage('CS 大赛里不能放方块', 1);
   }
 
   /** 菖蒲香囊：戴着它时，自身方圆 4 格内的怪每 4 秒扣 1 血 */
@@ -1335,8 +1416,10 @@ export class Game {
     this.archersGoHome(); // 弓箭手哨兵不跟传送，但会把岗位挪到重生点，自己走过去
   }
   private respawn(): void {
-    // 竞技场里死掉：算这场失败，结算后送回大厅（不走本岛的死亡重生）
+    // 极限挑战里死掉：算这场失败，结算后送回大厅（不走本岛的死亡重生）
     if (this.scene === 'arena') { this.arena?.onPlayerDeath(); return; }
+    // CS 大赛里中弹倒下：本小局出局，等下一小局复活（不重生、不回大厅）
+    if (this.scene === 'cs') { this.csMatch?.onPlayerDeath(); return; }
     // 灵魂虚空里死掉/掉下去：先被拉回自己岛（读档+保背包），再在床边/复活点重生
     if (this.scene === 'void') this.leaveVoid();
     const body = this.body!; this.challenge.onPlayerDeath(this.hud!);
@@ -1383,6 +1466,7 @@ export class Game {
         if (this.scene === 'hall') this.leaveHall();
         else if (this.scene === 'void') this.leaveVoid(); // 虚空里按 H 也是回家
         else if (this.scene === 'arena') this.arena?.abort(); // 比赛里按 H = 放弃（不退报名费）
+        else if (this.scene === 'cs') { this.csMatch?.abort(); this.csShopPanel?.close(); this.enterHall(); }
         else this.enterHall();
       }
       if (this.controller.take('give')) {
@@ -1413,7 +1497,8 @@ export class Game {
       if (this.controller.take('respawn')) this.goHome();
       this.day.update(dt, this.renderer); this.worldCycles.update(dt, this.world);
       // 夜视（吃夜光蓝菇）：把世界临时提到大白天亮度，效果过后自动回到昼夜
-      this.renderer.setDaylight(this.health!.isNightVision ? 1 : this.day.daylight());
+      // 夜视（吃夜光蓝菇）与 CS 开枪都把世界临时提到大白天亮度，效果过后自动回到昼夜
+      this.renderer.setDaylight(this.health!.isNightVision || this.csLightT > 0 ? 1 : this.day.daylight());
       this.world.tickSpores(dt, (x, y, z, plantId) => {
         const mushroom = PLANT_TO_MUSHROOM[plantId];
         if (mushroom) this.world.setBlock(x, y, z, mushroom);
@@ -1425,6 +1510,11 @@ export class Game {
       this.touch?.applyLookTo(body);
       const pev = stepPhysics(body, this.world, this.controller, dt);
       this.updateTraps(dt, body); // 柳条陷阱：踩上就困住 3 秒，到点自毁
+      // CS 大赛：阵亡后本小局只能看着（钉在原地等下一小局）
+      if (this.scene === 'cs' && this.csMatch!.playerDown) {
+        body.x = this.csDownX; body.z = this.csDownZ;
+        body.vx = 0; body.vz = 0;
+      }
       const skateMessage = this.skates.update(body, this.inventory!.armor, dt, pev.horizontalDistance > 0);
       if (skateMessage) hud.showMessage(skateMessage, 1.5);
       const hev = health.update(dt, body, pev.fallDistance);
@@ -1506,6 +1596,7 @@ export class Game {
       }
       this.potions.update(dt, this.world); this.knife!.update(dt, this.world); this.fires.update(dt);
       this.fireworks!.update(dt);
+      if (this.scene === 'cs') this.csTick(dt, body);
       this.travelerTick(dt);
       this.mobs.calmStars = health.isCleanse; // 春卷/甜饼的负面豁免期间星空尸不主动
       this.pouchTick(dt, body);
@@ -1513,7 +1604,8 @@ export class Game {
       this.fluffTick(dt, body);
       this.visitAvatar.update(dt, body.x, body.z);
       this.visitSync.update(dt, body, this.appearance.character, this.day.time);
-      this.drops = this.pickup!.update(dt, body);
+      // CS 大赛里禁止捡方块：地上的东西一律不吸（场上本来也不该有掉落物）
+      if (this.scene !== 'cs') this.drops = this.pickup!.update(dt, body);
       if (this.scene === 'island') this.challenge.update(dt, body, this.inventory!, hud);
       if (this.scene === 'arena') this.arena!.update(dt, body);
       if (this.scene !== 'hall') this.streamChunks(2);

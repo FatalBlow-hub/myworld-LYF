@@ -3,7 +3,8 @@
  *  两张玩法卡：极限季节挑战（本版可用，分冰天雪地 / 星空的世界）与全年 CS 大赛（占位）。
  *  报名是两段确认：点一次只是上膛，5 秒内再点一次才真扣岛币进图，免得误触。 */
 
-import { ARENA } from '../config';
+import { ARENA, CS } from '../config';
+import { PISTOL } from '../world/Block';
 import { Atlas } from '../render/Textures';
 import { arenaOpen } from '../world/ArenaMaps';
 import { fmtCoins } from '../world/Shop';
@@ -11,8 +12,15 @@ import { isMobile } from './Platform';
 
 type SeasonName = 'spring' | 'summer' | 'autumn' | 'winter';
 type Kind = 'snow' | 'void';
+type CsMode = '1v1' | '3v3';
 
 const SEASON_CN: Record<SeasonName, string> = { spring: '春', summer: '夏', autumn: '秋', winter: '冬' };
+
+/** CS 大赛两种模式（本地 + AI 对手，全年开放） */
+const CS_MODES: { mode: CsMode; name: string; desc: string }[] = [
+  { mode: '1v1', name: '1V1 模式', desc: '你和 1 个对手，先赢 3 局' },
+  { mode: '3v3', name: '3V3 模式', desc: '你 + 2 名队友 对 3 名对手' },
+];
 
 /** 两种极限图的展示信息 */
 const MODES: { kind: Kind; name: string; icon: number; open: string; desc: string }[] = [
@@ -23,8 +31,8 @@ const MODES: { kind: Kind; name: string; icon: number; open: string; desc: strin
 export class ArenaPanel {
   private el: HTMLDivElement;
   private win: HTMLDivElement;
-  /** 已经点过一次的按钮（等二次确认） */
-  private pending: Kind | null = null;
+  /** 已经点过一次的按钮（等二次确认；极限图记 kind、CS 记 mode） */
+  private pending: string | null = null;
   private pendingAt = 0;
   private tick: number | undefined;
   visible = false;
@@ -33,7 +41,10 @@ export class ArenaPanel {
     private atlas: Atlas,
     private coins: () => number,
     private season: () => SeasonName,
+    /** 报名极限季节挑战（kind = 雪原 / 虚空） */
     private onStart: (kind: Kind) => void,
+    /** 报名 CS 大赛（mode = 1v1 / 3v3，本地 + AI 对手） */
+    private onCs: (mode: CsMode) => void,
   ) {
     this.el = document.createElement('div');
     this.el.className = 'inv-overlay';
@@ -84,11 +95,12 @@ export class ArenaPanel {
 
     for (const m of MODES) this.win.appendChild(this.makeModeRow(m, season));
 
-    const cs = document.createElement('p');
-    cs.className = 'inv-sub';
-    cs.style.cssText = 'text-align:left;color:#9a9a9a;margin-top:10px;';
-    cs.textContent = '全年 CS 大赛（1v1 / 3v3 五局三胜）· 即将开放，敬请期待';
-    this.win.appendChild(cs);
+    const csHead = document.createElement('p');
+    csHead.className = 'inv-sub';
+    csHead.style.cssText = 'text-align:left;color:#8fe8ff;margin-top:10px;';
+    csHead.textContent = `全年 CS 大赛（报名 ${CS.FEE} 岛币，五局三胜，整套打赢得 ${CS.REWARD} 岛币）`;
+    this.win.appendChild(csHead);
+    for (const c of CS_MODES) this.win.appendChild(this.makeCsRow(c));
 
     const hint = document.createElement('div');
     hint.className = 'inv-hint';
@@ -122,7 +134,7 @@ export class ArenaPanel {
       btn.textContent = `还差 ${fmtCoins(ARENA.FEE - this.coins())} 岛币`;
       btn.style.background = '#5a5a5a';
       btn.style.cursor = 'default';
-    } else if (this.pending === m.kind) {
+    } else if (this.pending === `extreme:${m.kind}`) {
       btn.textContent = `再点一次确认（扣 ${ARENA.FEE} 岛币）`;
       btn.style.background = '#b03a2e';
       btn.style.cursor = 'pointer';
@@ -131,7 +143,44 @@ export class ArenaPanel {
       btn.textContent = `${ARENA.FEE} 岛币 报名`;
       btn.style.background = '#3e8a46';
       btn.style.cursor = 'pointer';
-      btn.addEventListener('click', () => { this.pending = m.kind; this.pendingAt = Date.now(); this.render(); });
+      btn.addEventListener('click', () => { this.pending = `extreme:${m.kind}`; this.pendingAt = Date.now(); this.render(); });
+    }
+    row.appendChild(btn);
+    return row;
+  }
+
+  /** CS 大赛一行：全年开放，报名两段确认 */
+  private makeCsRow(c: { mode: CsMode; name: string; desc: string }): HTMLDivElement {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:6px 2px;text-align:left;';
+
+    const img = document.createElement('img');
+    img.src = this.atlas.iconFor(PISTOL);
+    img.style.cssText = 'width:32px;height:32px;image-rendering:pixelated;';
+    row.appendChild(img);
+
+    const text = document.createElement('div');
+    text.style.cssText = 'flex:1;font-size:13px;line-height:1.5;';
+    text.innerHTML = `<b>${c.name}</b><br><span style="color:#bbb">${c.desc} · 开赛送手枪 + 32 发子弹</span>`;
+    row.appendChild(text);
+
+    const btn = document.createElement('button');
+    btn.style.cssText = 'padding:6px 10px;font-size:13px;border-radius:6px;border:1px solid #888;color:#fff;';
+    const poor = this.coins() < CS.FEE;
+    if (poor) {
+      btn.textContent = `还差 ${CS.FEE - this.coins()} 岛币`;
+      btn.style.background = '#5a5a5a';
+      btn.style.cursor = 'default';
+    } else if (this.pending === `cs:${c.mode}`) {
+      btn.textContent = `再点一次确认（扣 ${CS.FEE} 岛币）`;
+      btn.style.background = '#b03a2e';
+      btn.style.cursor = 'pointer';
+      btn.addEventListener('click', () => { this.pending = null; this.close(); this.onCs(c.mode); });
+    } else {
+      btn.textContent = `${CS.FEE} 岛币 报名`;
+      btn.style.background = '#2f5f8a';
+      btn.style.cursor = 'pointer';
+      btn.addEventListener('click', () => { this.pending = `cs:${c.mode}`; this.pendingAt = Date.now(); this.render(); });
     }
     row.appendChild(btn);
     return row;

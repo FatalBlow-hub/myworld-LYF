@@ -18,6 +18,7 @@ export class Hud {
   private visitEl: HTMLElement;
   private dateEl: HTMLElement;
   private arenaEl: HTMLElement | null = null;
+  private csStateEl: HTMLElement | null = null;
   private netStatus: NetStatus = 'disconnected';
   private onlineList: string[] = [];
   private hotbarEl = document.getElementById('hotbar')!;
@@ -188,6 +189,21 @@ export class Hud {
   /** 刷新左上角的日期 + 季节（跨天、睡醒、读档时调） */
   setDate(text: string): void {
     this.dateEl.textContent = text;
+  }
+
+  /** CS 大赛状态条：第几局 / 比分 / CS 币 / 当前阶段（传 null 收起） */
+  setCsState(text: string | null): void {
+    if (!this.csStateEl) {
+      const el = document.createElement('div');
+      el.id = 'cs-state';
+      el.style.cssText = 'position:absolute;top:10px;left:50%;transform:translateX(-50%);'
+        + 'font-size:16px;font-weight:bold;color:#8fe8ff;text-shadow:1px 1px 3px #000;display:none;';
+      this.root.appendChild(el);
+      this.csStateEl = el;
+    }
+    if (text === null) { this.csStateEl.style.display = 'none'; return; }
+    this.csStateEl.style.display = 'block';
+    this.csStateEl.textContent = text;
   }
 
   /** 竞技场倒计时：传秒数显示在顶部正中，传 null 收起（大厅/岛上不显示） */
