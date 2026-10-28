@@ -54,26 +54,33 @@ export class Survival {
         if (s.count <= 0) inventory.hotbar[this.d.slot()] = null;
         inventory.add(GLASS_BOTTLE, 1); // 喝完瓶子还回来
       }
+      let potionDur = 0; // 药水效果持续几秒（药水扣饥饿：效果期间每 10 秒多扣 1 点）
       if (s.id === POTION_POISON) {
         health.poison(POTION.POISON.dmg, POTION.POISON.every, POTION.POISON.dur);
+        potionDur = POTION.POISON.dur;
         hud.showMessage(`咕咚！喝下毒药，${POTION.POISON.dur} 秒里会一直掉血！`);
       } else if (s.id === POTION_DEADLY) {
         health.poison(POTION.DEADLY.dmg, POTION.DEADLY.every, POTION.DEADLY.dur);
+        potionDur = POTION.DEADLY.dur;
         hud.showMessage(`咕咚！是剧毒！${POTION.DEADLY.dur} 秒里掉血飞快！`);
       } else if (s.id === POTION_PHANTOM) {
         body.swayT = POTION.HALLUCINATE;
         body.swayPhase = 0;
         health.poison(SWAMP_HURT.PHANTOM.dmg, SWAMP_HURT.PHANTOM.every, POTION.HALLUCINATE);
+        potionDur = POTION.HALLUCINATE;
         hud.showMessage('咕咚！天旋地转，镜头自己晃起来了……');
       } else if (s.id === POTION_BREATH) {
         body.breathT = POTION.BREATH;
+        potionDur = POTION.BREATH;
         hud.showMessage(`咕咚！${POTION.BREATH} 秒水下呼吸，去潜水吧！`);
       } else if (s.id === POTION_ICE) {
         const r = hurtPlayer(health, GOLDEN.FREEZE_DAMAGE);
         if (r.died) this.d.respawn();
         body.frozenT = GOLDEN.FREEZE_SECONDS;
+        potionDur = GOLDEN.FREEZE_SECONDS;
         hud.showMessage('好冷！扣 2 点血，冻住 2 秒');
       }
+      hunger.setPotion(potionDur);
       return;
     }
     const fx = s ? health.eat(s.id) : null;

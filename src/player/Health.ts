@@ -41,12 +41,16 @@ export class Health {
   cleanseT = 0;
   private atkT = 0;
   private atkMult = 1;
+  /** 伤害拦截器（菖蒲护盾）：传入原伤害返回实扣血量（0 = 这次全挡了）；不设就原样扣 */
+  damageBlocker: ((amount: number) => number) | null = null;
 
   constructor(private mode: GameMode, private onRespawn?: () => void) {}
 
   /** 统一的伤害入口：摔落/溺水/以后的怪物攻击都走这里 */
   damage(amount: number): boolean {
     if (this.mode === 'creative' || this.invincible > 0) return false;
+    if (this.damageBlocker) amount = this.damageBlocker(amount);
+    if (amount <= 0) return false;
     this.hp = Math.max(0, this.hp - amount);
     return true;
   }

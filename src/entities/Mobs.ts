@@ -188,12 +188,14 @@ export class Mobs {
     }
 
     // 血尸/星空尸只在晚上出没：天亮了就全部化掉（化成烟，不掉东西）
+    // 挑战房里的血尸/星空尸不化（2026-10-29 设定：挑战房内不受黑夜限制，白天照样能打）
     // 腐败人和老鼠是黑夜尾巴上才来的，出现了就不走，得玩家自己打死
-    if (!night && this.zombies.some((z) => z.kind === 'blood' || z.kind === 'star')) {
+    const dayBurn = (z: Zombie) => (z.kind === 'blood' || z.kind === 'star') && !z.inChallenge;
+    if (!night && this.zombies.some(dayBurn)) {
       for (const z of this.zombies) {
-        if (z.kind === 'blood' || z.kind === 'star') this.scene.remove(z.group);
+        if (dayBurn(z)) this.scene.remove(z.group);
       }
-      this.zombies = this.zombies.filter((z) => z.kind !== 'blood' && z.kind !== 'star');
+      this.zombies = this.zombies.filter((z) => !dayBurn(z));
     }
 
     this.timer -= dt;

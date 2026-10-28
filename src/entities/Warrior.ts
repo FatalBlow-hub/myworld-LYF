@@ -80,6 +80,20 @@ export class Warrior {
     if (this.hp <= 0) this.dead = true;
   }
 
+  /** 第二天刷新（2026-10-29 设定：召唤物一直存在，第二天刷新替换）：血量回满、回到重生点、状态清空 */
+  refresh(x: number, y: number, z: number): void {
+    this.hp = this.maxHp;
+    this.dead = false;
+    this.fleeing = false;
+    this.attackT = 0;
+    this.skillT = 0;
+    this.regenT = 0;
+    this.critReady = false;
+    this.x = x; this.y = y; this.z = z;
+    this.vy = 0;
+    this.syncMesh();
+  }
+
   /**
    * 每帧：选目标 → 走过去砍 / 跟着主人；顺便跑三档的特技。
    * 返回这一帧有没有打死怪（用来给 HUD 提示）。
@@ -139,9 +153,9 @@ export class Warrior {
     this.syncMesh();
 
     let killed = false;
-    // 贴到怪身上就砍（正在后撤养伤的时候不出手）
+    // 贴到怪身上就砍（正在后撤养伤的时候不出手）；攻速分档：普通 3 秒 / 高级 2 秒 / 绝世 1 秒一刀
     if (!this.fleeing && target && dist < WARRIOR.ATTACK_DIST && this.attackT <= 0) {
-      this.attackT = WARRIOR.ATTACK_EVERY;
+      this.attackT = skill.attackEvery;
       killed = this.strike(target, false);
     }
 

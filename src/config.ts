@@ -625,10 +625,14 @@ export const SHOP = {
   SKIN_PUMPKIN_PRICE: 32,    // 特殊物品售卖机：史蒂夫南瓜头版·万圣节（买一次永久解锁）
 };
 
-/** 白萝卜炒股（2026-10-24 设定）：每周一黑色售卖机进货，价格每人每天 50~666 随机，下周一没卖就烂 */
+/** 白萝卜价格（2026-10-29 设定）：周一黑色售卖机进货价 4~10 岛币随机，
+ *  每天回收价 2~12 岛币随机；都按「账号名 + 日期」当种子摇，同一个人同一天固定；
+ *  下周一还没卖 → 全部烂掉 */
 export const RADISH = {
-  PRICE_MIN: 50,
-  PRICE_MAX: 666,
+  BUY_MIN: 4,
+  BUY_MAX: 10,
+  SELL_MIN: 2,
+  SELL_MAX: 12,
 };
 
 /** 收购箱价目表：物品ID → { coins: 一份换多少岛币, per: 几个算一份 }
@@ -700,6 +704,14 @@ export const SELL_PRICE: Record<number, { coins: number; per: number }> = {
   390: { coins: 2, per: 1 },  // 胡萝卜肉饺（单个）
   391: { coins: 7, per: 1 },  // 胡萝卜蛋糕
   392: { coins: 3, per: 1 },  // 胡萝卜炒蘑菇
+  // —— 2026-10-29 新价目：最便宜的基础料 + 三种泽液瓶（淡沼泽液不在价目表，收不了）——
+  2:   { coins: 0.02, per: 1 },  // 泥土
+  4:   { coins: 0.02, per: 1 },  // 沙子
+  31:  { coins: 0.02, per: 1 },  // 雪块
+  172: { coins: 0.05, per: 1 },  // 煤粉
+  332: { coins: 3, per: 1 },     // 玻璃瓶(沼泽液)
+  333: { coins: 3, per: 1 },     // 玻璃瓶(幻泽液)
+  335: { coins: 3, per: 1 },     // 玻璃瓶(溺泽液)
 };
 
 /** 椰子树：只长在沙滩（沙子地面、离海平面 2 格以内），树顶挂 3~4 个椰子 */
@@ -736,7 +748,6 @@ export const WARRIOR = {
   FAR_DIST: 8,       // 离主人超过这么多格开始加速追
   AGGRO: 12,         // 看到几格内的怪就上去打
   ATTACK_DIST: 1.5,  // 几格内能砍到怪
-  ATTACK_EVERY: 0.9, // 攻击间隔（秒）
   TELEPORT_DIST: 32, // 离主人超过这么多格直接闪现回身边，别走丢
   MEMORY: 6,         // 「怪在打主人 / 主人在打怪」记几秒，用来排攻击优先级
   RETREAT_HP: 0.35,  // 血量掉到这个比例以下就不硬拼，先往后退
@@ -744,12 +755,13 @@ export const WARRIOR = {
   RETREAT_RANGE: 10, // 后退时最多离主人这么远，再远就往主人身边靠
   RETREAT_HEAL: 1.2, // 后退时每秒回多少血（缓过来再上）
   /** 三档：血量与攻击是僵尸的倍数（血量 3/6/9 = 36/72/108，每档都比原来硬三倍）；
+   *  attackEvery 是各自的攻击间隔（2026-10-29 设定：普通 3 秒 / 高级 2 秒 / 绝世 1 秒一刀）；
    *  其余是各自的特技（普通暴击 / 高级回血 / 绝世秒杀+回血） */
   TIERS: {
-    normal: { hpMult: 3, dmgMult: 1, critEvery: 8, critChance: 0.02 },
-    advanced: { hpMult: 6, dmgMult: 1, healEvery: 10, healChance: 0.04 },
+    normal: { hpMult: 3, dmgMult: 1, attackEvery: 3, critEvery: 8, critChance: 0.02 },
+    advanced: { hpMult: 6, dmgMult: 1, attackEvery: 2, healEvery: 10, healChance: 0.04 },
     epic: {
-      hpMult: 9, dmgMult: 2,
+      hpMult: 9, dmgMult: 2, attackEvery: 1,
       killEvery: 3, killChance: 0.10,          // 每 3 秒 10% 秒杀正在打的怪
       regenEvery: 5, regenChance: 0.05,        // 每 5 秒 5% 回一口血（约等于挨僵尸打两次）
       regenAmount: ZOMBIE.DAMAGE * 2,
@@ -757,17 +769,19 @@ export const WARRIOR = {
   },
 };
 
-/** 弓箭手小战士（小战士弓/火弓/冰弓召唤的哨兵，2026-10-24 设定）：
- *  血量/攻击 = 普通僵尸，移速 = 僵尸一半；离怪约 4 格停下放箭，怪走远继续追 */
+/** 弓箭手小战士（小战士弓/火弓/冰弓召唤的哨兵，2026-10-24 设定；射速/伤害 2026-10-29 分形态定档）：
+ *  血量/防御 = 普通僵尸，移速 = 僵尸一半；离怪 4~5 格停下放箭，最大射程 5 格 */
 export const ARCHER = {
   SPEED: ZOMBIE.SPEED / 2,  // 移速 = 僵尸的一半（1.1）
-  KEEP_DIST: 4,            // 距离怪这么远就停下开射，不贴脸
-  SHOOT_RANGE: 5.5,        // 这个距离内才放箭（比停靠点略宽，怪贴上来也照射）
-  SHOOT_EVERY: 1.2,        // 射箭间隔（秒）
+  KEEP_DIST: 4,            // 距离怪这么远就停下开射，不贴脸（4~5 格站位）
+  SHOOT_RANGE: 5,          // 箭矢最大攻击射程（格）
+  /** 射箭间隔（秒）：普通 2 秒一箭 / 火 1.5 秒 / 冰 1.75 秒 */
+  SHOOT_EVERY: { normal: 2, fire: 1.5, ice: 1.75 },
+  /** 每箭伤害（血量点数）：火弓 1.5 无特效不叠加，冰弓 1 点带控制 */
+  DMG: { normal: 1, fire: 1.5, ice: 1 },
   AGGRO: 12,               // 看到几格内的怪（和普通小战士同一只眼力）
   ARROW_SPEED: 16,         // 箭速（格/秒），直线飞行
   ARROW_RANGE: 14,         // 箭最远飞几格
-  FIRE_MULT: 1.5,          // 火弓攻击倍率（无燃烧附加，伤害不叠加）
   ICE_FREEZE: 0.5,         // 冰弓：命中先冻结几秒
   ICE_SLOW: 0.5,           // 冰弓：冻完再半速几秒（连续命中要等上一轮走完才开新一轮）
 };
@@ -877,6 +891,12 @@ export const SEASON_FOOD = {
   POUCH_RADIUS: 4,     // 菖蒲香囊：自身方圆几格内的怪物
   POUCH_EVERY: 4,      // 每几秒扣一次血
   POUCH_DAMAGE: 1,     // 每次扣几点
+  /** 菖蒲香囊耐久（秒，2026-10-29 设定）：戴着每秒磨 1 点，磨完就烂掉 */
+  POUCH_DURABILITY: 1000,
+  /** 菖蒲护盾（2026-10-29 设定）：受击 50% 概率免掉 1 点伤害，每次挡下磨 1 点耐久 */
+  SHIELD_CHANCE: 0.5,
+  SHIELD_BLOCK: 1,
+  SHIELD_DURABILITY: 55,
   BEAD_CHANCE: 0.125,  // 冬季挖树叶掉装饰珠子的概率
   BIRCH_SNOWFLAKE_CHANCE: 0.15, // 冬季挖普通树叶（设定的"桦树叶"）额外掉一朵雪花的概率
   CALAMUS_CHANCE: 0.125, // 夏季水面长出菖蒲叶的概率
@@ -904,6 +924,8 @@ export const POTION = {
   SLOW: { mult: 0.5, dur: 15 },            // 幻药瓶砸中怪：速度减半 15 秒
   BREATH: 60,        // 防溺瓶：水下呼吸 60 秒
   HALLUCINATE: 6,    // 自己喝幻药瓶：晕几秒镜头摇摆
+  /** 药水扣饥饿（2026-10-29 设定）：药水效果期间每隔这么久多扣 1 点饥饿 */
+  HUNGER_EVERY: 10,
 };
 
 /** 僵尸掉深绿颜料的概率（1/20） */

@@ -60,7 +60,7 @@ import { SettingsPanel } from '../ui/SettingsPanel';
 import { DRINK_GOODS, SPECIAL_GOODS, STORE_GOODS, ShopGood, fmtCoins, rollGood } from '../world/Shop';
 import { consumeQuota, remainingOf, ShopQuota } from '../world/shopLimits';
 import { blackPriceOf, refreshBlackMarket, BlackMarketState } from '../world/blackMarket';
-import { hashName, radishPrice, WHITE_RADISH } from '../world/radish';
+import { hashName, radishBuyPrice, radishSellPrice, WHITE_RADISH } from '../world/radish';
 import { dayOfYear, isMonday, weekdayOf, WEEKDAY_CN } from './Calendar';
 import { BLACK_PICKAXE } from '../world/blocks.black';
 import { BLACK_PICK } from '../config';
@@ -169,6 +169,7 @@ export class Game {
   private travelerPanel: TravelerPanel | null = null;
   private fireworks: Fireworks | null = null;
   private pouchT = 0;
+  private pouchWearT = 0; // 菖蒲香囊耐久磨损计时（戴着每秒磨 1 点）
   /** CS 大赛：赛事状态机 + CS 商店面板 + 开枪时点亮视野的余时 */
   private csMatch: CsMatch | null = null;
   private csShopPanel: CsShopPanel | null = null;
@@ -360,6 +361,7 @@ export class Game {
     this.appearance.load(save);
     this.mobs.zombieAttack = zombieAttack; this.mobs.zombieSpawn = zombieAttack;
     this.hunger = new Hunger(mode); this.health = new Health(mode, () => this.hunger!.respawn());
+    this.health.damageBlocker = (amount) => this.shieldBlock(amount); // 菖蒲护盾：50% 免 1 点伤害
     this.inventory = new Inventory(mode);
     this.book.bindInventory(this.inventory);
     this.book.onText = (m) => this.hud?.showMessage(m, 3, true); // 手册"只显示一行字"模式；玩家自己选的，force 过提示语开关
@@ -570,10 +572,16 @@ export class Game {
     this.winterIsland = type === 'winter'; // 冬季岛常年下雪，不受日历季节限制
   }
 
-  /** 翻到新的一天：刷新 HUD 日期；黑色售卖机换货（昨天的清空）；周一没卖的白萝卜全烂；季节变了才换叶；入冬把地图上的蘑菇全清掉（设定：冬季蘑菇全部消失） */
+  /** 翻到新的一天：刷新 HUD 日期；黑色售卖机换货（昨天的清空）；周一没卖的白萝卜全烂；召唤物刷新替换；季节变了才换叶；入冬把地图上的蘑菇全清掉（设定：冬季蘑菇全部消失） */
   private onNewDay(): void {
     this.hud?.setDate(dateLabel(this.day.date));
     this.blackMarket = refreshBlackMarket(this.blackMarket, this.day.date);
+    // 召唤物刷新替换（2026-10-29 设定：小战士/弓箭手一直存在，第二天原样重刷——血量回满、回到重生点）
+    if (this.mobs.warriors.length > 0 || this.mobs.archers.length > 0) {
+      for (const w of this.mobs.warriors) w.refresh(this.spawn.x, this.spawn.y, this.spawn.z);
+      for (const a of this.mobs.archers) a.refresh(this.spawn.x, this.spawn.y, this.spawn.z);
+      this.hud?.showMessage('新的一天：小战士们刷新了，已回到重生点', 2.5);
+    }
     // 翻到周一：上周没卖的白萝卜全烂掉（早上烂完，今天才能买新萝卜）
     if (isMonday(this.day.date) && this.inventory) {
       const rotten = this.inventory.removeAll(WHITE_RADISH);
@@ -704,18 +712,21 @@ export class Game {
         },
         soldNote: '今天卖完了',
       }];
-      // 白萝卜：每人每天一个价（50~666），周一进货价能买，平时只回收；下周一没卖全烂
-      const rPrice = radishPrice(hashName(this.playerName || '游客'), dayOfYear(this.day.date));
+      // 白萝卜：买入/回收各一个价（2026-10-29 设定：进货 4~10、回收 2~12），都按人按天固定；下周一没卖全烂
+      const nameHash = hashName(this.playerName || '游客');
+      const dayIdx = dayOfYear(this.day.date);
+      const rBuy = radishBuyPrice(nameHash, dayIdx);
+      const rSell = radishSellPrice(nameHash, dayIdx);
       const wd = WEEKDAY_CN[weekdayOf(this.day.date)];
       if (isMonday(this.day.date)) {
         goods.push({
-          id: WHITE_RADISH, price: rPrice,
+          id: WHITE_RADISH, price: rBuy,
           note: `${wd}进货价 · 下周一没卖会烂`,
         });
       }
       goods.push({
-        id: WHITE_RADISH, price: rPrice, sellPrice: rPrice,
-        label: `白萝卜回收（今天 ${fmtCoins(rPrice)}/个）`,
+        id: WHITE_RADISH, price: rSell, sellPrice: rSell,
+        label: `白萝卜回收（今天 ${fmtCoins(rSell)}/个）`,
         have: () => this.inventory?.countOf(WHITE_RADISH) ?? 0,
       });
       this.shopPanel?.open('黑色售卖机', goods, (g) => g.stock?.(),
@@ -1202,8 +1213,9 @@ export class Game {
 
   /** 有人踩上陷阱：登记 3 秒后自毁；玩家额外把位置锁住（怪走 Zombie.trapT 那条路） */
   private springTrap(x: number, y: number, z: number, body?: PlayerBody): void {
-    // 戴着菖蒲护盾的玩家踩上去不触发（陷阱留着坑别人/怪）
+    // 戴着菖蒲护盾的玩家踩上去不触发（陷阱留着坑别人/怪）；挡一次磨 1 点耐久
     if (body && this.inventory?.armor[0]?.id === SHIELD_CALAMUS) {
+      this.wearShield();
       this.hud?.showMessage('菖蒲护盾挡住了陷阱', 1.2);
       return;
     }
@@ -1214,6 +1226,26 @@ export class Game {
       this.trapLock = { x: body.x, z: body.z, t: TRAP.FREEZE };
       this.hud?.showMessage(`踩到柳条陷阱！被困住 ${TRAP.FREEZE} 秒`, 2);
     }
+  }
+
+  /** 菖蒲护盾磨 1 点耐久；磨完就碎掉（护甲槽清空并提示） */
+  private wearShield(): void {
+    const armor = this.inventory?.armor[0];
+    if (!armor || armor.id !== SHIELD_CALAMUS) return;
+    armor.durability = (armor.durability ?? SEASON_FOOD.SHIELD_DURABILITY) - 1;
+    if (armor.durability <= 0) {
+      this.inventory!.armor[0] = null;
+      this.hud?.showMessage('菖蒲护盾碎掉了！', 2.5);
+      this.hud?.refreshHotbar(this.inventory!, this.slot);
+    }
+  }
+
+  /** 菖蒲护盾的伤害拦截（挂在 Health.damageBlocker 上）：50% 概率把这次伤害免掉 1 点，挡下就磨耐久 */
+  private shieldBlock(amount: number): number {
+    if (this.inventory?.armor[0]?.id !== SHIELD_CALAMUS) return amount;
+    if (Math.random() >= SEASON_FOOD.SHIELD_CHANCE) return amount;
+    this.wearShield();
+    return Math.max(0, amount - SEASON_FOOD.SHIELD_BLOCK);
   }
 
   /** 每帧：玩家/怪踩到陷阱就禁锢，时间到了陷阱自己消失（不掉东西） */
@@ -1258,6 +1290,7 @@ export class Game {
 
   /** 菖蒲香囊：戴着它时，自身方圆 4 格内的怪每 4 秒扣 1 血 */
   private pouchTick(dt: number, body: PlayerBody): void {
+    this.pouchWear(dt); // 香囊耐久：戴着就磨，跟光环扣不扣血无关
     this.pouchT -= dt;
     if (this.pouchT > 0) return;
     this.pouchT = SEASON_FOOD.POUCH_EVERY;
@@ -1267,6 +1300,21 @@ export class Game {
       if (Math.hypot(z.x - body.x, z.z - body.z) > SEASON_FOOD.POUCH_RADIUS) continue;
       z.hp = Math.max(0, z.hp - SEASON_FOOD.POUCH_DAMAGE);
       if (z.hp <= 0) { z.dead = true; this.mobs.kill(z); }
+    }
+  }
+
+  /** 菖蒲香囊耐久（2026-10-29 设定：耐久 1000 秒）：戴着每秒磨 1 点，磨完就烂掉 */
+  private pouchWear(dt: number): void {
+    const armor = this.inventory?.armor[0];
+    if (!armor || armor.id !== POUCH_CALAMUS) { this.pouchWearT = 0; return; }
+    this.pouchWearT += dt;
+    if (this.pouchWearT < 1) return;
+    this.pouchWearT -= 1;
+    armor.durability = (armor.durability ?? SEASON_FOOD.POUCH_DURABILITY) - 1;
+    if (armor.durability <= 0) {
+      this.inventory!.armor[0] = null;
+      this.hud?.showMessage('菖蒲香囊烂掉了！', 2.5);
+      this.hud?.refreshHotbar(this.inventory!, this.slot);
     }
   }
 

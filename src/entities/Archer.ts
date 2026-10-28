@@ -67,7 +67,7 @@ export class Archer {
     this.form = form;
     this.x = x; this.y = y; this.z = z;
     this.postX = x; this.postY = y; this.postZ = z;
-    this.dmg = ZOMBIE.DAMAGE * (form === 'fire' ? ARCHER.FIRE_MULT : 1);
+    this.dmg = ARCHER.DMG[form]; // 普通弓 1 / 火弓 1.5（无特效不叠加）/ 冰弓 1（带冻结减速）
     this.buildMesh();
     this.syncMesh();
   }
@@ -76,6 +76,16 @@ export class Archer {
   hurt(dmg: number): void {
     this.hp = Math.max(0, this.hp - dmg);
     if (this.hp <= 0) this.dead = true;
+  }
+
+  /** 第二天刷新（2026-10-29 设定：召唤物一直存在，第二天刷新替换）：血量回满、回到重生点当岗位 */
+  refresh(x: number, y: number, z: number): void {
+    this.hp = this.maxHp;
+    this.dead = false;
+    this.x = x; this.y = y; this.z = z;
+    this.vy = 0;
+    this.goTo(x, y, z);
+    this.syncMesh();
   }
 
   /** 挪岗：玩家回重生点时把岗位改到重生点，它会自己走过去 */
@@ -122,11 +132,11 @@ export class Archer {
     else this.y = ny;
     this.syncMesh();
 
-    // 开火：怪进了射程、看得见、冷却好了就放一箭
+    // 开火：怪进了射程、看得见、冷却好了就放一箭（射速分形态：普通 2 秒 / 火 1.5 秒 / 冰 1.75 秒）
     if (target) {
       const dist = Math.hypot(target.x - this.x, target.z - this.z);
       if (dist <= ARCHER.SHOOT_RANGE && this.shootT <= 0 && this.canSee(world, target)) {
-        this.shootT = ARCHER.SHOOT_EVERY;
+        this.shootT = ARCHER.SHOOT_EVERY[this.form];
         this.shoot(target);
       }
     }

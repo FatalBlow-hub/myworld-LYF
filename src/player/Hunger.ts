@@ -1,6 +1,6 @@
 /** 饥饿 — 7 格鸡腿条、消耗计时、O 键开关、归零扣血判定与食物加速辅助 */
 
-import { BOOST, HUNGER } from '../config';
+import { BOOST, HUNGER, POTION } from '../config';
 import { GameMode } from './Health';
 import { PlayerBody } from './Physics';
 
@@ -11,6 +11,8 @@ export class Hunger {
   enabled = false;
   private drainTimer = 0;
   private starveTimer = 0;
+  private potionT = 0;      // 药水效果剩余秒数（喝药水时登记）
+  private potionDrainT = 0; // 药水扣饥饿计时
 
   constructor(private mode: GameMode) {}
 
@@ -27,9 +29,17 @@ export class Hunger {
     if (this.value > 0) this.starveTimer = 0;
   }
 
-  /** 每帧更新：开启时每 60 秒掉 1 格；归零后每 2 秒触发一次饥饿扣血，返回本帧应扣的总血量 */
+  /** 喝了药水：接下来 seconds 秒里效果持续，期间每 POTION.HUNGER_EVERY 秒多扣 1 点饥饿 */
+  setPotion(seconds: number): void {
+    if (!(seconds > 0)) return;
+    this.potionT = Math.max(this.potionT, seconds);
+    this.potionDrainT = 0;
+  }
+
+  /** 每帧更新：开启时每 60 秒掉 1 格；药水效果期间每 10 秒多扣 1 格；归零后每 2 秒触发一次饥饿扣血，返回本帧应扣的总血量 */
   update(dt: number): number {
     if (this.mode === 'creative' || !this.enabled) return 0;
+    this.potionT = Math.max(0, this.potionT - dt);
 
     if (this.value > 0) {
       this.starveTimer = 0;
@@ -37,6 +47,16 @@ export class Hunger {
       while (this.drainTimer >= HUNGER.DRAIN_EVERY && this.value > 0) {
         this.drainTimer -= HUNGER.DRAIN_EVERY;
         this.value = Math.max(0, this.value - 1);
+      }
+      // 药水扣饥饿（2026-10-29 设定）：效果期间每 10 秒多扣 1 点
+      if (this.potionT > 0) {
+        this.potionDrainT += dt;
+        while (this.potionDrainT >= POTION.HUNGER_EVERY && this.value > 0) {
+          this.potionDrainT -= POTION.HUNGER_EVERY;
+          this.value = Math.max(0, this.value - 1);
+        }
+      } else {
+        this.potionDrainT = 0;
       }
       if (this.value === 0) {
         this.drainTimer = 0;
@@ -58,6 +78,8 @@ export class Hunger {
     this.value = HUNGER.MAX;
     this.drainTimer = 0;
     this.starveTimer = 0;
+    this.potionT = 0;
+    this.potionDrainT = 0;
   }
 }
 

@@ -102,7 +102,7 @@ export const TUTORIALS: Tutorial[] = (() => {
   // 腰包做法追加在最后，别打乱以前学会的方法编号
   list.push({ text: `装备：${name(WOOL_WHITE)}×4 + ${name(STICK)}×1 → ${name(BAG_WOOL)}（8格，穿在装备栏第二格；光放羊毛会变成地毯，记得加根木棍当包带）；羊毛腰包 + 任意颜料×1 染成同颜色的腰包，+ 玻璃/杂草/树叶/竹子/白羽毛/橡胶/芒星碎片/星星碎片 包出对应材质的腰包`, icon: BAG_WOOL, needs: [[WOOL_WHITE, 4], [STICK, 1]], cat: 'equip' });
   // 白萝卜炒股追加在最后，别打乱以前学会的方法编号
-  list.push({ text: `使用：黑色售卖机每周一卖白萝卜（每个人的价格不一样，50~666 随机）；买回来盯着每天的回收价，哪天高了全部卖出赚差价——到了下周一还没卖，萝卜会全烂掉`, icon: WHITE_RADISH, cat: 'misc' });
+  list.push({ text: `使用：黑色售卖机每周一卖白萝卜（进货价每个人 4~10 随机）；买回来盯着每天的回收价（每个人 2~12 随机），哪天高了全部卖出赚差价——到了下周一还没卖，萝卜会全烂掉`, icon: WHITE_RADISH, cat: 'misc' });
   // 绳索与美食工作台追加在最后，别打乱以前学会的方法编号
   list.push({ text: `使用：拿着${name(ROPE)}对准牛/猪/羊/鸟按 M 拴住，动物会跟着你走；再按 M 一次就放开（蒲公英驯服那套不受影响）`, icon: ROPE, cat: 'small' });
   list.push({ text: `使用：${name(FOOD_TABLE)}是独立的功能台——只能做美食配方，普通工作台做不了美食；它也做不了道具配方。只在自由岛能用，带不进大赛`, icon: FOOD_TABLE, cat: 'build' });
