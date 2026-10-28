@@ -1,8 +1,8 @@
 /** 入口 — 创建游戏，先显示主菜单选模式 */
 
-import { applyPlatformClass } from './ui/Platform';
+import { applyPlatformClass } from './ui/touch/Platform';
 import { Game } from './core/Game';
-import { AddictGuard } from './ui/AddictGuard';
+import { AddictGuard } from './ui/account/AddictGuard';
 
 // 先认清是手机还是电脑（决定 UI 布局与要不要虚拟按键），再建游戏
 applyPlatformClass();

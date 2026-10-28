@@ -2,25 +2,25 @@
 
 import * as THREE from 'three';
 import { HUNGER, ISLAND_TYPES, LEGACY_ISLAND_MAP, pickIslandType, IslandType, SKATES } from '../config';
-import { Animal, AnimalKind } from '../entities/Animal';
-import { CharacterKind } from '../entities/Character';
-import { ItemDrop } from '../entities/ItemDrop';
-import { spawnDrop } from '../entities/drops';
-import { GameMode, Health } from '../player/Health';
-import type { ShopQuota } from '../world/shopLimits';
-import { Hunger } from '../player/Hunger';
+import { Animal, AnimalKind } from '../entities/creatures/Animal';
+import { CharacterKind } from '../entities/creatures/Character';
+import { ItemDrop } from '../entities/objects/ItemDrop';
+import { spawnDrop } from '../entities/objects/drops';
+import { GameMode, Health } from '../player/stats/Health';
+import type { ShopQuota } from '../world/economy/shopLimits';
+import { Hunger } from '../player/stats/Hunger';
 import { Inventory } from '../player/Inventory';
-import { PlayerBody } from '../player/Physics';
-import { AIR, ROLLER_SKATES, Slots, Stack } from '../world/Block';
+import { PlayerBody } from '../player/motion/Physics';
+import { AIR, ROLLER_SKATES, Slots, Stack } from '../world/blocks/Block';
 import { FurnaceState, World } from '../world/World';
-import { SPORE_GROW_SECONDS, SPORE_PLANT_IDS } from '../world/mushrooms';
-import { Zombie, ZombieKind } from '../entities/Zombie';
-import { Warrior, WarriorTier } from '../entities/Warrior';
-import { Archer, BowForm } from '../entities/Archer';
-import { Tank } from '../entities/Tank';
-import { GameDate, normalizeDate } from './Calendar';
-import { Challenge, ChallengeSave } from './Challenge';
-import type { BlackMarketState } from '../world/blackMarket';
+import { SPORE_GROW_SECONDS, SPORE_PLANT_IDS } from '../world/terrain/mushrooms';
+import { Zombie, ZombieKind } from '../entities/mobs/Zombie';
+import { Warrior, WarriorTier } from '../entities/summons/Warrior';
+import { Archer, BowForm } from '../entities/summons/Archer';
+import { Tank } from '../entities/objects/Tank';
+import { GameDate, normalizeDate } from './loops/Calendar';
+import { Challenge, ChallengeSave } from './scenes/Challenge';
+import type { BlackMarketState } from '../world/economy/blackMarket';
 
 /** 最多 3 个账号存档：blockworld-save-1 / -2 / -3 */
 export const MAX_SLOTS = 3;

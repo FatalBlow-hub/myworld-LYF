@@ -1,7 +1,7 @@
 /** 区块 — 一块 16×64×16 的方块柱子，是世界的最小存储单位 */
 
 import { CHUNK } from '../config';
-import { AIR } from './Block';
+import { AIR } from './blocks/Block';
 
 export class Chunk {
   readonly cx: number;

@@ -1,14 +1,14 @@
 /** 世界 — 区块 + 方块朝向 + 箱子/熔炉内容 + 按碰撞盒的碰撞查询 */
 
 import { CHUNK, SMELT_TIME, WATER_FLOW } from '../config';
-import { AIR, BAMBOO, CROP_NEXT, SAPLING_MATURE, SAPLING_NEXT, SOUL_FURNACE, STONE, isLiquid, Slots } from './Block';
-import { bambooStandable } from './bamboo';
-import { solidBoxes } from './Shapes';
-import { tryGrowTree } from './Trees';
-import { SMELT } from './Recipes';
+import { AIR, BAMBOO, CROP_NEXT, SAPLING_MATURE, SAPLING_NEXT, SOUL_FURNACE, STONE, isLiquid, Slots } from './blocks/Block';
+import { bambooStandable } from './terrain/bamboo';
+import { solidBoxes } from './recipes/Shapes';
+import { tryGrowTree } from './terrain/Trees';
+import { SMELT } from './recipes/Recipes';
 import { Chunk } from './Chunk';
-import { MUSHROOM_LIKE_IDS } from './mushrooms';
-import { generateChunk } from './TerrainGen';
+import { MUSHROOM_LIKE_IDS } from './terrain/mushrooms';
+import { generateChunk } from './terrain/TerrainGen';
 
 export interface FurnaceState {
   /** [0]=放进来的料，[1]=烧好的成品 */

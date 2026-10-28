@@ -1,7 +1,7 @@
 /** 背包 — 格子制：快捷栏 9 格 + 储物 27 格 + 装备 4 格 + 合成 2×2，鼠标捏着东西搬来搬去 */
 
 import { BLACK_PICK, SKATES, STACK_MAX } from '../config';
-import { BLACK_PICKAXE, LIQUID_FILL, ROLLER_SKATES, Slots, Stack, SWORD_OF, WAISTBAG_CAPACITY, WAISTBAG_SLOT, isWaistbag, liquidCapOf } from '../world/Block';
+import { BLACK_PICKAXE, LIQUID_FILL, ROLLER_SKATES, Slots, Stack, SWORD_OF, WAISTBAG_CAPACITY, WAISTBAG_SLOT, isWaistbag, liquidCapOf } from '../world/blocks/Block';
 
 /** 一格最多叠几个：液体容器装的是"格数"（瓶 1 格、桶 3 格）；轮滑鞋/黑色木镐/剑独占一格，耐久另外记录 */
 export function stackMaxFor(id: number): number {
@@ -9,8 +9,8 @@ export function stackMaxFor(id: number): number {
   if (id === ROLLER_SKATES || id === BLACK_PICKAXE || id in SWORD_OF || isWaistbag(id)) return 1;
   return STACK_MAX;
 }
-import { CraftMatch } from '../world/Recipes';
-import { GameMode } from './Health';
+import { CraftMatch } from '../world/recipes/Recipes';
+import { GameMode } from './stats/Health';
 
 export type { Slots, Stack };
 

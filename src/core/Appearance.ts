@@ -5,7 +5,7 @@
  *  本类只管内存里的状态，什么时候落盘由 Game 决定（大厅/岛上的存档规则不同）。
  */
 
-import { CHARACTER_KINDS, CharacterKind, isCharacterKind } from '../entities/Character';
+import { CHARACTER_KINDS, CharacterKind, isCharacterKind } from '../entities/creatures/Character';
 
 /** 新账号默认就拥有的形象 */
 export const STARTER_SKINS: readonly CharacterKind[] = ['steve', 'alex'];

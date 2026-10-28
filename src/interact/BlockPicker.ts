@@ -1,11 +1,11 @@
 /** 方块拾取 — 从眼睛沿视线发射线找方块，执行挖掘 / 放置 / 开关门 */
 
 import { CHUNK, PLAYER } from '../config';
-import { AIR, BAMBOO, BLOCKS, CARROT_SEED, DIRT, DOOR_CLOSED, GRASS, RICE_SEED, SEAWEED, STAR_WOOL, WATER, dropOf, isBed, isDoor, isLiquid, isPlant, isSolid, toggleDoor } from '../world/Block';
-import { bambooStandable } from '../world/bamboo';
-import { META_DIRS } from '../world/Shapes';
+import { AIR, BAMBOO, BLOCKS, CARROT_SEED, DIRT, DOOR_CLOSED, GRASS, RICE_SEED, SEAWEED, STAR_WOOL, WATER, dropOf, isBed, isDoor, isLiquid, isPlant, isSolid, toggleDoor } from '../world/blocks/Block';
+import { bambooStandable } from '../world/terrain/bamboo';
+import { META_DIRS } from '../world/recipes/Shapes';
 import { World } from '../world/World';
-import { PlayerBody } from '../player/Physics';
+import { PlayerBody } from '../player/motion/Physics';
 
 export interface BlockHit {
   /** 指到的方块格子 */

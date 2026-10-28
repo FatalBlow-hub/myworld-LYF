@@ -21,16 +21,17 @@
 - 后端：`server/index.mjs`（纯 Node + better-sqlite3，零框架），数据全在 `server/data.db`
 
 ### 模块地图
-- `world` 区块方块+地形+配方+容器 · `render` 面剔除网格+渲染 · `player` 键盘物理+背包
-- `entities` 动物/怪物/掉落物/坦克/人物（史蒂夫·艾力克斯 3D 模型） · `interact` 射线挖放 · `ui` 登录+菜单+HUD+面板+触屏
+- 目录规范（2026-10-29 起）：同目录同类文件 ≥5 个按功能进子目录——`world/{blocks,recipes,maps,terrain,economy}` · `render/{textures,mesh,fx}` · `ui/{panels,hud,touch,account}` · `core/{actions,scenes,loops}`（待建 `core/systems/` 承接 Game.ts 拆分）· `entities/{mobs,summons,creatures,projectiles,objects}` · `player/{motion,stats}`
+- `world` 区块方块+地形+配方+经济 · `render` 面剔除网格+渲染+特效 · `player` 键盘物理+背包
+- `entities` 动物/怪物/召唤物/投掷物/掉落物/人物（史蒂夫·艾力克斯 3D 模型） · `interact` 射线挖放 · `ui` 登录+菜单+HUD+面板+触屏
 - `core/Game` 主循环装配 · `server` 静态托管+注册登录+存档接口
-- `ui/Platform` 平台判定（手机还是桌面），决定要不要虚拟按键、走哪套 UI 布局
+- `ui/touch/Platform` 平台判定（手机还是桌面），决定要不要虚拟按键、走哪套 UI 布局
 
 ### 硬约定
 - 依赖方向：`ui/interact/player → render/world → config`，禁止循环依赖
 - 魔法数字集中在 `src/config.ts`；业务文件 ≤500 行；注释中文、代码英文
 - 存档格式 v1；测试禁止动正式账号的存档和 localStorage
-- 桌面/手机版共用同一份 `src/main.ts` 入口与同一份 bundle：平台判定统一走 `ui/Platform.ts`（`?touch=1` > 手机版域名 > 触屏设备），域名规则写 `config.ts` 的 `MOBILE`，禁止再写 `'ontouchstart' in window` 这类裸判定；UI 差异用 CSS 的 `.is-mobile` 分支或 JS 里的 `isMobile()`，不要复制第二份 UI 代码
+- 桌面/手机版共用同一份 `src/main.ts` 入口与同一份 bundle：平台判定统一走 `ui/touch/Platform.ts`（`?touch=1` > 手机版域名 > 触屏设备），域名规则写 `config.ts` 的 `MOBILE`，禁止再写 `'ontouchstart' in window` 这类裸判定；UI 差异用 CSS 的 `.is-mobile` 分支或 JS 里的 `isMobile()`，不要复制第二份 UI 代码
 - 测试分工：白天（7:00–23:00）完成任务后 AI 不跑测试，改完代码提示用户自己验收；夜里（23:00–次日 7:00）AI 先跑单元测试做回归，再用 MCP 浏览器（Playwright）打开游戏验收；发现问题自我迭代修复，直到通过或满 3 轮，仍不行则记录原因次日汇报
 - 测试资产：world/recipes/save 等纯逻辑模块逐步沉淀单元测试（改到哪块顺手补哪块），是可以反复跑的长期资产；浏览器验收按任务需要做，不必每次跑
 - 变更历史、接口约定、验证记录 → `docs/变更历史.md`；架构细节 → `docs/架构/架构文档.md`

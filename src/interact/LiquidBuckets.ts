@@ -1,7 +1,7 @@
 /** 液体容器 — 同种液体最多装满（铁桶/玻璃桶 3 格、玻璃瓶 1 格），保留空容器数量并阻止混装 */
 
 import { STACK_MAX } from '../config';
-import { BLOCKS, FILLED_ID, LIQUID_FILL, Stack, isLiquid, liquidCapOf } from '../world/Block';
+import { BLOCKS, FILLED_ID, LIQUID_FILL, Stack, isLiquid, liquidCapOf } from '../world/blocks/Block';
 import { World } from '../world/World';
 import { Inventory } from '../player/Inventory';
 import { BlockHit, scoopWater } from './BlockPicker';
