@@ -1,8 +1,8 @@
 /** 活物总管 — 动物和僵尸的生成/消失/每帧更新/被打死掉东西，Game 只管喊它干活 */
 
 import * as THREE from 'three';
-import { ANIMAL, BIRD, BLOODZOMBIE, CHUNK, CORRUPT, DAY, DEEPGREEN_DROP, FISH, MANUAL, RAT, STARZOMBIE, WARRIOR, ZOMBIE } from '../../config';
-import { BLOOD_MEAT, COOKED_MEAT, DIY_MANUAL, DYE_DEEPGREEN, FEATHER_BLACK, GLOW_SHROOM, IRON_NUGGET, RAW_MEAT, SNOWFLAKE, SOUL_DYE, STAR_SHARD } from '../../world/blocks/Block';
+import { ANIMAL, BIRD, BLOODZOMBIE, CAT, CHUNK, CORRUPT, DAY, DEEPGREEN_DROP, FISH, MANUAL, NEAR_HOOFED, RAT, STARZOMBIE, WARRIOR, WOLF, ZOMBIE } from '../../config';
+import { BLOOD_MEAT, COOKED_MEAT, DIY_MANUAL, DYE_DEEPGREEN, FEATHER_BLACK, GLOW_SHROOM, IRON_NUGGET, RAW_MEAT, SILK, SNOWFLAKE, SOUL_DYE, STAR_SHARD, WOLF_STAR_SHARD } from '../../world/blocks/Block';
 import { STAR_ZOMBIE_GLOW_CHANCE } from '../../world/terrain/mushrooms';
 import { DIY_GOLD_MANUAL as GOLD_MANUAL } from '../../world/recipes/GoldenItems';
 import { World } from '../../world/World';
@@ -140,8 +140,9 @@ export class Mobs {
       this.archers = this.archers.filter((a) => !a.dead);
     }
     for (const z of this.zombies) {
-      // 怪优先打小战士：身边有小战士就把目标换成它，没有才是玩家；挑战房的怪只认玩家
-      const guard = this.zombieAttack && !z.inChallenge ? this.nearestWarrior(z.x, z.z) : null;
+      // 怪优先打小战士：身边有小战士就把目标换成它，没有才是玩家；挑战房的怪只认玩家；
+      // 被牵引绳索拴住的怪不挠人也不当保镖目标（主人牵着走，见牵引绳索设定）
+      const guard = this.zombieAttack && !z.inChallenge && !z.leashed ? this.nearestWarrior(z.x, z.z) : null;
       // 春卷/圣诞甜饼的负面豁免期间：星空尸不主动追人（其他怪照常）
     const starCalm = this.calmStars && z.kind === 'star';
     if (z.update(dt, this.world, guard ? guard.x : px, guard ? guard.z : pz, this.zombieAttack && !starCalm)) {
@@ -211,13 +212,20 @@ export class Mobs {
         return false;
       });
     this.animals = keepNear(this.animals, (a) => a.tamed || a.leashed); // 驯服的/被绳索拴住的不会被刷掉
-    this.zombies = keepNear(this.zombies);
+    this.zombies = keepNear(this.zombies, (z) => z.leashed); // 被牵引绳索拴住的怪不会被刷掉
     this.fish = keepNear(this.fish);
 
     // 动物补在草/雪/泥土地上；僵尸什么地面都能刷
     const need = ANIMAL.COUNT - this.animals.length;
     if (need > 0) {
       this.animals.push(...spawnAnimals(this.world, this.scene, px, pz, need, ANIMAL.SPAWN_NEAR, ANIMAL.SPAWN_FAR));
+    }
+    // 羊牛猪保底（2026-11-01 设定）：玩家方圆 10 格内一只羊/牛/猪都没有，就补刷一只在 10~16 格外
+    if (this.animals.length < ANIMAL.MAX_TOTAL && !this.animals.some((a) => !a.dead && !a.isBird
+      && (a.kind === 'cow' || a.kind === 'pig' || a.kind === 'sheep')
+      && Math.hypot(a.x - px, a.z - pz) <= NEAR_HOOFED.RADIUS)) {
+      this.animals.push(...spawnAnimals(this.world, this.scene, px, pz, 1,
+        NEAR_HOOFED.SPAWN_NEAR, NEAR_HOOFED.SPAWN_FAR, ['cow', 'pig', 'sheep']));
     }
     // 周围一只鸟都没有就定向补 2 只（老动物不会老死，名额被它们占满时鸟永远刷不出来；鸟 90 秒老死不会挤爆）
     if (!this.animals.some((a) => a.isBird) && this.animals.length < ANIMAL.MAX_TOTAL) {
@@ -272,6 +280,12 @@ export class Mobs {
     return Math.random() < MANUAL.GOLD_CHANCE ? GOLD_MANUAL : DIY_MANUAL;
   }
 
+  /** 钓上来的鱼：把咬钩那只从海里摘走（钓鱼系统用），不走路不掉落 */
+  removeFish(f: Fish): void {
+    this.scene.remove(f.group);
+    this.fish = this.fish.filter((x) => x !== f);
+  }
+
   /** 一只活物被打死掉什么：地上掉落和小战士捡走共用这一张表 */
   private lootOf(mob: Animal | Zombie | Fish): [number, number][] {
     const out: [number, number][] = [];
@@ -291,7 +305,12 @@ export class Mobs {
       // 所有僵尸都有 1/20 概率掉一颗深绿颜料（沼泽特产）
       if (Math.random() < DEEPGREEN_DROP) out.push([DYE_DEEPGREEN, 1]);
       // 腐败人：掉 6 个铁粒；腐败老鼠：掉 1 个铁粒
-      if (mob.kind === 'corrupt') { out.push([IRON_NUGGET, CORRUPT.NUGGETS]); return out; }
+      if (mob.kind === 'corrupt') {
+        out.push([IRON_NUGGET, CORRUPT.NUGGETS]);
+        // 狼星碎片（2026-11-01 设定）：12.5% 概率额外掉一个灰白色的星星碎片
+        if (Math.random() < WOLF.SHARD_CHANCE) out.push([WOLF_STAR_SHARD, 1]);
+        return out;
+      }
       if (mob.kind === 'rat') { out.push([IRON_NUGGET, RAT.NUGGETS]); return out; }
       // 星空尸：必掉 1 颗星星碎片 + 1 个生肉，10% 概率再掉一朵夜光蓝菇
       if (mob.kind === 'star') {
@@ -309,6 +328,14 @@ export class Mobs {
       if (Math.random() < ZOMBIE.COOKED_CHANCE) out.push([COOKED_MEAT, 1]);
       // 僵尸 100% 掉 2 本 DIY 手册（方法学全了就不掉）
       if (this.canDropManual()) out.push([this.manualId(), 1], [this.manualId(), 1]);
+      return out;
+    }
+    // 猫（2026-11-01 设定）：固定 1 生肉；二次随机掉落原文写「75% 概率 +1 个生肉 / 25% 概率 +1 个生肉」，
+    // 两档相同，按原文照写 = 固定再掉 1 个（要改成 25% 档掉别的，改这一行就行）+ 12.5% 摸下丝线
+    if (mob.kind === 'cat') {
+      out.push([RAW_MEAT, 1]); // 固定掉落
+      out.push([RAW_MEAT, 1]); // 二次随机掉落（75%/25% 两档都是 +1）
+      if (Math.random() < CAT.SILK_CHANCE) out.push([SILK, 1]);
       return out;
     }
     // 鸟：普通鸟掉 1~2 生肉 + 一半概率掉自己的羽毛；虎皮鹦鹉必掉 2 生肉；乌鸦必掉 1 生肉 + 1 黑羽毛

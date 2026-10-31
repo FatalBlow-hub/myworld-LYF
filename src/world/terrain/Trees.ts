@@ -38,7 +38,7 @@ function fruitBlocks(sp: TreeSpecies): TreeBlock[] {
   return out;
 }
 
-/** 柳树：树干 + 一坨柳叶树冠 + 冠下 8 个方位垂挂 2~3 格柳条（沙滩专属，春天飘柳絮） */
+/** 柳树：树干 + 一坨柳叶树冠 + 冠下 8 个方位垂挂 2~3 格柳叶（沙滩专属，春天飘柳絮） */
 function willowBlocks(sp: TreeSpecies, rand: () => number): TreeBlock[] {
   const out: TreeBlock[] = [];
   const wood = sp.wood ?? WOOD;

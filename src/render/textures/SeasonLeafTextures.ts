@@ -4,6 +4,7 @@
  *  同族贴图走参数化 painter 工厂（底色 + 噪点 + 积雪点），不逐张复制。 */
 
 import { Painter, TILE, fill, speckle } from './TextureUtils';
+import { willowStrand } from './WillowTextures';
 
 /** 冬季树冠：各树原底色 + 顶部一层白色积雪 */
 const snowyLeaf = (base: string, spots: string[]): Painter => (c, x, y) => {
@@ -51,21 +52,12 @@ const sandyLeaf: Painter = (c, x, y) => {
   }
 };
 
-/** 果树秋/冬统一黄叶：金黄底 + 深黄斑点 + 边缘枯黄（设定：果树只有秋冬变黄，秋冬同色） */
-const fruitYellowLeaf: Painter = (c, x, y) => {
-  fill(c, x, y, '#e0b03a');
-  speckle(c, x, y, ['#c8901e', '#f0cc60', '#a87814'], 130);
-  c.fillStyle = '#b8802a'; // 叶脉方向的枯黄
-  for (let i = 0; i < 10; i++) c.fillRect(x + Math.floor(Math.random() * TILE), y + Math.floor(Math.random() * TILE), 2, 1);
-};
-
 export const SEASON_LEAF_TILE_NAMES = [
   'leaves_sakura',
   'leaves_plain_autumn', 'leaves_plain_winter', 'leaves_plain_sand',
-  'leaves_fruit_yellow',
   'leaves_apple_winter', 'leaves_peach_winter', 'leaves_orange_winter',
   'leaves_pear_winter', 'leaves_persimmon_winter', 'leaves_banana_winter',
-  'leaves_willow_autumn', 'leaves_willow_winter',
+  'leaves_willow_winter',
   'petal_sakura', 'maple_leaf',
 ];
 
@@ -77,20 +69,15 @@ export const SEASON_LEAF_PAINTERS: Record<string, Painter> = {
     speckle(c, x, y, ['#c47f1e', '#eeb84a', '#b06c14'], 120);
   },
   leaves_plain_winter: sandyLeaf,
-  // 果树秋/冬共用一张黄叶（春夏走各自本色贴图）
-  leaves_fruit_yellow: fruitYellowLeaf,
+  // 果树秋/冬走 IslandTextures 里各自带果子斑点的 *_autumn 贴图（这里不再放统一黄叶）
   leaves_apple_winter:      snowyLeaf('#2f6119', ['#264f14', '#3d7a24', '#1e3f0e']),
   leaves_peach_winter:      snowyLeaf('#7cb85c', ['#8fc96e', '#a8d98a', '#6aa04c']),
   leaves_orange_winter:     snowyLeaf('#7a9e2e', ['#8fb03a', '#96b845', '#5f7a1e']),
   leaves_pear_winter:       snowyLeaf('#a8c85c', ['#bcda70', '#94b845', '#c8e088']),
   leaves_persimmon_winter:  snowyLeaf('#2e5c1e', ['#3d7a24', '#26501a', '#34691f']),
   leaves_banana_winter:     snowyLeaf('#3f8f2e', ['#357a26', '#4fa83a', '#2c6a1e']),
-  // 柳树叶：秋天橙黄、冬天绿底带雪
-  leaves_willow_autumn: (c, x, y) => {
-    fill(c, x, y, '#d9a92c');
-    speckle(c, x, y, ['#c4941c', '#eec04a', '#a87c10'], 120);
-  },
-  leaves_willow_winter: snowyLeaf('#8fc45a', ['#7cb04a', '#a2d46a', '#6b9e3c']),
+  // 柳树叶：四季常青的透空柳枝（画法在 WillowTextures），只有冬天枝条挂细雪
+  leaves_willow_winter: willowStrand(true),
   // 采下来的两样东西：樱花花瓣是一小撮粉色花瓣，枫叶是一片红橙五裂叶
   petal_sakura: (c, x, y) => {
     c.clearRect(x, y, TILE, TILE);

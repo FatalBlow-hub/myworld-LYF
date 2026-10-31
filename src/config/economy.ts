@@ -64,6 +64,7 @@ export const SELL_PRICE: Record<number, { coins: number; per: number }> = {
   294: { coins: 1, per: 1 },     // 平菇
   295: { coins: 2, per: 1 },     // 红伞伞（有毒但更值钱）
   296: { coins: 1, per: 1 },     // 雪花（冬季岛雪地里挖到的收藏品）
+  394: { coins: 3, per: 1 },     // 丝线（猫身上掉的，2026-11-01 设定：1 个丝线 = 3 岛币）
   298: { coins: 4, per: 1 },     // 夜光蓝菇（会发光还能给夜视，最贵）
   7:   { coins: 0.01, per: 1 },  // 树叶
   243: { coins: 0.01, per: 1 },  // 椰子叶

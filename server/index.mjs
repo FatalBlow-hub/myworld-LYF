@@ -323,7 +323,12 @@ function serveStatic(req, res) {
 function serveFile(req, res, file) {
   const data = readFileSync(file);
   const type = MIME[extname(file)] ?? 'application/octet-stream';
-  const headers = { 'content-type': type };
+  // 缓存策略（2026-10-31）：HTML 每次都向服务器核对版本（不然部署后浏览器还在跑旧页面）；
+  // 其他文件（js/css 都带内容哈希）随便长缓存，文件名一变就是新地址，不会读到旧货
+  const headers = {
+    'content-type': type,
+    'cache-control': extname(file) === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable',
+  };
   // 文本类文件 gzip 压缩一下，手机上加载快些
   if (type.startsWith('text/') || type.includes('json')) {
     if ((req.headers['accept-encoding'] ?? '').includes('gzip')) {

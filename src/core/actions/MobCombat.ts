@@ -1,7 +1,7 @@
 /** 生物战斗 — 玩家挥拳/用玻璃锥/拿剑攻击，并处理羊的 M 键互动 */
 
 import { ANIMAL, CONE, WARRIOR } from '../../config';
-import { BLOCKS, GLASS_CONE, ROPE, SWORD_OF } from '../../world/blocks/Block';
+import { BLOCKS, GLASS_CONE, LEAD_ROPE, ROPE, SWORD_OF } from '../../world/blocks/Block';
 import { PlayerBody } from '../../player/motion/Physics';
 import { Controller } from '../../player/motion/Controller';
 import { Inventory } from '../../player/Inventory';
@@ -69,6 +69,15 @@ export class MobCombat {
       // 记一笔：主人正在打这只怪，小战士会优先来帮忙（打羊也顺手记一下，不影响）
       if (mob.mob instanceof Zombie) mob.mob.hurtByPlayerT = WARRIOR.MEMORY;
       if (mob.mob.dead) this.mobs.kill(mob.mob);
+    }
+    // 手里拿牵引绳索按 M（2026-11-01 设定）：拴动物跟普通绳索一样，怪物也能拴走（掉落物依旧不行——它不是活物）
+    if (this.inventory.hotbar[this.slot()]?.id === LEAD_ROPE && this.controller.take('door')) {
+      if (mob.mob instanceof Animal) useAnimalRope?.(mob.mob);
+      else if (mob.mob instanceof Zombie && !mob.mob.inChallenge) {
+        mob.mob.leashed = !mob.mob.leashed;
+        this.hud.showMessage(mob.mob.leashed ? '拴住了！它会跟着你走' : '解开了牵引绳索');
+      }
+      return;
     }
     // 手里拿绳索对准动物按 M：拴住/放开（所有动物都能拴，不等同于驯服）
     if (useAnimalRope && mob.mob instanceof Animal && this.inventory.hotbar[this.slot()]?.id === ROPE

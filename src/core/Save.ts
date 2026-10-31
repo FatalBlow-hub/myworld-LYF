@@ -11,7 +11,7 @@ import type { ShopQuota } from '../world/economy/shopLimits';
 import { Hunger } from '../player/stats/Hunger';
 import { Inventory } from '../player/Inventory';
 import { PlayerBody } from '../player/motion/Physics';
-import { AIR, ROLLER_SKATES, Slots, Stack } from '../world/blocks/Block';
+import { AIR, ROLLER_SKATES, Slots, Stack, WILLOW_BRANCH, WILLOW_LEAVES } from '../world/blocks/Block';
 import { FurnaceState, World } from '../world/World';
 import { SPORE_GROW_SECONDS, SPORE_PLANT_IDS } from '../world/terrain/mushrooms';
 import { Zombie, ZombieKind } from '../entities/mobs/Zombie';
@@ -112,9 +112,9 @@ export interface SaveData {
   playerMushrooms?: string[];
   chests: Record<string, Slots>;
   furnaces: Record<string, FurnaceState>;
-  animals: { kind: AnimalKind; x: number; y: number; z: number; woolId: number; hp: number; grow?: number; tamed?: boolean; waiting?: boolean; leashed?: boolean; feather?: number }[];
+  animals: { kind: AnimalKind; x: number; y: number; z: number; woolId: number; hp: number; grow?: number; tamed?: boolean; waiting?: boolean; leashed?: boolean; feather?: number; cat?: number }[];
   /** 僵尸也存（旧存档没这字段就当没有）；kind = 哪种僵尸（旧字段 blood 还认） */
-  zombies?: { x: number; y: number; z: number; hp: number; blood?: boolean; kind?: ZombieKind }[];
+  zombies?: { x: number; y: number; z: number; hp: number; blood?: boolean; kind?: ZombieKind; leashed?: boolean }[];
   drops: { id: number; count: number; x: number; y: number; z: number; age: number }[];
   /** 已收集的制作方法下标（旧存档没这字段就当一条都没学） */
   learned?: number[];
@@ -324,9 +324,9 @@ export function buildSave(g: {
     playerMushrooms: g.world.exportPlayerMushrooms(),
     chests: Object.fromEntries(g.world.chests),
     furnaces: Object.fromEntries(g.world.furnaces),
-    animals: g.animals.map((a) => ({ kind: a.kind, x: a.x, y: a.y, z: a.z, woolId: a.woolId, hp: a.hp, grow: a.growT, tamed: a.tamed, waiting: a.waiting, leashed: a.leashed, feather: a.feather })),
+    animals: g.animals.map((a) => ({ kind: a.kind, x: a.x, y: a.y, z: a.z, woolId: a.woolId, hp: a.hp, grow: a.growT, tamed: a.tamed, waiting: a.waiting, leashed: a.leashed, feather: a.feather, cat: a.catColor || undefined })),
     // 挑战房的怪（noLoot）不走僵尸存档——它们由 challenge 字段自己恢复，存两份会刷双倍
-    zombies: g.zombies.filter((z) => !z.noLoot).map((z) => ({ x: z.x, y: z.y, z: z.z, hp: z.hp, kind: z.kind === 'normal' ? undefined : z.kind })),
+    zombies: g.zombies.filter((z) => !z.noLoot).map((z) => ({ x: z.x, y: z.y, z: z.z, hp: z.hp, kind: z.kind === 'normal' ? undefined : z.kind, leashed: z.leashed || undefined })),
     drops: g.drops.map((d) => ({ id: d.itemId, count: d.count, x: d.x, y: d.y, z: d.z, age: d.age })),
     tanks: g.tanks.map((t) => ({ x: t.x, y: t.y, z: t.z, yaw: t.yaw, ammo: t.ammo })),
     warriors: g.warriors.filter((w) => !w.dead).map((w) => ({ tier: w.tier, x: w.x, y: w.y, z: w.z })),
@@ -380,6 +380,12 @@ export function applySave(
     slots.forEach(normalizeSkates);
   }
   normalizeSkates(inv.held);
+  // 柳条下岗（2026-10-31 设定：柳树只有叶和干）：老档里背包/箱子/熔炉的柳条一律换成柳树叶
+  const debranch = (stack: Stack | null) => { if (stack?.id === WILLOW_BRANCH) stack.id = WILLOW_LEAVES; };
+  for (const slots of [inv.hotbar, inv.storage, inv.armor, inv.waistbag, inv.craftIn, inv.craftBig]) slots.forEach(debranch);
+  debranch(inv.held);
+  for (const slots of Object.values(d.chests)) slots.forEach(debranch);
+  for (const f of Object.values(d.furnaces)) f.slots.forEach(debranch);
   health.hp = d.hp;
   health.oxygen = d.oxygen;
   hunger.value = Math.min(HUNGER.MAX, Math.max(0, d.hunger ?? HUNGER.MAX));
@@ -392,7 +398,7 @@ export function applySave(
   for (const [k, v] of Object.entries(d.chests)) world.chests.set(k, v);
   for (const [k, v] of Object.entries(d.furnaces)) world.furnaces.set(k, v);
   for (const a of d.animals) {
-    const an = new Animal(a.kind, a.x, a.y, a.z, a.woolId, a.feather ?? 0);
+    const an = new Animal(a.kind, a.x, a.y, a.z, a.woolId, a.feather ?? 0, a.cat ?? 0);
     an.hp = a.hp;
     if (a.grow !== undefined) {
       an.growT = a.grow; // 读档时还是宝宝的话，接着长
@@ -408,10 +414,12 @@ export function applySave(
     // 旧档存的是 blood 布尔值，也认；新档直接存 kind
     const zb = new Zombie(z.x, z.y, z.z, z.kind ?? (z.blood ? 'blood' : 'normal'));
     zb.hp = z.hp;
+    zb.leashed = z.leashed ?? false; // 被牵引绳索拴着的怪，读档接着拴着
     zombies.push(zb);
     scene.add(zb.group);
   }
   for (const dr of d.drops) {
+    if (dr.id === WILLOW_BRANCH) dr.id = WILLOW_LEAVES; // 地上散落的柳条也换成柳树叶
     const it = spawnDrop({ scene, drops }, dr.id, dr.count, dr.x, dr.y, dr.z);
     it.age = dr.age;
   }

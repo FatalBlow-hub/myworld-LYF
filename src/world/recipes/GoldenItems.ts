@@ -21,6 +21,7 @@ export {
 export const GOLDEN_RANDOM_MANUALS = [
   '合成：黄颜料×1 + 金粒×1 → 金色颜料×1',
   '合成：金色颜料×1 + 羊毛背包×1 → 金色腰包×1（10格）',
+  '合成：钓鱼竿×1 + 金粒×2 → 金色钓鱼竿×1；耐久 99，浮标下沉后 2 秒内收杆都算钓到',
 ];
 
 export const GOLDEN_TASK_MANUALS: Record<number, string> = {

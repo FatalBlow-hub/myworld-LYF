@@ -34,7 +34,7 @@ import {
   WOOL_BLACK, WOOL_BLUE, WOOL_GRAY, WOOL_GREEN, WOOL_IDS, WOOL_ORANGE, WOOL_PINK, WOOL_RED, WOOL_WHITE, WOOL_YELLOW,
   // —— 四季 DIY（2026-10-27）：樱花剑/两个腰包/枫叶飞刀/柳条陷阱 ——
   SWORD_SAKURA, BAG_SAKURA, BAG_MAPLE, KNIFE_MAPLE, WILLOW_TRAP,
-  WILLOW_FLUFF, WILLOW_BRANCH, WILLOW_SAP1, WILLOW_BAG, PETAL_SAKURA, MAPLE_LEAF,
+  WILLOW_FLUFF, WILLOW_LEAVES, WILLOW_SAP1, WILLOW_BAG, PETAL_SAKURA, MAPLE_LEAF,
   // —— 四季节日（2026-10-27）——
   CHUNK_ROLL, CALAMUS, POUCH_CALAMUS, SHIELD_CALAMUS, HARVEST_PLATTER,
   BEAD_IDS, BEAD_RED, BEAD_YELLOW, BEAD_BLUE, XMAS_COOKIE, BEAD_FIREWORK,
@@ -48,6 +48,7 @@ import {
   FISH_CLOWN, FISH_COD, FISH_PUFFER, FISH_SALMON,
   Slots,
 } from '../blocks/Block';
+import { SILK_RECIPES } from './silkRecipes';
 import {
   BAG_GOLD, DYE_GOLD, GOLD_CHEM_DECOMP, GOLD_CRAFT_TABLE, GOLD_DYE_TABLE, GOLD_PICKAXE,
   ICE_MOLECULE, POTION_ICE,
@@ -270,7 +271,7 @@ export const RECIPES: Recipe[] = [
   { out: SWORD_SAKURA, outCount: 1, needs: [[PETAL_SAKURA, 2], [STICK, 1]] },            // 樱花花瓣 ×2 + 木棒 → 樱花剑
   { out: BAG_MAPLE,    outCount: 1, needs: [[MAPLE_LEAF, 5]] },                          // 枫叶 ×5 → 枫叶腰包
   { out: KNIFE_MAPLE,  outCount: 1, needs: [[MAPLE_LEAF, 3], [IRON_NUGGET, 1]] },        // 枫叶 ×3 + 铁粒 → 枫叶飞刀
-  { out: WILLOW_TRAP,  outCount: 1, needs: [[WILLOW_BRANCH, 3], [TALL_GRASS, 1]] },      // 柳条 ×3 + 草 → 柳条陷阱
+  { out: WILLOW_TRAP,  outCount: 1, needs: [[WILLOW_LEAVES, 3], [TALL_GRASS, 1]] },      // 柳叶 ×3 + 草 → 柳条陷阱（2026-10-31 起不再要柳条）
   // —— 2026-10-27 四季节日（旅者 NPC 交谈解锁手册；材料多、都要 3×3 工作台）——
   // 春卷：草 + 胡萝卜 + 麦粒×3 + 任意水果 + 熟肉。六种水果各一条，只有第一条进手册，其余 quiet
   ...FRUITS.map((fruit, i) => ({
@@ -322,6 +323,8 @@ export const RECIPES: Recipe[] = [
   })),
   // 绳索：2 木棍合成 1 根（道具类，普通工作台就能做）
   { out: ROPE, outCount: 1, needs: [[STICK, 2]] },
+  // 丝线 DIY（2026-11-01 设定批次）：绷带/牵引绳索/减速网/三根鱼竿/狼之利爪——必须整段放最末尾（手册下标是存档键）
+  ...SILK_RECIPES,
 ];
 
 /** 星空染色台的颜料融合表：放进材料颜料 → 出新颜料（只有星空染色台能干这活） */

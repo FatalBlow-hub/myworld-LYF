@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { BLOODZOMBIE, CORRUPT, GHOST, POTION, RAT, STARZOMBIE, ZOMBIE } from '../../config';
-import { AIR, WATER } from '../../world/blocks/Block';
+import { AIR, SLOW_NET, WATER } from '../../world/blocks/Block';
 import { World } from '../../world/World';
 import { heightAt } from '../../world/terrain/TerrainGen';
 import { collidesAABB, stepWalk } from '../../player/motion/Physics';
@@ -83,6 +83,8 @@ export class Zombie {
   frozenT = 0;
   /** 踩到柳条陷阱被禁锢的剩余秒数（>0 时原地不动） */
   trapT = 0;
+  /** 被牵引绳索拴住了：不挠人，离主人超过 3 格就跟着走（2026-11-01 设定） */
+  leashed = false;
   /** 小战士排攻击优先级用：最近挠过主人，还剩几秒算「正在打主人」 */
   hurtOwnerT = 0;
   /** 小战士排攻击优先级用：主人最近打过它，还剩几秒算「主人正在打的怪」 */
@@ -139,14 +141,15 @@ export class Zombie {
     if (this.dead) { this.syncMesh(); return false; }
     if (this.frozenT > 0) { this.vy = 0; this.syncMesh(); return false; }
     if (this.trapT > 0) { this.vy = 0; this.syncMesh(); return false; } // 柳条陷阱：原地困住
-    const speed = this.speed * (this.slowT > 0 ? POTION.SLOW.mult : 1); // 幻药瓶砸中：走路慢一半
+    // 幻药瓶砸中 / 踩进减速网范围：走路慢一半（2026-11-01 设定减速网）
+    const speed = this.speed * (this.slowT > 0 || this.nearNet(world) ? POTION.SLOW.mult : 1);
     const ddx = px - this.x;
     const ddz = pz - this.z;
     const dist = Math.hypot(ddx, ddz);
 
     if (this.kind === 'star') {
-      // 星空尸没有速度不会走路：看到玩家就每 3 秒瞬移到他身边
-      if (hostile && dist < STARZOMBIE.AGGRO) {
+      // 星空尸没有速度不会走路：看到玩家就每 3 秒瞬移到他身边（被拴住时也照瞬移，算跟着主人走）
+      if ((hostile || this.leashed) && dist < STARZOMBIE.AGGRO) {
         this.yaw = Math.atan2(-ddx, -ddz); // 脸朝着玩家
         this.tpT -= dt;
         if (this.tpT <= 0) {
@@ -160,6 +163,13 @@ export class Zombie {
       // 出来 100 秒就自己烂掉消失（不掉东西）
       this.lifeT -= dt;
       if (this.lifeT <= 0) { this.dead = true; this.silent = true; }
+    } else if (this.leashed) {
+      // 被牵引绳索拴住：跟着主人走，贴到 3 格内就站住等主人（hostile 已被 Mobs 关掉，不会挠人）
+      if (dist > 3) {
+        this.yaw = Math.atan2(-ddx, -ddz);
+        this.step(world, -Math.sin(this.yaw) * speed * dt, 0);
+        this.step(world, 0, -Math.cos(this.yaw) * speed * dt);
+      }
     } else if (hostile && dist < ZOMBIE.AGGRO) {
       // 追人：脸朝玩家走过去
       this.yaw = Math.atan2(-ddx, -ddz);
@@ -197,6 +207,17 @@ export class Zombie {
     const r = stepWalk(world, this.x, this.y, this.z, dx, dz, this.w, this.h);
     this.x = r.x; this.y = r.y; this.z = r.z;
     return r.moved;
+  }
+
+  /** 脚边 3×3 有没有减速网（网是贴地的一层，怪走进这一圈就慢半） */
+  private nearNet(world: World): boolean {
+    const bx = Math.floor(this.x), by = Math.floor(this.y + 0.2), bz = Math.floor(this.z);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        if (world.getBlock(bx + dx, by, bz + dz) === SLOW_NET) return true;
+      }
+    }
+    return false;
   }
 
   /** 瞬移：找玩家脚边 2~3 格内一个站得住的空地闪过去；找不到就原地待着 */

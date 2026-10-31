@@ -12,7 +12,7 @@ import { Inventory } from '../../player/Inventory';
 import { isSolid, BLOCKS, BEAD_FIREWORK, CHUNK_ROLL, HARVEST_PLATTER, POUCH_CALAMUS, SHIELD_CALAMUS, XMAS_COOKIE } from '../../world/blocks/Block';
 import { CHUNK } from '../../config';
 import type { Atlas } from '../../render/textures/Textures';
-import type { Season } from '../loops/Calendar';
+import type { GameDate, Season } from '../loops/Calendar';
 
 /** 手册只用到这两下：查关键词学没学过 / 按关键词学 */
 interface BookLike {
@@ -34,6 +34,8 @@ interface TravelerCtx {
   body: () => PlayerBody | null;
   sceneMode: () => SceneMode;
   season: () => Season;
+  /** 游戏内日期（旅者每季只出现头几天，要按日子判定） */
+  date: () => GameDate;
   controller: Controller;
 }
 
@@ -46,17 +48,41 @@ export class TravelerSystem {
     this.panel = new TravelerPanel(atlas, () => this.ctx.coins(), (offer) => this.unlockFromTraveler(offer));
   }
 
-  /** 每帧：旅者只在「自己的岛 + 对应季节」出现，换季/换场景即时换人 */
+  /** 每帧：旅者只在「自己的岛 + 对应季节 + 每季头几天」出现（2026-11-01 设定：一季只来 3 天），
+   *  出现位置在玩家周围 8~12 格（不贴重生点、不贴脸），换季/换场景/过期即时收人 */
   tick(dt: number): void {
-    const want = this.ctx.sceneMode() === 'island' ? this.ctx.season() : null;
+    const inWindow = this.ctx.sceneMode() === 'island' && this.ctx.date().day <= SEASON_FOOD.TRAVELER_DAYS;
+    const want = inWindow ? this.ctx.season() : null;
     if (this.traveler && this.traveler.season !== want) this.hide();
-    if (!this.traveler && want && this.ctx.body()) {
-      const s = this.ctx.spawn();
-      const x = s.x + 2.5, z = s.z + 0.5;
-      this.traveler = new Traveler(want, x, this.groundAt(x, z, s.y + 3), z);
+    const body = this.ctx.body();
+    if (!this.traveler && want && body) {
+      const spot = this.pickSpot(body);
+      this.traveler = new Traveler(want, spot.x, this.groundAt(spot.x, spot.z, spot.y + 3), spot.z);
       this.ctx.scene.add(this.traveler.group);
     }
     this.traveler?.update(dt, this.ctx.body()?.x ?? 0, this.ctx.body()?.z ?? 0);
+  }
+
+  /** 玩家周围 8~12 格的环带里挑一个有实地的点；8 个方位都落空（四面全是海）就退回复活点旁 */
+  private pickSpot(body: PlayerBody): { x: number; y: number; z: number } {
+    for (let i = 0; i < 8; i++) {
+      const ang = (i / 8) * Math.PI * 2 + Math.random() * 0.5;
+      const d = 8 + Math.random() * 4;
+      const x = body.x + Math.cos(ang) * d, z = body.z + Math.sin(ang) * d;
+      const y = this.solidGround(x, z, body.y + 6);
+      if (y !== null) return { x, y, z };
+    }
+    const s = this.ctx.spawn();
+    return { x: s.x + 2.5, y: s.y, z: s.z + 0.5 };
+  }
+
+  /** 从 fromY 往下扫到第一个实心方块，返回它上面那格的 y；全是空气/水就返回 null（落不了脚） */
+  private solidGround(x: number, z: number, fromY: number): number | null {
+    const bx = Math.floor(x), bz = Math.floor(z);
+    for (let y = Math.min(CHUNK.HEIGHT - 1, Math.floor(fromY)); y >= 0; y--) {
+      if (isSolid(this.ctx.world().getBlock(bx, y, bz))) return y + 1;
+    }
+    return null;
   }
 
   hide(): void {

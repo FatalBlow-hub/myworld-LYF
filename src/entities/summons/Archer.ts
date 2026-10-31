@@ -109,12 +109,20 @@ export class Archer {
     this.shootT -= dt;
     const target = this.pickTarget(zombies);
 
-    // 走位：有怪就追到 KEEP_DIST 停下；没怪就回岗位待着
+    // 走位：有怪就放风筝——太远追上去、被贴脸就退开，稳定保持 4~4.5 格安全距离（2026-10-31 设定）
     let tx = this.x, tz = this.z, walk = false;
     if (target) {
       const dist = Math.hypot(target.x - this.x, target.z - this.z);
       this.yaw = Math.atan2(-(target.x - this.x), -(target.z - this.z));
       if (dist > ARCHER.KEEP_DIST + 0.5) { tx = target.x; tz = target.z; walk = true; }
+      else if (dist < ARCHER.KEEP_DIST) {
+        // 怪贴到 4 格以内：面朝怪、倒退两格拉开距离，回到安全区继续射
+        const ax = (this.x - target.x) / (dist || 1);
+        const az = (this.z - target.z) / (dist || 1);
+        tx = this.x + ax * 2;
+        tz = this.z + az * 2;
+        walk = true;
+      }
     } else {
       const dPost = Math.hypot(this.postX - this.x, this.postZ - this.z);
       if (dPost > 1.2) { tx = this.postX; tz = this.postZ; walk = true; }

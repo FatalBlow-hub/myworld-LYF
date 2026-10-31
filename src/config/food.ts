@@ -95,6 +95,23 @@ export const EAT_HP: Record<number, FoodEffect> = {
   390: { hunger: 1.2, hp: 0 },                                   // 胡萝卜肉饺（单个）
   391: { hunger: 2, hp: 0, slowHeal: { seconds: 15, hp: 2 } },   // 胡萝卜蛋糕：15 秒缓慢回血共 2 点
   392: { hunger: 1.5, hp: 0 },                                   // 胡萝卜炒蘑菇
+  // 猎装与丝线（2026-11-01）：绷带是用品不是食物，但走同一张表——按 E 使用瞬间回 2 血，不顶饿
+  395: { hunger: 0, hp: 2 },                                     // 速修绷带
+};
+
+
+/** 钓鱼（2026-11-01 设定）：手持鱼竿按 P 抛竿 → 等咬钩浮标下沉 → 限时收杆；每钓一条磨 1 点耐久 */
+export const FISHING = {
+  CAST_MIN: 2,        // 抛竿落点最近几格
+  CAST_MAX: 6,        // 抛竿最远几格
+  FISH_NEAR: 4,       // 落点几格内有真鱼才咬钩（没鱼白抛）
+  BITE_MIN: 3,        // 咬钩最少等几秒
+  BITE_MAX: 8,        // 咬钩最多等几秒
+  FOLLOW_DIST: 3,     // 收杆后鱼算到手：浮标附近几格内的鱼就是咬钩那只
+  /** 浮标下沉后几秒内收杆才算钓到（普通 1 秒 / 铸铁 1.5 / 金色 2） */
+  REEL_WINDOW: { normal: 1, iron: 1.5, gold: 2 },
+  /** 三根竿的耐久（每钓一条磨 1 点，磨完竿断） */
+  DURABILITY: { normal: 20, iron: 66, gold: 99 },
 };
 
 
@@ -150,9 +167,11 @@ export const SEASON_FOOD = {
   SHIELD_DURABILITY: 55,
   BEAD_CHANCE: 0.125,  // 冬季挖树叶掉装饰珠子的概率
   BIRCH_SNOWFLAKE_CHANCE: 0.15, // 冬季挖普通树叶（设定的"桦树叶"）额外掉一朵雪花的概率
+  WILLOW_SNOWFLAKE_CHANCE: 0.125, // 冬季挖柳树叶（枝条挂细雪）额外掉一朵雪花的概率（2026-10-31 设定）
   CALAMUS_CHANCE: 0.125, // 夏季水面长出菖蒲叶的概率
   UNLOCK_COST: 3,      // 旅者对话里收费解锁的那几本（3 岛币）
   TALK_DIST: 3,        // 站多近能跟旅者说话（格）
+  TRAVELER_DAYS: 3,    // 旅者每季只出现头几天（2026-11-01 设定：一季 30 天里只来 3 天）
 };
 
 

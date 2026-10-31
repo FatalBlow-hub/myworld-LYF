@@ -1,7 +1,7 @@
 /** 动物 — 牛/猪/羊在世界闲逛：受重力、撞墙会绕路、挨打掉血、死了掉肉 */
 
 import * as THREE from 'three';
-import { ANIMAL, BIRD, POTION } from '../../config';
+import { ANIMAL, BIRD, CAT, POTION } from '../../config';
 import { TimedEffects } from '../../player/stats/TimedEffects';
 import { COLOR_CSS, DIRT, FEATHER_BLACK, FEATHER_BLUE, FEATHER_GRAY, FEATHER_GREEN, FEATHER_WHITE, FEATHER_YELLOW, GRASS, SNOW, WOOL_IDS, WOOL_WHITE } from '../../world/blocks/Block';
 import { World } from '../../world/World';
@@ -9,7 +9,7 @@ import { heightAt } from '../../world/terrain/TerrainGen';
 import { collidesAABB, stepWalk } from '../../player/motion/Physics';
 import { rayHitBox } from '../objects/hitbox';
 
-export type AnimalKind = 'cow' | 'pig' | 'sheep' | 'bird' | 'budgie' | 'crow';
+export type AnimalKind = 'cow' | 'pig' | 'sheep' | 'bird' | 'budgie' | 'crow' | 'cat';
 
 interface KindDef {
   hp: number;
@@ -28,6 +28,8 @@ const KINDS: Record<AnimalKind, KindDef> = {
   bird:   { hp: BIRD.HP, body: 0xeeeeee, head: 0xeeeeee, snout: 0xe8952e, leg: 0xe8952e },
   budgie: { hp: BIRD.HP, body: 0x5ab84a, head: 0x5ab84a, snout: 0xe8952e, leg: 0xe8952e },
   crow:   { hp: BIRD.HP, body: 0x262626, head: 0x262626, snout: 0x555555, leg: 0x555555 },
+  // 猫的长相也不看这张表（用 CAT_LOOK 按毛色上妆），血量和羊一样
+  cat:    { hp: 8, body: 0, head: 0, snout: 0, leg: 0 },
 };
 
 /** 鸟的颜色方案：按「掉的羽毛」上妆（普通鸟白/灰，虎皮鹦鹉绿/蓝/黄/白，乌鸦黑） */
@@ -43,10 +45,21 @@ const BIRD_LOOK: Record<number, { body: number; wing: number; tail: number; beak
 /** 虎皮鹦鹉的四个花色（掉什么颜色的羽毛） */
 const BUDGIE_FEATHERS = [FEATHER_GREEN, FEATHER_BLUE, FEATHER_YELLOW, FEATHER_WHITE];
 
+/** 猫的五种毛色（2026-11-01 设定）：生成概率完全均等、纯外观皮肤，4 号是橙黑相间花斑 */
+const CAT_LOOK: { body: number; patch?: number }[] = [
+  { body: 0xd98a3a },                  // 橙猫
+  { body: 0x2c2c30 },                  // 黑猫
+  { body: 0xefefe8 },                  // 白猫
+  { body: 0xd9b23a },                  // 黄猫
+  { body: 0xd98a3a, patch: 0x26262a }, // 橙黑相间猫
+];
+
 const W = 0.9;   // 四脚动物身体宽
 const H = 0.95;  // 四脚动物身体高
 const BW = 0.5;  // 鸟的碰撞宽
 const BH = 0.8;  // 鸟的碰撞高
+const CW = 0.55; // 猫的碰撞宽（小个子）
+const CH = 0.65; // 猫的碰撞高
 
 export class Animal {
   readonly kind: AnimalKind;
@@ -74,6 +87,8 @@ export class Animal {
   breedT = ANIMAL.BREED_EVERY * Math.random(); // 随机错开，不会扎堆生
   /** 鸟掉的羽毛是哪根（0 = 不是鸟）；鸟的颜色也照这根羽毛画 */
   feather = 0;
+  /** 猫的毛色编号（0~4，只有 cat 用；五种毛色纯外观、属性全一样） */
+  catColor = 0;
   /** 还剩几秒寿命（Infinity = 长生不老）；鸟寿终正寝不掉东西 */
   lifeT = Infinity;
   /** 碰撞盒宽高：四脚动物用 W/H，鸟用小的 */
@@ -87,15 +102,18 @@ export class Animal {
   private flyT = 0;  // >0 = 正在飞（鸟专属）：扇几下翅膀往前飘，到点落回地上
   private flapT = 0; // 扇翅膀的节奏计时
 
-  constructor(kind: AnimalKind, x: number, y: number, z: number, woolId = WOOL_WHITE, feather = 0) {
+  constructor(kind: AnimalKind, x: number, y: number, z: number, woolId = WOOL_WHITE, feather = 0, catColor = 0) {
     this.kind = kind;
     this.woolId = woolId;
     this.feather = feather;
+    this.catColor = catColor;
     this.hp = KINDS[kind].hp;
     if (feather !== 0) {
       this.w = BW; this.h = BH;
       this.lifeT = BIRD.LIFE_SECONDS;
       this.breedT = BIRD.BREED_EVERY * Math.random(); // 鸟的第一胎也用鸟的间隔
+    } else if (kind === 'cat') {
+      this.w = CW; this.h = CH; // 猫是小个子
     }
     this.x = x; this.y = y; this.z = z;
     this.buildMesh();
@@ -118,12 +136,13 @@ export class Animal {
     return this.growT >= ANIMAL.GROW_SECONDS;
   }
 
-  /** 生宝宝：同种类的小不点；小羊的羊毛颜色跟野外刷的一样随机 */
+  /** 生宝宝：同种类的小不点；小羊的羊毛颜色跟野外刷的一样随机，小猫的毛色也随机重掷 */
   giveBirth(scene: THREE.Scene): Animal {
     const wool = this.kind === 'sheep'
       ? (Math.random() < 0.5 ? WOOL_WHITE : WOOL_IDS[1 + Math.floor(Math.random() * (WOOL_IDS.length - 1))])
       : WOOL_WHITE;
-    const baby = new Animal(this.kind, this.x, this.y, this.z, wool, this.feather); // 鸟宝宝随爸妈花色
+    const catColor = this.kind === 'cat' ? Math.floor(Math.random() * CAT.COLORS) : 0; // 猫宝宝毛色重掷，五色均等
+    const baby = new Animal(this.kind, this.x, this.y, this.z, wool, this.feather, catColor); // 鸟宝宝随爸妈花色
     baby.growT = 0;
     baby.breedT = this.isBird ? BIRD.BREED_EVERY : ANIMAL.BREED_EVERY; // 宝宝长大才开始算生崽
     baby.applyScale();
@@ -227,9 +246,10 @@ export class Animal {
     this.group.rotation.y = this.yaw;
   }
 
-  /** 搭动物模型：鸟是鸟的样子，四脚动物是四脚的样子 */
+  /** 搭动物模型：鸟是鸟的样子，猫是猫的样子，四脚动物是四脚的样子 */
   private buildMesh(): void {
     if (this.isBird) { this.buildBirdMesh(); return; }
+    if (this.kind === 'cat') { this.buildCatMesh(); return; }
     const d = KINDS[this.kind];
     // 彩色羊：身体染成羊毛的颜色，脸/腿还是原来那样
     const bodyColor = this.kind === 'sheep' ? parseInt(COLOR_CSS[this.woolId].slice(1), 16) : d.body;
@@ -288,6 +308,36 @@ export class Animal {
     box(0.06, 0.3, 0.06, -0.08, 0.15, 0, look.beak);         // 左腿
     box(0.06, 0.3, 0.06, 0.08, 0.15, 0, look.beak);          // 右腿
   }
+
+  /** 搭猫：小身子 + 圆头竖耳 + 翘尾巴，绿眼睛；橙黑相间那只背上加两块黑斑 */
+  private buildCatMesh(): void {
+    const look = CAT_LOOK[this.catColor] ?? CAT_LOOK[0];
+    const mat = (c: number) => new THREE.MeshLambertMaterial({ color: c });
+    const box = (w: number, h: number, l: number, x: number, y: number, z: number, c: number) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, l), mat(c));
+      m.position.set(x, y, z);
+      m.castShadow = true;
+      this.group.add(m);
+      return m;
+    };
+    box(0.42, 0.3, 0.64, 0, 0.34, 0, look.body);            // 小身子
+    if (look.patch !== undefined) {
+      box(0.44, 0.14, 0.22, 0, 0.42, 0.12, look.patch);     // 背上黑斑
+      box(0.44, 0.12, 0.18, 0, 0.4, -0.16, look.patch);     // 屁股黑斑
+    }
+    box(0.26, 0.24, 0.24, 0, 0.55, -0.4, look.body);        // 圆头（朝 -z）
+    box(0.08, 0.1, 0.04, -0.09, 0.71, -0.4, look.body);     // 左耳（竖起来）
+    box(0.08, 0.1, 0.04, 0.09, 0.71, -0.4, look.body);      // 右耳
+    box(0.05, 0.06, 0.02, -0.07, 0.58, -0.52, 0x1e4a22);    // 左眼（绿豆眼）
+    box(0.05, 0.06, 0.02, 0.07, 0.58, -0.52, 0x1e4a22);     // 右眼
+    box(0.05, 0.04, 0.06, 0, 0.5, -0.53, 0xd88a9a);         // 粉鼻子
+    box(0.07, 0.22, 0.07, -0.12, 0.11, -0.2, look.body);    // 左前腿
+    box(0.07, 0.22, 0.07, 0.12, 0.11, -0.2, look.body);     // 右前腿
+    box(0.07, 0.22, 0.07, -0.12, 0.11, 0.22, look.body);    // 左后腿
+    box(0.07, 0.22, 0.07, 0.12, 0.11, 0.22, look.body);     // 右后腿
+    const tail = box(0.06, 0.06, 0.32, 0, 0.46, 0.44, look.body); // 翘尾巴
+    tail.rotation.x = 0.7;
+  }
 }
 
 /** 射线打动物：返回最近被打中的动物和距离 */
@@ -313,7 +363,7 @@ export function spawnAnimals(
   count: number,
   rMin = 0,
   rMax = 15,
-  kinds: AnimalKind[] = ['cow', 'pig', 'sheep', 'bird', 'budgie', 'crow'],
+  kinds: AnimalKind[] = ['cow', 'pig', 'sheep', 'bird', 'budgie', 'crow', 'cat'],
 ): Animal[] {
   const out: Animal[] = [];
   let tries = 0;
@@ -336,7 +386,9 @@ export function spawnAnimals(
       : kind === 'budgie' ? BUDGIE_FEATHERS[Math.floor(Math.random() * BUDGIE_FEATHERS.length)]
       : kind === 'crow' ? FEATHER_BLACK
       : 0;
-    const a = new Animal(kind, x, h + 0.1, z, wool, feather);
+    // 猫的毛色：五色完全均等（2026-11-01 设定）
+    const catColor = kind === 'cat' ? Math.floor(Math.random() * CAT.COLORS) : 0;
+    const a = new Animal(kind, x, h + 0.1, z, wool, feather, catColor);
     scene.add(a.group);
     out.push(a);
   }

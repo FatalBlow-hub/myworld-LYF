@@ -15,18 +15,39 @@ const willowLog: Painter = (c, x, y) => {
   c.fillRect(x + 9, y + 9, 1, 5);
 };
 
-/** 柳树叶：黄绿底 + 向下垂的细枝条（垂柳的辨识特征） */
-const willowLeaf: Painter = (c, x, y) => {
-  fill(c, x, y, '#8fc45a');
-  speckle(c, x, y, ['#7cb04a', '#a2d46a', '#6b9e3c'], 110);
-  c.fillStyle = '#5e8c34';
-  for (const dx of [2, 6, 10, 14]) {
-    c.fillRect(x + dx, y + 3, 1, 11);
-    c.fillRect(x + dx - 1, y + 6, 1, 1);
-    c.fillRect(x + dx + 1, y + 9, 1, 1);
+/** 柳树叶：透明底上垂下几条细柳枝、沿枝挂小叶（画在十字面片上，透出后面天色才像垂柳）
+ *  snowy = 冬天版：枝叶上半截再积一层细雪 */
+export const willowStrand = (snowy = false): Painter => (c, x, y) => {
+  c.clearRect(x, y, TILE, TILE);
+  const strands: [number, number, number][] = [[2, 14, 3], [6, 11, -2], [10, 15, 2], [14, 12, -3]];
+  // 细柳枝的茎：从顶上软软垂下来
+  c.strokeStyle = '#6a9e3c';
+  c.lineWidth = 1;
+  for (const [sx, ey, bend] of strands) {
+    c.beginPath();
+    c.moveTo(x + sx, y);
+    c.quadraticCurveTo(x + sx + bend, y + ey * 0.6, x + sx + bend * 1.6, y + ey);
+    c.stroke();
   }
-  c.fillStyle = '#c2e88a';
-  for (const dx of [3, 8, 12]) c.fillRect(x + dx, y + 2, 1, 4);
+  // 沿枝小叶：左右交错的小短叶，两种绿
+  for (const [sx, ey, bend] of strands) {
+    for (let i = 2; i <= ey; i += 2) {
+      const px = sx + Math.round((bend * 1.6 * i) / ey);
+      c.fillStyle = i % 4 === 0 ? '#a2d46a' : '#8fc45a';
+      c.fillRect(x + px - 2, y + i, 2, 1);
+      c.fillRect(x + px + 1, y + i + 1, 2, 1);
+    }
+  }
+  // 空隙里再飘几片零散小叶，免得太稀疏
+  c.fillStyle = '#7cb04a';
+  for (const [dx, dy] of [[4, 5], [9, 8], [12, 3], [3, 10], [8, 13]]) c.fillRect(x + dx, y + dy, 1, 1);
+  if (snowy) {
+    // 冬天：上半截的枝叶上积细雪
+    c.fillStyle = '#e8f2f8';
+    for (let i = 0; i < 14; i++) c.fillRect(x + Math.floor(Math.random() * TILE), y + Math.floor(Math.random() * 8), 1, 1);
+    c.fillStyle = '#ffffff';
+    for (let i = 0; i < 6; i++) c.fillRect(x + Math.floor(Math.random() * TILE), y + Math.floor(Math.random() * 5), 1, 1);
+  }
 };
 
 /** 柳树苗：一根细茎 + 两片下垂的叶子，阶段越高越茂盛 */
@@ -64,7 +85,7 @@ export const WILLOW_PAINTERS: Record<string, Painter> = {
     c.fillStyle = shade('#8a6a42', -18);
     c.fillRect(x + 7, y + 7, 2, 2);
   },
-  leaves_willow: willowLeaf,
+  leaves_willow: willowStrand(),
   sap_willow_1: willowSap(6, 2),
   sap_willow_2: willowSap(10, 4),
   sap_willow_3: willowSap(13, 6),

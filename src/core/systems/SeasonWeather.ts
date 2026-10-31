@@ -5,7 +5,7 @@ import { applySeasonLeaves } from '../../world/terrain/SeasonLeaves';
 import { ALL_MUSHROOM_IDS } from '../../world/terrain/mushrooms';
 import { Snowfall } from '../../render/fx/Snowfall';
 import { Fluff } from '../../render/fx/Fluff';
-import { AIR, isSolid, SNOW, SNOWFLAKE, WILLOW_FLUFF, WILLOW_LEAVES } from '../../world/blocks/Block';
+import { AIR, CALAMUS, isSolid, SNOW, SNOWFLAKE, WILLOW_FLUFF, WILLOW_LEAVES } from '../../world/blocks/Block';
 import { CHUNK, SNOWFALL } from '../../config';
 import { PlayerBody } from '../../player/motion/Physics';
 import { World } from '../../world/World';
@@ -73,6 +73,8 @@ export class SeasonWeatherSystem {
     this.lastSeason = season;
     setActiveSeason(season);
     if (season === 'winter') world.clearBlocks(ALL_MUSHROOM_IDS);
+    // 菖蒲叶是夏天的东西（2026-11-01 设定）：一到秋天全部消失，来年夏天再长
+    if (season === 'autumn') world.clearBlocks([CALAMUS]);
     if (!applySeasonLeaves(season)) return;
     world.markAllDirty();
     rebuildDirty(world);

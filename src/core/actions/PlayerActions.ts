@@ -22,7 +22,7 @@ import { RecipeBook } from '../../ui/panels/RecipeBook';
 import {
   AIR, ARENA_BOX, BAMBOO, BLACK_PICKAXE, BLOCKS, BOTTLE_WATER, BUCKET, BUY_BOX, CARROT, CHALLENGE_DOOR, CHALLENGE_HOUSE, CHEM_DECOMP, CRAFTING_TABLE,
   DIRT, DYE_TABLE, DYEABLE_CARPETS, FIRESTARTER_IDS, FOOD_TABLE, FRUIT_LEAF_IDS, FRUIT_OF_LEAF, GLASS_BOTTLE, GLASS_BUCKET, GRASS, HYDROGEN, ICE, IRON_NUGGET,
-  LEAVES, MAPLE_LEAF, MELON_SEED, MELON_STAGE1, PETAL_SAKURA, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT, WILLOW_LEAVES,
+  isSolid, LEAVES, MAPLE_LEAF, MELON_SEED, MELON_STAGE1, PETAL_SAKURA, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT, SLOW_NET, WILLOW_LEAVES,
   RICE_GRAIN, RUBBER, SAND, SAPLING_IDS, SEAWEED, SNOW, SNOWFLAKE, SOUL_CHEST, SOUL_FIRESTARTER, SPECIES_BY_SAPLING, STAR_DYE_TABLE, STAR_TABLE, STICK, LIQUID_FILL,
   TANK, TRAP_BLOCK_IDS, VENDING_BLACK, VENDING_DRINK, VENDING_SPECIAL, VENDING_STORE, VISIT_LIST_BLOCKS, WATER_BUCKET, WILLOW_TRAP, WOOD,
   BEAD_IDS, BEAD_FIREWORK,
@@ -192,10 +192,12 @@ export class PlayerActions {
       const bambooFallen = id === BAMBOO ? bambooAbove(world, hitX!, hitY!, hitZ!) : 0;
       const drop = mine(world, { x: hitX!, y: hitY!, z: hitZ!, nx: 0, ny: 0, nz: 0 });
       // 树冠按季节给你东西：夏天攒樱花花瓣、秋天攒枫叶，春天/冬天还是掉树叶本体（2026-10-27 设定）
+      // 柳树四季常青不换装（2026-10-31 设定）：夏秋挖它不掉花瓣/枫叶，照常掉柳叶本体
       const season = seasonOf(this.d.day.date);
       const canopy = id === LEAVES || id === WILLOW_LEAVES || id in FRUIT_OF_LEAF;
-      const seasonPick = canopy && season === 'summer' ? PETAL_SAKURA
-        : canopy && season === 'autumn' ? MAPLE_LEAF : AIR;
+      const seasonCanopy = canopy && id !== WILLOW_LEAVES;
+      const seasonPick = seasonCanopy && season === 'summer' ? PETAL_SAKURA
+        : seasonCanopy && season === 'autumn' ? MAPLE_LEAF : AIR;
       // 柳条陷阱：挖掉不返还伪装方块，而是把陷阱本体收回去（设定原文）
       const wasTrap = TRAP_BLOCK_IDS.includes(id);
       if (wasTrap && !creative) {
@@ -213,8 +215,9 @@ export class PlayerActions {
         inventory.add(beadId, 1);
         hud.showMessage(`叶子里藏着一颗${BLOCKS[beadId].cn}！`);
       }
-      // 冬季挖普通树叶（设定的"桦树叶"）：除原有掉落外，15% 额外掉一朵雪花
-      if (id === LEAVES && season === 'winter' && !creative && Math.random() < SEASON_FOOD.BIRCH_SNOWFLAKE_CHANCE) {
+      // 冬季挖带细雪的树冠：普通树叶 15% / 柳树叶 12.5% 额外掉一朵雪花（2026-10-31 设定柳树冬天枝条挂细雪）
+      if ((id === LEAVES || id === WILLOW_LEAVES) && season === 'winter' && !creative
+        && Math.random() < (id === LEAVES ? SEASON_FOOD.BIRCH_SNOWFLAKE_CHANCE : SEASON_FOOD.WILLOW_SNOWFLAKE_CHANCE)) {
         inventory.add(SNOWFLAKE, 1);
         hud.showMessage('树叶里藏着一朵雪花！');
       }
@@ -288,6 +291,21 @@ export class PlayerActions {
     };
     if (!stack) {
       hud.showMessage('手里是空的，先挖点方块吧');
+    } else if (stack.id === SLOW_NET) {
+      // 减速网（2026-11-01 设定）：要 3×3 平整空地才铺得下，铺上去之后怪走进范围就慢一半
+      const x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz;
+      let ok = true;
+      for (let dx = -1; dx <= 1 && ok; dx++) {
+        for (let dz = -1; dz <= 1 && ok; dz++) {
+          if (!isSolid(world.getBlock(x + dx, y - 1, z + dz))) { hud.showMessage('要 3×3 全是实地才能铺减速网'); ok = false; break; }
+          if (world.getBlock(x + dx, y, z + dz) !== AIR) { hud.showMessage('网上面 3×3 要全空，草和水都不能有'); ok = false; break; }
+        }
+      }
+      if (ok) {
+        world.setBlock(x, y, z, SLOW_NET);
+        spend();
+        hud.showMessage('减速网铺好了，怪踩进这一片就慢半');
+      }
     } else if (stack.id === WILLOW_TRAP) {
       // 柳条陷阱：先挑伪装（沙子/雪块/草方块/泥土/圆石），选完才落地
       this.d.openTrapPicker(hit);

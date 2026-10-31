@@ -16,11 +16,12 @@ import {
 import { CS_BLOCKS } from './cs';
 import { COOKING_BLOCKS, COOKING_FOOD_IDS, COOKING_MAT_IDS, FOOD_TABLE } from './cooking';
 import { ROPE, ROPE_BLOCKS } from './rope';
+import { BANDAGE, FISH_ROD, GEAR_BLOCKS, GOLD_FISH_ROD, IRON_FISH_ROD, LEAD_ROPE, SILK, SLOW_NET, WOLF_CLAW, WOLF_STAR_SHARD } from './gear';
 import { PLANK_BLOCKS, DYED_PLANK_IDS } from './planks';
 import { BOTTLE_BLOCKS, BOTTLE_SW_DEEP, BOTTLE_SW_DROWN, BOTTLE_SW_LIGHT, BOTTLE_SW_MID, BOTTLE_SW_PHANTOM, BOTTLE_WATER } from './bottles';
 import { DECO_BLOCKS, VINE_LADDER } from './deco';
 import { RADISH_BLOCKS, WHITE_RADISH } from '../economy/radish';
-import { WILLOW_BAG, WILLOW_BLOCKS, WILLOW_BRANCH, WILLOW_FLUFF, WILLOW_LEAVES, WILLOW_SAP1, WILLOW_WOOD } from './willow';
+import { WILLOW_BAG, WILLOW_BLOCKS, WILLOW_FLUFF, WILLOW_LEAVES, WILLOW_SAP1, WILLOW_WOOD } from './willow';
 import { LEAF_DROP_BLOCKS, MAPLE_LEAF, PETAL_SAKURA } from './leafdrops';
 import { ARENA_BLOCKS, ARENA_BOX } from './arena';
 import { BUCKET_WATER_MAX } from '../../config';
@@ -34,7 +35,7 @@ export * from './swords'; // 六把剑（blocks.swords.ts）同样转发
 export * from './planks'; // 染色木板一族（blocks.planks.ts）同样转发
 export * from './bottles'; // 玻璃瓶装液体一族（blocks.bottles.ts）同样转发
 export * from './deco'; // 装饰方块一族（blocks.deco.ts）同样转发
-export * from './willow'; // 柳树一族（blocks.willow.ts：柳树干/柳叶/柳树苗/柳絮孢子/柳条/柳絮腰包）同样转发
+export * from './willow'; // 柳树一族（blocks.willow.ts：柳树干/柳叶/柳树苗/柳絮孢子/柳絮腰包）同样转发
 export * from './leafdrops'; // 树冠季节产物（blocks.leafdrops.ts：樱花花瓣/枫叶）同样转发
 export * from './arena'; // 红焰大赛箱（blocks.arena.ts）同样转发
 export * from './newgear'; // 四季 DIY 道具（blocks.newgear.ts：樱花药包/枫叶腰包/飞刀/柳条陷阱）同样转发
@@ -42,6 +43,7 @@ export * from './seasonfood'; // 四季节日道具（blocks.seasonfood.ts：春
 export * from './cs'; // CS 大赛道具（blocks.cs.ts：手枪/弹药/闪光弹/手雷/步枪/毒药瓶/AK47）同样转发
 export * from './cooking'; // 美食烹饪一族（blocks.cooking.ts：美食工作台 + 食材/料理）同样转发
 export * from './rope'; // 绳索（blocks.rope.ts：拴动物用）同样转发
+export * from './gear'; // 猎装与丝线一族（blocks.gear.ts：丝线/绷带/牵引绳索/减速网/三根鱼竿/狼星碎片/狼之利爪）同样转发
 export * from '../economy/radish'; // 白萝卜（radish.ts：物品 + 价格逻辑）同样转发
 
 export const AIR = 0;
@@ -502,7 +504,7 @@ export const BLOCKS: Record<number, BlockDef> = {
   ...BOTTLE_BLOCKS,   // 玻璃瓶装液体一族（blocks.bottles.ts）：一格一瓶
   ...DECO_BLOCKS,     // 装饰方块一族（blocks.deco.ts）：藤蔓梯子等
   ...RADISH_BLOCKS,   // 白萝卜（radish.ts）：黑色售卖机周一进货的炒股道具
-  ...WILLOW_BLOCKS,   // 柳树一族（blocks.willow.ts）：柳树干/柳叶/三阶段树苗/柳絮孢子/柳条/柳絮腰包
+  ...WILLOW_BLOCKS,   // 柳树一族（blocks.willow.ts）：柳树干/柳叶/三阶段树苗/柳絮孢子/柳絮腰包
   ...LEAF_DROP_BLOCKS, // 树冠季节产物（blocks.leafdrops.ts）：樱花花瓣/枫叶
   ...ARENA_BLOCKS,    // 红焰大赛箱（blocks.arena.ts）：大厅赛事入口
   ...NEWGEAR_BLOCKS,  // 四季 DIY 道具（blocks.newgear.ts）：两个腰包/飞刀/柳条陷阱五态
@@ -510,6 +512,7 @@ export const BLOCKS: Record<number, BlockDef> = {
   ...CS_BLOCKS,          // CS 大赛道具（blocks.cs.ts）：七样比赛用品，不进创造面板
   ...COOKING_BLOCKS,     // 美食烹饪一族（blocks.cooking.ts）：美食工作台（只能做美食配方）
   ...ROPE_BLOCKS,        // 绳索（blocks.rope.ts）：2 木棍合成，拴动物用
+  ...GEAR_BLOCKS,        // 猎装与丝线一族（blocks.gear.ts）：丝线/绷带/牵引绳索/减速网/三根鱼竿/狼星碎片/狼之利爪
   [AIR]:         { cn: '空气',   tex: { top: '', side: '' }, solid: false, seeThrough: true, hardness: 0 },
   [GRASS]:       { cn: '草方块', tex: { top: 'grass_top', side: 'grass_side', bottom: 'dirt' }, solid: true, seeThrough: false, hardness: 0.6, drop: DIRT },
   [DIRT]:        { cn: '泥土',   tex: { top: 'dirt', side: 'dirt' }, solid: true, seeThrough: false, hardness: 0.5 },
@@ -841,7 +844,8 @@ export const ALL_ITEMS = [
   WHITE_RADISH,
   // 四季树冠产物与柳树一族（2026-10-27）：夏挖樱花花瓣、秋挖枫叶、沙滩柳树
   PETAL_SAKURA, MAPLE_LEAF,
-  WILLOW_WOOD, WILLOW_LEAVES, WILLOW_SAP1, WILLOW_FLUFF, WILLOW_BRANCH, WILLOW_BAG,
+  // 柳条 346 已下岗（2026-10-31 设定：柳树只有叶和干），不再进创造面板；定义保留只为老档兜底
+  WILLOW_WOOD, WILLOW_LEAVES, WILLOW_SAP1, WILLOW_FLUFF, WILLOW_BAG,
   // 红焰大赛箱（大厅赛事入口，正常靠大厅里那台，创造面板也放一份方便摆）
   ARENA_BOX,
   // 四季 DIY 道具（2026-10-27）：樱花药包 / 枫叶腰包 / 枫叶飞刀 / 柳条陷阱（含五种伪装）
@@ -854,6 +858,8 @@ export const ALL_ITEMS = [
   ...COOKING_MAT_IDS, ...COOKING_FOOD_IDS,
   // 绳索（blocks.rope.ts）：拴动物带着走
   ROPE,
+  // 猎装与丝线一族（2026-11-01）：猫掉丝线，丝线 DIY 四件套 + 三根钓鱼竿 + 狼星碎片/狼之利爪
+  SILK, BANDAGE, LEAD_ROPE, SLOW_NET, FISH_ROD, GOLD_FISH_ROD, IRON_FISH_ROD, WOLF_STAR_SHARD, WOLF_CLAW,
 ];
 
 /** 庄稼生长链：每 60 秒走一级（水稻/胡萝卜/南瓜/西瓜共用）；最后一级不在表里 = 熟透了不再长 */

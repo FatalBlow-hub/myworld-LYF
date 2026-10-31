@@ -1,7 +1,7 @@
 /** 游戏主循环 — 把所有模块装配起来，每帧按固定顺序驱动它们 */
 
 import * as THREE from 'three';
-import { ARENA, CS, DAY, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PVP, VOID_Y, VisitPerm, WORLD_SEED } from '../config';
+import { ARENA, CS, DAY, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PVP, VOID_Y, VisitPerm, WOLF, WORLD_SEED } from '../config';
 import { World } from '../world/World';
 import { VOID_ARENA_SPAWN } from '../world/maps/ArenaMaps';
 import { Arena } from './scenes/Arena';
@@ -35,6 +35,7 @@ import { SeasonWeatherSystem } from './systems/SeasonWeather';
 import { EconomySystem } from './systems/Economy';
 import { SummonsSystem } from './systems/Summons';
 import { TravelerSystem } from './systems/TravelerSys';
+import { Fishing } from './systems/Fishing';
 import { TouchControls } from '../ui/touch/TouchControls';
 import { isMobile } from '../ui/touch/Platform';
 import { Hud } from '../ui/hud/Hud';
@@ -70,7 +71,7 @@ import { MobCombat } from './actions/MobCombat';
 import { Vehicles } from './scenes/Vehicles';
 import { Challenge } from './scenes/Challenge';
 import { Potions } from '../entities/projectiles/Potions';
-import { BAG_GLASS, WAISTBAG_SLOT } from '../world/blocks/Block';
+import { BAG_GLASS, WAISTBAG_SLOT, WOLF_CLAW } from '../world/blocks/Block';
 import { DIY_GOLD_PICKAXE } from '../world/recipes/GoldenItems';
 import { spawnDrop } from '../entities/objects/drops';
 import { ZOMBIE_NAMES } from '../entities/mobs/Zombie';
@@ -113,7 +114,7 @@ export class Game {
   private playerActions: PlayerActions | null = null; private pickup: Pickup | null = null;
   private survival: Survival | null = null; private combat: MobCombat | null = null;
   private fires!: FireSystem; private mobs: Mobs; private vehicles!: Vehicles;
-  private challenge!: Challenge; private potions!: Potions;
+  private challenge!: Challenge; private potions!: Potions; private fishing!: Fishing;
   private drops: ItemDrop[] = [];
   private worldCycles = new WorldCycles(); private skates = new SkateSystem();
   private container: ContainerPanel | null = null; private dyePanel: DyePanel | null = null;
@@ -218,6 +219,7 @@ export class Game {
     this.vehicles = new Vehicles(this.renderer.scene, this.mobs);
     this.challenge = this.createChallenge();
     this.potions = new Potions(this.renderer.scene, this.mobs, (msg) => this.hud!.showMessage(msg, 1.5));
+    this.fishing = new Fishing(this.renderer.scene, this.mobs, (msg) => this.hud?.showMessage(msg, 1.5));
     this.fires = new FireSystem(this.renderer.scene);
     this.visitSync = new VisitSync({
       scene: this.renderer.scene,
@@ -260,7 +262,7 @@ export class Game {
       scene: this.renderer.scene, world: () => this.world, book: this.book, coins: () => this.coins,
       addCoins: (n) => this.addCoins(n), inventory: () => this.inventory, hud: () => this.hud,
       spawn: () => this.spawn, body: () => this.body, sceneMode: () => this.scene,
-      season: () => seasonOf(this.day.date), controller: this.controller,
+      season: () => seasonOf(this.day.date), date: () => this.day.date, controller: this.controller,
     });
     // —— 二期：场景路由 + 存档控制器（ctx 全走 getter，晚绑定） ——
     this.saves = new SaveController({
@@ -525,7 +527,8 @@ export class Game {
       body: () => this.body!,
     });
     this.combat = new MobCombat(this.controller, this.inventory, () => this.slot, this.hud, this.mobs,
-      () => this.health!.attackMultiplier); // 丰收拼盘的 10 秒攻击 ×1.25
+      // 丰收拼盘的 10 秒攻击 ×1.25；戴着狼之利爪（2026-11-01 设定）常驻再翻倍
+      () => (this.inventory?.armor[0]?.id === WOLF_CLAW ? WOLF.DMG_MULT : 1) * this.health!.attackMultiplier);
     // 读档会立刻按存档坐标生成区块，得先把本岛果树品种喂给地形生成器，不然家门口不长果树
     if (save?.islandType && save.islandType in ISLAND_TYPES) {
       setTerrainConfig(WORLD_SEED, false, ISLAND_TYPES[save.islandType].leafId);
@@ -633,6 +636,7 @@ export class Game {
     for (const f of this.mobs.fish) this.renderer.scene.remove(f.group);
     this.mobs.fish.length = 0;       // 鱼不存档：回岛/串门之后海里重新刷
     this.fires.clear(); this.challenge = this.createChallenge();
+    this.fishing.clear(); // 浮标跟着旧场景一起收
     this.weather.clearParticles(); // 柳絮是场景内的粒子，换场景必须清干净
     this.trapSys.clear(); // 陷阱跟着旧世界一起作废
     this.fireworks?.clear();
@@ -810,9 +814,10 @@ export class Game {
       const riding = this.vehicles.riding !== null;
       this.vehicles.update(dt, this.world, body, this.controller, this.inventory!, hud,
         Math.min(blockDist, mob?.dist ?? Infinity), this.slot, () => this.hud!.refreshHotbar(this.inventory!, this.slot));
-      // 手持枫叶飞刀时 P 是甩飞刀（一次性），其余情况才是扔药水
+      // 手持枫叶飞刀时 P 是甩飞刀（一次性），手持鱼竿时 P 全归钓鱼，其余情况才是扔药水
       const knifeHandled = !riding && this.knife!.handleInput(this.controller, this.inventory!, this.slot, body, hud);
-      const potionHandled = knifeHandled
+      const fishingHandled = !riding && this.fishing.handleInput(this.controller, this.inventory!, this.slot, body, hud, this.world);
+      const potionHandled = knifeHandled || fishingHandled
         || (!riding && this.potions.handleInput(this.controller, this.inventory!, this.slot, body, hud, hit, this.highlight));
       if (!potionHandled && !riding && mob && mob.dist <= blockDist) {
         this.highlight.visible = false; this.playerActions!.cancelMining(); hud.setProgress(0);
@@ -843,6 +848,7 @@ export class Game {
         this.mobs.update(dt, body.x, body.y, body.z, this.scene === 'island' && this.day.time >= DAY.NIGHT_FROM, this.day.time);
       }
       this.potions.update(dt, this.world); this.knife!.update(dt, this.world); this.fires.update(dt);
+      this.fishing.update(dt);
       this.fireworks!.update(dt);
       if (this.scene === 'cs') this.csLocal.tick(dt, body);
       this.travelerSys.tick(dt);
