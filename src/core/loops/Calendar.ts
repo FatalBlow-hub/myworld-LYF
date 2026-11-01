@@ -38,6 +38,13 @@ export function seasonOf(d: GameDate): Season {
   return 'autumn';
 }
 
+/** 这个月是本季第几个月（0/1/2）：冬季跨年，12 月算第 0 个、1 月第 1 个、2 月第 2 个。
+ *  旅者只在每季第二个月来，靠它判定 */
+export function monthInSeason(d: GameDate): number {
+  const first: Record<Season, number> = { spring: 3, summer: 6, autumn: 9, winter: 12 };
+  return ((d.month - first[seasonOf(d)]) % 3 + 3) % 3;
+}
+
 /** 往后翻几天（自动跨月、12 月过完回到 1 月）；days 可以是负数，往前翻 */
 export function advanceDate(d: GameDate, days = 1): GameDate {
   const perMonth = CALENDAR.MONTH_DAYS;

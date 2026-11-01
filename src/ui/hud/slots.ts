@@ -13,7 +13,10 @@ export function renderStack(el: HTMLElement, stack: Stack | null, atlas: Atlas, 
   if (stack.durability !== undefined || (!hideCount && stack.count > 1)) {
     const n = document.createElement('b');
     n.className = 'count';
-    n.textContent = String(stack.durability ?? stack.count);
+    // 耐久 Infinity（无尽之剑）画"∞"而不是一串 Infinity 字样
+    n.textContent = stack.durability !== undefined
+      ? (Number.isFinite(stack.durability) ? String(stack.durability) : '∞')
+      : String(stack.count);
     el.appendChild(n);
   }
 }

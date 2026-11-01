@@ -141,6 +141,8 @@ export const SWORDS = {
   BLOOD:   { mult: 2,   uses: 12, critChance: 0.2, critMult: 4 }, // 20% 概率这一刀变 4 倍
   // 樱花剑：单次半格血（1 点）、10 刀、0.33 秒一刀、只够到 3 格——轻快但很脆
   SAKURA:  { mult: 0.5, uses: 10, reach: 3, cooldown: 0.33 },
+  // 无尽之剑（2026-11-01 设定）：2 无尽方块 + 1 木棍，攻击 2.5 倍、耐久 Infinity 永不磨损
+  ENDLESS: { mult: 2.5, uses: Infinity },
 } as const;
 
 

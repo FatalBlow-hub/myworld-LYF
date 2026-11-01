@@ -105,7 +105,7 @@ export class Mobs {
       if (!a.dead && a.adult) {
         a.breedT -= dt;
         if (a.breedT <= 0 && this.animals.length + babies.length < ANIMAL.MAX_TOTAL) {
-          a.breedT = a.isBird ? BIRD.BREED_EVERY : ANIMAL.BREED_EVERY;
+          a.breedT = a.isBird ? BIRD.BREED_EVERY : a.kind === 'cat' ? CAT.BREED_EVERY : ANIMAL.BREED_EVERY;
           babies.push(a.giveBirth(this.scene));
         }
       }
@@ -226,6 +226,11 @@ export class Mobs {
       && Math.hypot(a.x - px, a.z - pz) <= NEAR_HOOFED.RADIUS)) {
       this.animals.push(...spawnAnimals(this.world, this.scene, px, pz, 1,
         NEAR_HOOFED.SPAWN_NEAR, NEAR_HOOFED.SPAWN_FAR, ['cow', 'pig', 'sheep']));
+    }
+    // 猫保底（2026-11-01 设定）：玩家方圆 10 格内一只猫都没有，就补一只到 4~9 格处（必须在圈里，不然白补）
+    if (this.animals.length < ANIMAL.MAX_TOTAL && !this.animals.some((a) => !a.dead
+      && a.kind === 'cat' && Math.hypot(a.x - px, a.z - pz) <= CAT.NEAR_RADIUS)) {
+      this.animals.push(...spawnAnimals(this.world, this.scene, px, pz, 1, CAT.SPAWN_NEAR, CAT.SPAWN_FAR, ['cat']));
     }
     // 周围一只鸟都没有就定向补 2 只（老动物不会老死，名额被它们占满时鸟永远刷不出来；鸟 90 秒老死不会挤爆）
     if (!this.animals.some((a) => a.isBird) && this.animals.length < ANIMAL.MAX_TOTAL) {

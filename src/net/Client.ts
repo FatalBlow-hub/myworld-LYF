@@ -1,7 +1,7 @@
 /** 联机客户端（Client） — 管理 WebSocket 长连接、JSON 收发、心跳检测、指数退避重连、在线名单与大厅排队收发 */
 
 import type { IslandType, VisitPerm } from '../config';
-import { C2SMsg, CsRoomView, NetStatus, S2CMsg, S2CVisitPeerMsg, VisitDenyReason } from './Protocol';
+import { C2SMsg, CsRoomView, NetStatus, S2CMsg, S2CVisitPeerMsg, TntPacket, VisitDenyReason } from './Protocol';
 
 const CLIENT_VER = 'coscreen-1017'; // 客户端代码版本号：hello 上报，日志里能看出谁还在跑旧缓存
 const PING_INTERVAL_MS = 10_000;   // 客户端每 10 秒发一次 ping
@@ -41,6 +41,8 @@ export interface NetClientCallbacks {
   onVisitGive?: (from: string, gift: { coins?: number; itemId?: number; count?: number }) => void;
   /** 收到对面发来的聊天消息 */
   onVisitChat?: (from: string, text: string) => void;
+  /** 收到对面发来的 TNT 小游戏消息（邀请/加入/开局/位置/阵亡） */
+  onVisitTnt?: (from: string, d: TntPacket) => void;
   /** 服务器确认收到访岛申请（申请在死管里丢掉时，客户端靠"没回执"发现） */
   onVisitRequested?: (to: string) => void;
   /** 访客收到拒绝/超时/验证失败/不在线时触发 */
@@ -180,6 +182,11 @@ export class NetClient {
   /** 同屏访岛：发聊天消息给对端（返回 false = 没发出去） */
   sendVisitChat(text: string): boolean {
     return this.send({ t: 'visit.chat', text });
+  }
+
+  /** 同屏访岛：发 TNT 小游戏消息给对端（返回 false = 没发出去） */
+  sendVisitTnt(d: TntPacket): boolean {
+    return this.send({ t: 'visit.tnt', d });
   }
 
   /** CS 联机：建房（mode 决定每队几人） */
@@ -447,6 +454,10 @@ export class NetClient {
       }
       case 'visit.chat': {
         this.callbacks.onVisitChat?.(msg.name, msg.text);
+        break;
+      }
+      case 'visit.tnt': {
+        if (msg.d && typeof msg.d === 'object') this.callbacks.onVisitTnt?.(msg.name, msg.d);
         break;
       }
       // —— CS 联机房间 ——

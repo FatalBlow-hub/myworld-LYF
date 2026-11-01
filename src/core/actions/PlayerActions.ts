@@ -2,7 +2,7 @@
  *  留在 core 层是因为这些动作会直接开 UI 面板（工作台、染色台），按依赖铁律下层不能反向依赖 ui。 */
 
 import * as THREE from 'three';
-import { BLACK_PICK, GOLDEN, HASTE, ISLAND, RUBBER_DROP, SEASON_FOOD, SNOWFLAKE_DROP, STACK_MAX, VisitPerm } from '../../config';
+import { BLACK_PICK, ENDLESS_DROP, GOLDEN, HASTE, ISLAND, RUBBER_DROP, SEASON_FOOD, SNOWFLAKE_DROP, STACK_MAX, VisitPerm } from '../../config';
 import { FireSystem } from '../../entities/objects/Fire';
 import { ItemDrop } from '../../entities/objects/ItemDrop';
 import { BOW_FORM_OF } from '../../entities/summons/Archer';
@@ -21,10 +21,10 @@ import { Panel } from '../../ui/panels/Panel';
 import { RecipeBook } from '../../ui/panels/RecipeBook';
 import {
   AIR, ARENA_BOX, BAMBOO, BLACK_PICKAXE, BLOCKS, BOTTLE_WATER, BUCKET, BUY_BOX, CARROT, CHALLENGE_DOOR, CHALLENGE_HOUSE, CHEM_DECOMP, CRAFTING_TABLE,
-  DIRT, DYE_TABLE, DYEABLE_CARPETS, FIRESTARTER_IDS, FOOD_TABLE, FRUIT_LEAF_IDS, FRUIT_OF_LEAF, GLASS_BOTTLE, GLASS_BUCKET, GRASS, HYDROGEN, ICE, IRON_NUGGET,
+  DIRT, DYE_TABLE, DYEABLE_CARPETS, COMPUTER, ENDLESS_BLOCK, FIRESTARTER_IDS, FOOD_TABLE, FRUIT_LEAF_IDS, FRUIT_OF_LEAF, GLASS_BOTTLE, GLASS_BUCKET, GRASS, HYDROGEN, ICE, IRON_NUGGET,
   isSolid, LEAVES, MAPLE_LEAF, MELON_SEED, MELON_STAGE1, PETAL_SAKURA, PUMPKIN_SEED, PUMPKIN_STAGE1, RAW_MEAT, SLOW_NET, WILLOW_LEAVES,
   RICE_GRAIN, RUBBER, SAND, SAPLING_IDS, SEAWEED, SNOW, SNOWFLAKE, SOUL_CHEST, SOUL_FIRESTARTER, SPECIES_BY_SAPLING, STAR_DYE_TABLE, STAR_TABLE, STICK, LIQUID_FILL,
-  TANK, TRAP_BLOCK_IDS, VENDING_BLACK, VENDING_DRINK, VENDING_SPECIAL, VENDING_STORE, VISIT_LIST_BLOCKS, WATER_BUCKET, WILLOW_TRAP, WOOD,
+  TANK, TRAP_BLOCK_IDS, VENDING_BLACK, VENDING_DRINK, VENDING_SPECIAL, VENDING_STORE, VISIT_LIST_BLOCKS, WATER_BUCKET, WILLOW_TRAP, WOOD, STONE,
   BEAD_IDS, BEAD_FIREWORK,
   dropCountOf, isBed, isChest, isDoor, isFurnace,
 } from '../../world/blocks/Block';
@@ -89,6 +89,8 @@ export interface PlayerActionDeps {
   summonWarrior: (eggId: number, x: number, y: number, z: number) => void;
   /** 拿着小战士弓对地按 M：召唤弓箭手哨兵（扣弓由外面负责） */
   summonArcher: (bowId: number, x: number, y: number, z: number) => void;
+  /** 对着电脑方块按 M：开机进「躲避 TNT」小游戏（x,y,z 是电脑坐标，双人配对用） */
+  openComputer: (x: number, y: number, z: number) => void;
 }
 
 export class PlayerActions {
@@ -204,10 +206,13 @@ export class PlayerActions {
         inventory.add(WILLOW_TRAP, 1);
         hud.showMessage('挖掉一个柳条陷阱');
       }
+      // 挖石头中彩票（2026-11-01 设定：0.01%）：这块石头其实藏着无尽方块——掉无尽方块，不给圆石
+      const luckyEndless = id === STONE && !creative && Math.random() < ENDLESS_DROP.CHANCE;
+      if (luckyEndless) hud.showMessage(`石头里藏着一块${BLOCKS[ENDLESS_BLOCK].cn}！`, 3);
       if (seasonPick !== AIR) {
         if (!creative) inventory.add(seasonPick, 1); // 花瓣/枫叶必掉 1 个，树叶本体就不给了
       } else if (!wasTrap && drop !== AIR && !creative) {
-        inventory.add(drop, dropCountOf(id)); // 创造模式挖了不进包
+        inventory.add(luckyEndless ? ENDLESS_BLOCK : drop, luckyEndless ? 1 : dropCountOf(id)); // 创造模式挖了不进包
       }
       // 冬季挖树冠：12.5% 掉一颗红/黄/蓝装饰珠子（设定：挖桦树叶掉，现用普通树叶代替）
       if (canopy && season === 'winter' && !creative && Math.random() < SEASON_FOOD.BEAD_CHANCE) {
@@ -482,6 +487,9 @@ export class PlayerActions {
       const taken = inventory.takeAny(DYEABLE_CARPETS);
       if (taken === null && !star) hud.showMessage('背包里没有地毯，染不了色');
       else dyePanel.open(taken, star, gold);
+    } else if (id === COMPUTER) {
+      // 电脑：按 M 开机——黑屏→蓝屏→「躲避 TNT」小游戏；有客人同屏时对方也按 M 就是双人
+      this.d.openComputer(hitX, hitY, hitZ);
     } else if (isBed(id)) {
       // 床：天黑了按 M = 睡觉，屏幕黑一下就天亮；白天不让睡
       if (!day.trySleep()) {

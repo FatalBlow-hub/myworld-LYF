@@ -12,7 +12,7 @@ import {
   RAW_MEAT, RICE_SEED, ROLLER_SKATES, ROPE, RUBBER, FOOD_TABLE, SOUL_DYE, SOUL_FIRESTARTER,
   STAR_DYE_TABLE, STAR_FIRESTARTER, STAR_SHARD, STAR_WOOL, STICK, SWAMP_DEEP, SWAMP_LIGHT,
   SWAMP_MID, SWAMP_PHANTOM, SWORD_WOOD, TANK, TANK_BULLET, WATER_BUCKET, WOOD,
-  WOOL_IDS, WOOL_WHITE,
+  WOOL_IDS, WOOL_WHITE, COMPUTER, ENDLESS_BLOCK,
 } from '../blocks/data';
 import { WHITE_RADISH } from '../economy/radish';
 import { RECIPES, SMELT, UNCRAFT } from './Recipes';
@@ -106,6 +106,9 @@ export const TUTORIALS: Tutorial[] = (() => {
   // 绳索与美食工作台追加在最后，别打乱以前学会的方法编号
   list.push({ text: `使用：拿着${name(ROPE)}对准牛/猪/羊/鸟按 M 拴住，动物会跟着你走；再按 M 一次就放开（蒲公英驯服那套不受影响）`, icon: ROPE, cat: 'small' });
   list.push({ text: `使用：${name(FOOD_TABLE)}是独立的功能台——只能做美食配方，普通工作台做不了美食；它也做不了道具配方。只在自由岛能用，带不进大赛`, icon: FOOD_TABLE, cat: 'build' });
+  // 科技一族（2026-11-01 第二批）：电脑玩法 + 无尽方块出处，加在最后别打乱编号
+  list.push({ text: `使用：对${name(COMPUTER)}按 M 开机——黑屏过一秒蓝屏就能玩「躲避 TNT」：←→ 键左右躲黑色 TNT，被砸中就爆炸；撑过 120 秒进无尽模式，每多活 10 秒得 3 岛币。有客人同屏时蓝屏变 3 秒，对方也按 M 就是双人同屏玩`, icon: COMPUTER, cat: 'misc' });
+  list.push({ text: `掉落：挖石头有 0.01% 概率掉${name(ENDLESS_BLOCK)}，两个加一根木棍合成无尽之剑（攻击 2.5 倍、耐久无限永不磨损）`, icon: ENDLESS_BLOCK, cat: 'misc' });
   // 兜底：说明文字一模一样的只留一条
   return [...new Map([...list, ...swampEntries].map((t) => [t.text, t])).values()];
 })();

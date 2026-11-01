@@ -17,6 +17,7 @@ import { CS_BLOCKS } from './cs';
 import { COOKING_BLOCKS, COOKING_FOOD_IDS, COOKING_MAT_IDS, FOOD_TABLE } from './cooking';
 import { ROPE, ROPE_BLOCKS } from './rope';
 import { BANDAGE, FISH_ROD, GEAR_BLOCKS, GOLD_FISH_ROD, IRON_FISH_ROD, LEAD_ROPE, SILK, SLOW_NET, WOLF_CLAW, WOLF_STAR_SHARD } from './gear';
+import { CHIP, COMPUTER, ENDLESS_BLOCK, TECH_BLOCKS } from './tech';
 import { PLANK_BLOCKS, DYED_PLANK_IDS } from './planks';
 import { BOTTLE_BLOCKS, BOTTLE_SW_DEEP, BOTTLE_SW_DROWN, BOTTLE_SW_LIGHT, BOTTLE_SW_MID, BOTTLE_SW_PHANTOM, BOTTLE_WATER } from './bottles';
 import { DECO_BLOCKS, VINE_LADDER } from './deco';
@@ -44,6 +45,7 @@ export * from './cs'; // CS 大赛道具（blocks.cs.ts：手枪/弹药/闪光�
 export * from './cooking'; // 美食烹饪一族（blocks.cooking.ts：美食工作台 + 食材/料理）同样转发
 export * from './rope'; // 绳索（blocks.rope.ts：拴动物用）同样转发
 export * from './gear'; // 猎装与丝线一族（blocks.gear.ts：丝线/绷带/牵引绳索/减速网/三根鱼竿/狼星碎片/狼之利爪）同样转发
+export * from './tech'; // 科技一族（blocks.tech.ts：芯片/电脑/无尽方块）同样转发；无尽之剑走 swords.ts
 export * from '../economy/radish'; // 白萝卜（radish.ts：物品 + 价格逻辑）同样转发
 
 export const AIR = 0;
@@ -513,6 +515,7 @@ export const BLOCKS: Record<number, BlockDef> = {
   ...COOKING_BLOCKS,     // 美食烹饪一族（blocks.cooking.ts）：美食工作台（只能做美食配方）
   ...ROPE_BLOCKS,        // 绳索（blocks.rope.ts）：2 木棍合成，拴动物用
   ...GEAR_BLOCKS,        // 猎装与丝线一族（blocks.gear.ts）：丝线/绷带/牵引绳索/减速网/三根鱼竿/狼星碎片/狼之利爪
+  ...TECH_BLOCKS,        // 科技一族（blocks.tech.ts）：芯片/电脑/无尽方块（无尽之剑在 SWORD_BLOCKS 里）
   [AIR]:         { cn: '空气',   tex: { top: '', side: '' }, solid: false, seeThrough: true, hardness: 0 },
   [GRASS]:       { cn: '草方块', tex: { top: 'grass_top', side: 'grass_side', bottom: 'dirt' }, solid: true, seeThrough: false, hardness: 0.6, drop: DIRT },
   [DIRT]:        { cn: '泥土',   tex: { top: 'dirt', side: 'dirt' }, solid: true, seeThrough: false, hardness: 0.5 },
@@ -860,6 +863,8 @@ export const ALL_ITEMS = [
   ROPE,
   // 猎装与丝线一族（2026-11-01）：猫掉丝线，丝线 DIY 四件套 + 三根钓鱼竿 + 狼星碎片/狼之利爪
   SILK, BANDAGE, LEAD_ROPE, SLOW_NET, FISH_ROD, GOLD_FISH_ROD, IRON_FISH_ROD, WOLF_STAR_SHARD, WOLF_CLAW,
+  // 科技一族（2026-11-01 第二批）：芯片/电脑/无尽方块（无尽之剑跟着 ALL_SWORD_IDS 已进来）
+  CHIP, COMPUTER, ENDLESS_BLOCK,
 ];
 
 /** 庄稼生长链：每 60 秒走一级（水稻/胡萝卜/南瓜/西瓜共用）；最后一级不在表里 = 熟透了不再长 */

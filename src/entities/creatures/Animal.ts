@@ -114,6 +114,7 @@ export class Animal {
       this.breedT = BIRD.BREED_EVERY * Math.random(); // 鸟的第一胎也用鸟的间隔
     } else if (kind === 'cat') {
       this.w = CW; this.h = CH; // 猫是小个子
+      this.breedT = CAT.BREED_EVERY * Math.random(); // 猫 30 秒一胎（2026-11-01 设定）
     }
     this.x = x; this.y = y; this.z = z;
     this.buildMesh();
@@ -144,7 +145,7 @@ export class Animal {
     const catColor = this.kind === 'cat' ? Math.floor(Math.random() * CAT.COLORS) : 0; // 猫宝宝毛色重掷，五色均等
     const baby = new Animal(this.kind, this.x, this.y, this.z, wool, this.feather, catColor); // 鸟宝宝随爸妈花色
     baby.growT = 0;
-    baby.breedT = this.isBird ? BIRD.BREED_EVERY : ANIMAL.BREED_EVERY; // 宝宝长大才开始算生崽
+    baby.breedT = this.isBird ? BIRD.BREED_EVERY : this.kind === 'cat' ? CAT.BREED_EVERY : ANIMAL.BREED_EVERY; // 宝宝长大才开始算生崽
     baby.applyScale();
     scene.add(baby.group);
     return baby;

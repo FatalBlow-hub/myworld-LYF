@@ -546,6 +546,15 @@ export function attachWs(server, resolveUser, readUserSave, userExists = null, a
         if (text) sendMsg(s.peer, { t: 'visit.chat', name: info.name, text });
         return;
       }
+      // TNT 小游戏：邀请/加入/开局/位置/阵亡原样转发给对端（d 必须是对象，防转发畸形包）
+      if (msg.t === 'visit.tnt') {
+        const s = visitSessions.get(ws);
+        if (!s || s.peer.readyState !== s.peer.OPEN) return;
+        if (msg.d && typeof msg.d === 'object' && typeof msg.d.m === 'string') {
+          sendMsg(s.peer, { t: 'visit.tnt', name: info.name, d: msg.d });
+        }
+        return;
+      }
       if (msg.t === 'visit.pos' || msg.t === 'visit.blocks') {
         const s = visitSessions.get(ws);
         if (!s) return; // 没会话的消息直接丢（比如断线重连后旧会话已拆）

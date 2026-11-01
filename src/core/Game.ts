@@ -78,6 +78,7 @@ import { ZOMBIE_NAMES } from '../entities/mobs/Zombie';
 import { FireSystem } from '../entities/objects/Fire';
 import { hurtPlayer } from '../player/stats/damage';
 import { NetClient } from '../net/Client';
+import { TntGame } from '../ui/panels/TntGame';
 import { probeAuth } from '../ui/account/Auth';
 
 export type SceneMode = 'island' | 'hall' | 'visit' | 'void' | 'arena' | 'cs'; // cs=红焰大赛的 CS 沙漠场地
@@ -121,6 +122,7 @@ export class Game {
   private hallMenu: HallMenu | null = null; private visitMenu: VisitMenu | null = null;
   private givePanel: GivePanel | null = null; // 「送礼物」面板：同屏有人时按 C /「给」打开
   private chatPanel: ChatPanel | null = null; // 访岛聊天：同屏有人时按 0 /「聊」开输入框
+  private tntGame: TntGame | null = null; // 电脑「躲避 TNT」小游戏：对电脑方块按 M 开机
   private book = new RecipeBook(this.atlas); private net: NetClient | null = null; private panels = new PanelStack();
   /** PC 端鼠标视角；手机版不建（用虚拟按键转视角），保持 null */
   private mouseLook: MouseLook | null = null;
@@ -358,13 +360,14 @@ export class Game {
       onVisitGuest: (guest, perm) => this.router.onGuestArriving(guest, perm),
       onVisitPeer: (m) => this.visitSync.onPeerPos(m),
       onVisitBlocks: (cells) => this.visitSync.onRemoteBlocks(cells),
-      onVisitEnd: (reason, name) => this.visitSync.onPeerEnd(reason, name),
+      onVisitEnd: (reason, name) => { this.visitSync.onPeerEnd(reason, name); this.tntGame?.onPeerGone(); },
       onVisitHit: (from) => this.gifts.onPeerHit(from),
       onVisitGive: (from, gift) => this.gifts.onPeerGive(from, gift),
       onVisitChat: (from, text) => {
         this.chatPanel?.push(from, text);
         this.hud?.showMessage(`${from} 发来消息了，按 0 回复`, 2.5);
       },
+      onVisitTnt: (_from, d) => this.tntGame?.onPeerMsg(d),
       onVisitDenied: (reason) => { this.router.clearVisitAck(); this.hud?.showMessage(denyMsgs[reason] ?? '对方拒绝/未响应', 3); },
     }, this.everCreative);
     this.net.connect();
@@ -479,8 +482,19 @@ export class Game {
         return this.net?.sendVisitChat(text) ?? false;
       },
     });
+    // 电脑「躲避 TNT」小游戏（2026-11-01 设定批次）：M 开机黑屏→蓝屏→开玩；同屏有人时对方也按 M 双人同玩
+    this.tntGame = new TntGame({
+      controller: this.controller,
+      visitActive: () => this.visitSync.active,
+      myName: () => this.net?.getName() ?? '',
+      peerName: () => this.visitSync.peer || '对方',
+      send: (d) => this.net?.sendVisitTnt(d) ?? false,
+      addCoins: (n) => this.addCoins(n),
+      toast: (text) => this.hud?.showMessage(text, 2.5),
+    });
     this.panels.register({ name: 'give', isOpen: () => this.givePanel!.visible, close: () => this.givePanel!.close() });
     this.panels.register({ name: 'chat', isOpen: () => this.chatPanel!.visible, close: () => this.chatPanel!.close() });
+    this.panels.register({ name: 'tnt', isOpen: () => this.tntGame!.isOpen(), close: () => this.tntGame!.close(), update: (dt) => this.tntGame!.update(dt) });
     this.panels.register({ name: 'visitRequest', isOpen: () => this.visitMenu!.requestVisible, close: () => this.visitMenu!.closeRequest() });
     this.panels.register({ name: 'visitPerm', isOpen: () => this.visitMenu!.permVisible, close: () => this.visitMenu!.closePerm() });
     this.panels.register({ name: 'hallMenu', isOpen: () => this.hallMenu!.visible, close: () => this.hallMenu!.close() });
@@ -524,6 +538,7 @@ export class Game {
       launchFirework: (x, y, z) => this.fireworks?.burst(x, y, z),
       summonWarrior: (eggId, x, y, z) => this.summons.summonWarrior(eggId, x, y, z),
       summonArcher: (bowId, x, y, z) => this.summons.summonArcher(bowId, x, y, z),
+      openComputer: (x, y, z) => this.tntGame?.open(x, y, z),
       body: () => this.body!,
     });
     this.combat = new MobCombat(this.controller, this.inventory, () => this.slot, this.hud, this.mobs,

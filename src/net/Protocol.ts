@@ -105,6 +105,21 @@ export interface C2SVisitChatMsg {
   text: string;
 }
 
+/** 电脑「躲避 TNT」双人同屏小游戏的联机小包：
+ *  invite=我先按了这台电脑在等你、join=我也按了同一台、start=主机定种子开局（t=已进行的秒数，中途加入用）、
+ *  pos=我小人现在在第几列、dead/quit=我炸了或退出了 */
+export type TntPacket =
+  | { m: 'invite' | 'join'; x: number; y: number; z: number }
+  | { m: 'start'; x: number; y: number; z: number; seed: number; t?: number }
+  | { m: 'pos'; c: number }
+  | { m: 'dead' | 'quit' };
+
+/** 同屏访岛：TNT 小游戏消息（服务器原样转发 d 给对端） */
+export interface C2SVisitTntMsg {
+  t: 'visit.tnt';
+  d: TntPacket;
+}
+
 /** 预留命名空间：后续访客/同步消息（本期不实现逻辑） */
 export interface C2SReservedMsg {
   t: 'room.visit' | 'world.sync';
@@ -164,6 +179,7 @@ export type C2SMsg =
   | C2SVisitHitMsg
   | C2SVisitGiveMsg
   | C2SVisitChatMsg
+  | C2SVisitTntMsg
   | C2SReservedMsg
   | C2SCsCreateMsg
   | C2SCsJoinMsg
@@ -310,6 +326,13 @@ export interface S2CVisitChatMsg {
   text: string;
 }
 
+/** 同屏访岛：对方发来的 TNT 小游戏消息（name = 谁发的） */
+export interface S2CVisitTntMsg {
+  t: 'visit.tnt';
+  name: string;
+  d: TntPacket;
+}
+
 /** 好友访岛：拒绝 / 验证失败（creative）/ 超时 / 不在线；offline 时附带当前真实在线名单帮客户端刷新 */
 export interface S2CVisitDeniedMsg {
   t: 'visit.denied';
@@ -344,6 +367,7 @@ export type S2CMsg =
   | S2CVisitHitMsg
   | S2CVisitGiveMsg
   | S2CVisitChatMsg
+  | S2CVisitTntMsg
   | S2CReservedMsg
   | S2CCsRoomMsg
   | S2CCsErrorMsg

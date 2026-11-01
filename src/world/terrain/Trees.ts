@@ -4,8 +4,8 @@
  *  两边的树长得一模一样，不用维护两套画法。 */
 
 import { PALM } from '../../config';
-import { AIR, COCONUT, PALM_LEAVES, PALM_WOOD, WOOD, isPlant } from '../blocks/Block';
-import type { TreeSpecies } from '../blocks/trees';
+import { AIR, COCONUT, LEAVES, PALM_LEAVES, PALM_WOOD, WOOD, isPlant } from '../blocks/Block';
+import { FRUIT_LEAF_IDS, type TreeSpecies } from '../blocks/trees';
 import type { World } from '../World';
 
 /** 一个待放的方块：相对树苗那格的偏移 + 方块 ID */
@@ -86,11 +86,19 @@ function palmBlocks(sp: TreeSpecies, rand: () => number): TreeBlock[] {
   return out;
 }
 
-/** 这棵树摆不摆得下：每个要占的格子都得是空气或能顶替的花草；占不了就返回 false（树苗停止生长） */
+/** 所有"树叶类"方块 ID：普通树叶 + 六种果树树叶 + 椰子叶 + 柳叶（含季节换皮的同 ID） */
+const LEAF_LIKE = new Set([LEAVES, ...FRUIT_LEAF_IDS]);
+
+/** 树冠格和椰子是"软"方块：挤进别人的树叶不算挡路；树干是"硬"方块，顶到任何实体都长不了 */
+const isSoft = (id: number) => LEAF_LIKE.has(id) || id === COCONUT;
+
+/** 这棵树摆不摆得下：树干格必须空或是花草；树冠/椰子格还允许和已有的树叶挤在一起；占不了就返回 false */
 export function treeFits(world: World, x: number, y: number, z: number, blocks: TreeBlock[]): boolean {
   for (const b of blocks) {
     const cur = world.getBlock(x + b.x, y + b.y, z + b.z);
-    if (cur !== AIR && !isPlant(cur)) return false;
+    if (cur === AIR || isPlant(cur)) continue;
+    if (isSoft(b.id) && LEAF_LIKE.has(cur)) continue;
+    return false;
   }
   return true;
 }
@@ -99,6 +107,10 @@ export function treeFits(world: World, x: number, y: number, z: number, blocks: 
 export function tryGrowTree(world: World, x: number, y: number, z: number, sp: TreeSpecies): boolean {
   const blocks = treeBlocks(sp, Math.random);
   if (!treeFits(world, x, y, z, blocks)) return false;
-  for (const b of blocks) world.setBlock(x + b.x, y + b.y, z + b.z, b.id);
+  for (const b of blocks) {
+    // 已经有树叶的格子不覆盖：两棵树的树冠自然交界，邻居的叶子保住不吞掉
+    if (LEAF_LIKE.has(world.getBlock(x + b.x, y + b.y, z + b.z))) continue;
+    world.setBlock(x + b.x, y + b.y, z + b.z, b.id);
+  }
   return true;
 }

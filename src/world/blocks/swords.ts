@@ -19,8 +19,11 @@ export const SWORD_IDS = [SWORD_WOOD, SWORD_IRON, SWORD_GOLD, SWORD_DIAMOND, SWO
 // —— 樱花剑（350）：春季 DIY，樱花花瓣 + 木棒，只能砍 10 刀但出手极快 ——
 export const SWORD_SAKURA = 350;
 
-/** 所有剑（含樱花剑）：手册"装备"页与武器判定都认这张表 */
-export const ALL_SWORD_IDS = [...SWORD_IDS, SWORD_SAKURA];
+// —— 无尽之剑（406）：2 无尽方块 + 1 木棍，攻击 2.5 倍、耐久无限永不磨损 ——
+export const SWORD_ENDLESS = 406;
+
+/** 所有剑（含樱花剑/无尽之剑）：手册"装备"页与武器判定都认这张表 */
+export const ALL_SWORD_IDS = [...SWORD_IDS, SWORD_SAKURA, SWORD_ENDLESS];
 
 /** 一把剑的属性：攻击力是拳头几倍、能砍几刀；雪花剑带减速秒数、血剑带暴击概率和倍率 */
 export interface SwordSpec {
@@ -44,6 +47,7 @@ export const SWORD_OF: Record<number, SwordSpec> = {
   [SWORD_SNOW]:    SWORDS.SNOW,
   [SWORD_BLOOD]:   SWORDS.BLOOD,
   [SWORD_SAKURA]:  SWORDS.SAKURA,
+  [SWORD_ENDLESS]: SWORDS.ENDLESS,
 };
 
 const swordDef = (cn: string, tex: string): BlockDef => ({
@@ -58,4 +62,5 @@ export const SWORD_BLOCKS: Record<number, BlockDef> = {
   [SWORD_SNOW]:    swordDef('雪花剑',   'sword_snow'),
   [SWORD_BLOOD]:   swordDef('血腥之剑', 'sword_blood'),
   [SWORD_SAKURA]:  swordDef('樱花剑',   'sword_sakura'),
+  [SWORD_ENDLESS]: swordDef('无尽之剑', 'sword_endless'),
 };

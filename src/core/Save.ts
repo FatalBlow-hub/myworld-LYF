@@ -11,7 +11,7 @@ import type { ShopQuota } from '../world/economy/shopLimits';
 import { Hunger } from '../player/stats/Hunger';
 import { Inventory } from '../player/Inventory';
 import { PlayerBody } from '../player/motion/Physics';
-import { AIR, ROLLER_SKATES, Slots, Stack, WILLOW_BRANCH, WILLOW_LEAVES } from '../world/blocks/Block';
+import { AIR, ROLLER_SKATES, Slots, Stack, SWORD_OF, WILLOW_BRANCH, WILLOW_LEAVES } from '../world/blocks/Block';
 import { FurnaceState, World } from '../world/World';
 import { SPORE_GROW_SECONDS, SPORE_PLANT_IDS } from '../world/terrain/mushrooms';
 import { Zombie, ZombieKind } from '../entities/mobs/Zombie';
@@ -380,6 +380,14 @@ export function applySave(
     slots.forEach(normalizeSkates);
   }
   normalizeSkates(inv.held);
+  // 剑的耐久归位：JSON 存不住 Infinity（无尽之剑存下来变 null），读档时按剑种补回满耐久
+  const normalizeSword = (stack: Stack | null) => {
+    if (stack && stack.id in SWORD_OF && stack.durability == null) stack.durability = SWORD_OF[stack.id].uses;
+  };
+  for (const slots of [inv.hotbar, inv.storage, inv.armor, inv.craftIn, inv.craftBig]) {
+    slots.forEach(normalizeSword);
+  }
+  normalizeSword(inv.held);
   // 柳条下岗（2026-10-31 设定：柳树只有叶和干）：老档里背包/箱子/熔炉的柳条一律换成柳树叶
   const debranch = (stack: Stack | null) => { if (stack?.id === WILLOW_BRANCH) stack.id = WILLOW_LEAVES; };
   for (const slots of [inv.hotbar, inv.storage, inv.armor, inv.waistbag, inv.craftIn, inv.craftBig]) slots.forEach(debranch);

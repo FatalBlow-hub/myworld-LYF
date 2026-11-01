@@ -172,6 +172,10 @@ export const ARCHER = {
 export const CAT = {
   COLORS: 5,          // 毛色变体数（橙/黑/白/黄/橙黑花斑），生成概率均等
   SILK_CHANCE: 0.125, // 额外掉 1 根丝线的概率
+  BREED_EVERY: 30,    // 成年猫每隔几秒生一只小猫（2026-11-01 设定：猫比别的动物勤快）
+  NEAR_RADIUS: 10,    // 保底范围：玩家方圆几格内一只猫都没有就补刷
+  SPAWN_NEAR: 4,      // 保底补刷在最近几格外（得落在 NEAR_RADIUS 里，不然刚生完又判定"没猫"）
+  SPAWN_FAR: 9,       // 保底补刷在最远几格内
 };
 
 

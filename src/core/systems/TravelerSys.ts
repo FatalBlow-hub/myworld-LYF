@@ -12,7 +12,7 @@ import { Inventory } from '../../player/Inventory';
 import { isSolid, BLOCKS, BEAD_FIREWORK, CHUNK_ROLL, HARVEST_PLATTER, POUCH_CALAMUS, SHIELD_CALAMUS, XMAS_COOKIE } from '../../world/blocks/Block';
 import { CHUNK } from '../../config';
 import type { Atlas } from '../../render/textures/Textures';
-import type { GameDate, Season } from '../loops/Calendar';
+import { monthInSeason, type GameDate, type Season } from '../loops/Calendar';
 
 /** 手册只用到这两下：查关键词学没学过 / 按关键词学 */
 interface BookLike {
@@ -48,10 +48,14 @@ export class TravelerSystem {
     this.panel = new TravelerPanel(atlas, () => this.ctx.coins(), (offer) => this.unlockFromTraveler(offer));
   }
 
-  /** 每帧：旅者只在「自己的岛 + 对应季节 + 每季头几天」出现（2026-11-01 设定：一季只来 3 天），
+  /** 每帧：旅者只在「自己的岛 + 对应季节 + 每季第二个月的头 3 天」出现（2026-11-01 设定：
+   *  春=4月、夏=7月、秋=10月、冬=1月，各 1~3 日），过完就走；
    *  出现位置在玩家周围 8~12 格（不贴重生点、不贴脸），换季/换场景/过期即时收人 */
   tick(dt: number): void {
-    const inWindow = this.ctx.sceneMode() === 'island' && this.ctx.date().day <= SEASON_FOOD.TRAVELER_DAYS;
+    const d = this.ctx.date();
+    const inWindow = this.ctx.sceneMode() === 'island'
+      && monthInSeason(d) === 1
+      && d.day <= SEASON_FOOD.TRAVELER_DAYS;
     const want = inWindow ? this.ctx.season() : null;
     if (this.traveler && this.traveler.season !== want) this.hide();
     const body = this.ctx.body();

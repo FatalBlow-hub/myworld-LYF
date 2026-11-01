@@ -49,6 +49,7 @@ import {
   Slots,
 } from '../blocks/Block';
 import { SILK_RECIPES } from './silkRecipes';
+import { TECH_RECIPES } from './techRecipes';
 import {
   BAG_GOLD, DYE_GOLD, GOLD_CHEM_DECOMP, GOLD_CRAFT_TABLE, GOLD_DYE_TABLE, GOLD_PICKAXE,
   ICE_MOLECULE, POTION_ICE,
@@ -325,6 +326,8 @@ export const RECIPES: Recipe[] = [
   { out: ROPE, outCount: 1, needs: [[STICK, 2]] },
   // 丝线 DIY（2026-11-01 设定批次）：绷带/牵引绳索/减速网/三根鱼竿/狼之利爪——必须整段放最末尾（手册下标是存档键）
   ...SILK_RECIPES,
+  // 科技 DIY（2026-11-01 设定批次·二）：芯片/电脑/无尽之剑——同样只能追加在最后
+  ...TECH_RECIPES,
 ];
 
 /** 星空染色台的颜料融合表：放进材料颜料 → 出新颜料（只有星空染色台能干这活） */

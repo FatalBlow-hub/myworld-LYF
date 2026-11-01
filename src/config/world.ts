@@ -55,6 +55,12 @@ export const SNOWFLAKE_DROP = {
 };
 
 
+/** 无尽方块：挖石头时极低概率这块石头其实是无尽方块（2026-11-01 设定：0.01%，中彩票级别） */
+export const ENDLESS_DROP = {
+  CHANCE: 0.0001,
+};
+
+
 /** 掉落物：背包塞不下时不硬捡，把剩下的弹开，几秒内不再往玩家身上飞 */
 export const PICKUP = {
   REFUSE_SECONDS: 2,
