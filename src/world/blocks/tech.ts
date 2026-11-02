@@ -7,7 +7,7 @@
 import type { BlockDef } from './data';
 
 // —— 芯片与电脑（403~404）——
-export const CHIP = 403;      // 芯片：狼星碎片×1 + 铁粒×2，做电脑的核心件
+export const CHIP = 403;      // 芯片：星星碎片×1 + 铁粒×2，做电脑的核心件
 export const COMPUTER = 404;  // 电脑：占一格能放地上，对它按 M 开机玩「躲避 TNT」
 
 // —— 无尽方块（405）——

@@ -189,14 +189,26 @@ export class TntGame {
       }
       return;
     }
-    if (d.m === 'join' && this.screen === 'boot' && this.waitingJoin && this.sameComp(d)) {
-      // 对方接了邀请：我当主机，定种子开局，把种子告诉他
-      this.startPlay(this.makeSeed(), true);
-      this.d.send({ m: 'start', x: d.x, y: d.y, z: d.z, seed: this.seed, t: 0 });
-      this.d.toast(`${this.d.peerName()} 进来了，双人模式！`);
+    if (d.m === 'join' && this.sameComp(d)) {
+      if (this.screen === 'boot' && this.waitingJoin) {
+        // 对方接了邀请：我当主机，定种子开局，把种子告诉他
+        this.startPlay(this.makeSeed(), true);
+        this.d.send({ m: 'start', x: d.x, y: d.y, z: d.z, seed: this.seed, t: 0 });
+        this.d.toast(`${this.d.peerName()} 进来了，双人模式！`);
+      } else if (this.screen === 'play' && !this.coop) {
+        // 我在单人玩、对方重新按 M（join）：把他拉进这局，发当前种子和进度
+        this.d.send({ m: 'start', x: d.x, y: d.y, z: d.z, seed: this.seed, t: this.elapsed });
+        this.coop = true;
+        this.peerAlive = true;
+        this.d.toast(`${this.d.peerName()} 也进来玩了！奖励平半分`);
+      }
       return;
     }
-    if (d.m === 'start' && this.screen === 'boot' && this.waitingStart && this.sameComp(d)) {
+    if (d.m === 'start' && this.screen === 'boot' && this.sameComp(d)
+      && (this.waitingStart || this.waitingJoin)) {
+      // waitingJoin 也要收 start：对方已经开打了（我方阵亡后重按 M 回局走的是邀请→对方回 start）
+      this.waitingJoin = false;
+      this.waitingStart = false;
       this.startPlay(d.seed, true, d.t ?? 0);
       return;
     }
