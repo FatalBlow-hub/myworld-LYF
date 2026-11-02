@@ -55,11 +55,13 @@ export interface TntDeps {
   send: (d: TntPacket) => boolean;
   /** 发奖：岛币进账（正数即可，面板不管余额） */
   addCoins: (n: number) => void;
+  /** 菜单里点了「植物大战僵尸」：关掉本面板去开那边的 */
+  onPickPvz: () => void;
   /** 面板右上角的小提示（比如"对方也进来了！"） */
   toast: (text: string) => void;
 }
 
-type Screen = 'off' | 'boot' | 'play' | 'boom';
+type Screen = 'off' | 'boot' | 'menu' | 'play' | 'boom';
 
 export class TntGame {
   visible = false;
@@ -72,6 +74,7 @@ export class TntGame {
   private boomT = 0;
 
   // —— 本局状态 ——
+  private tntPhase = false;            // 菜单里点了「躲避 TNT」在走双人握手
   private comp = { x: 0, y: 0, z: 0 }; // 开的是哪台电脑（邀请/加入按它配对）
   private seed = 0;
   private elapsed = 0;
@@ -118,6 +121,14 @@ export class TntGame {
       b.addEventListener('mouseup', off);
       this.el.appendChild(b);
     }
+    // 菜单选游戏：左半屏 = 躲避 TNT，右半屏 = 植物大战僵尸
+    this.el.addEventListener('click', (e) => {
+      if (this.screen !== 'menu') return;
+      const r = this.canvas.getBoundingClientRect();
+      const mx = (e.clientX - r.left) * (this.canvas.width / r.width);
+      if (mx < this.canvas.width / 2) this.pickTnt();
+      else { this.close(); this.d.onPickPvz(); }
+    });
     document.body.appendChild(this.el);
   }
 
@@ -145,28 +156,34 @@ export class TntGame {
     this.comp = { x, y, z };
     this.visible = true;
     this.screen = 'boot';
+    this.bootT = BOOT_SOLO; // 新设定（2026-11-02）：开机永远 1 秒蓝屏 → 进游戏菜单
+    this.tntPhase = false;
     this.coop = false;
     this.waitingJoin = false;
     this.waitingStart = false;
     this.peerAlive = true;
     this.peerBoomT = 0;
     this.el.style.display = 'flex';
-    if (!this.d.visitActive()) {
-      this.bootT = BOOT_SOLO; // 没客人：一秒蓝屏直接玩
-    } else {
-      this.bootT = BOOT_COOP; // 有客人：三秒蓝屏，等对方也按 M
-      const inv = this.invite;
-      if (inv && inv.until > performance.now() && inv.x === x && inv.y === y && inv.z === z) {
-        // 对方已经按了这台电脑在等我：直接 join，进"等 start"状态
-        this.d.send({ m: 'join', x, y, z });
-        this.waitingStart = true;
-      } else {
-        // 我先按的：发邀请，等对方 join；撞车（两边都发了邀请）由名字字典序定主机
-        this.d.send({ m: 'invite', x, y, z });
-        this.waitingJoin = true;
-      }
-    }
     this.draw();
+  }
+
+  /** 菜单点「躲避 TNT」：没客人直接单人开；有客人走 3 秒蓝屏双人握手（原开机逻辑挪这里） */
+  private pickTnt(): void {
+    this.tntPhase = true;
+    const { x, y, z } = this.comp;
+    if (!this.d.visitActive()) { this.startPlay(this.makeSeed(), false); return; }
+    this.screen = 'boot';
+    this.bootT = BOOT_COOP;
+    const inv = this.invite;
+    if (inv && inv.until > performance.now() && inv.x === x && inv.y === y && inv.z === z) {
+      // 对方已经在这台电脑前等着了：直接 join，进"等 start"状态
+      this.d.send({ m: 'join', x, y, z });
+      this.waitingStart = true;
+    } else {
+      // 我先选的：发邀请，等对方 join；撞车（两边都发了邀请）由名字字典序定主机
+      this.d.send({ m: 'invite', x, y, z });
+      this.waitingJoin = true;
+    }
   }
 
   /** 收到对端的 visit.tnt 消息（Game 从 NetClient 回调接进来） */
@@ -297,7 +314,11 @@ export class TntGame {
       this.bootT -= dt;
       // 双人局对方突然走了：蓝屏照常计完变单人
       if (this.waitingJoin && !this.d.visitActive()) this.bootT = Math.min(this.bootT, BOOT_SOLO);
-      if (this.bootT <= 0 && !this.waitingStart) this.startPlay(this.makeSeed(), false);
+      if (this.bootT <= 0 && !this.waitingStart) {
+        // 开机蓝屏结束：没选 TNT 就先进菜单；选了 TNT 等不到人就单人开
+        if (!this.tntPhase) { this.screen = 'menu'; this.draw(); return; }
+        this.startPlay(this.makeSeed(), false);
+      }
       // 等 start 超时（对方退了/网卡）：别干等，单人开一局
       if (this.bootT <= -1 && this.waitingStart) this.startPlay(this.makeSeed(), false);
       this.draw();
@@ -401,6 +422,26 @@ export class TntGame {
       c.fillText(this.d.visitActive() && this.screen === 'boot'
         ? '等对方也对着电脑按 M 一起玩…' : '马上开始…', width / 2, 220);
       c.fillText('← → 或 A D 左右躲，没有跳', width / 2, 260);
+      return;
+    }
+    if (this.screen === 'menu') {
+      // 游戏菜单：左半屏选 TNT，右半屏选植物大战僵尸（点了对应半边就行）
+      c.fillStyle = '#0e1a2a';
+      c.fillRect(0, 0, width, height);
+      c.fillStyle = '#ffffff';
+      c.font = 'bold 26px sans-serif';
+      c.textAlign = 'center';
+      c.fillText('电 脑 主 界 面', width / 2, 60);
+      const half = width / 2;
+      c.fillStyle = '#1a4fbd'; c.fillRect(40, 100, half - 60, 200);
+      c.fillStyle = '#1a6a3a'; c.fillRect(half + 20, 100, half - 60, 200);
+      c.font = 'bold 22px sans-serif'; c.fillStyle = '#fff';
+      c.fillText('躲 避 T N T', half / 2 + 10, 190);
+      c.fillText('植物大战僵尸', half + half / 2 - 10, 190);
+      c.font = '14px sans-serif'; c.fillStyle = '#bcd';
+      c.fillText(this.d.visitActive() ? '有客人在：能双人同屏！' : '单人模式', half / 2 + 10, 224);
+      c.fillText('单机 · 14 关冒险', half + half / 2 - 10, 224);
+      c.fillText('点左半边 / 点右半边', width / 2, 340);
       return;
     }
     // —— 游戏画面：天 + 场地 + 掉落物 + 小人 + HUD ——

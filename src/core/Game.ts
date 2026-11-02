@@ -79,6 +79,7 @@ import { FireSystem } from '../entities/objects/Fire';
 import { hurtPlayer } from '../player/stats/damage';
 import { NetClient } from '../net/Client';
 import { TntGame } from '../ui/panels/TntGame';
+import { PvzPanel } from '../ui/panels/PvzPanel';
 import { probeAuth } from '../ui/account/Auth';
 
 export type SceneMode = 'island' | 'hall' | 'visit' | 'void' | 'arena' | 'cs'; // cs=红焰大赛的 CS 沙漠场地
@@ -123,6 +124,7 @@ export class Game {
   private givePanel: GivePanel | null = null; // 「送礼物」面板：同屏有人时按 C /「给」打开
   private chatPanel: ChatPanel | null = null; // 访岛聊天：同屏有人时按 0 /「聊」开输入框
   private tntGame: TntGame | null = null; // 电脑「躲避 TNT」小游戏：对电脑方块按 M 开机
+  private pvz: PvzPanel | null = null;    // 电脑「植物大战僵尸」：开机菜单第二项
   private book = new RecipeBook(this.atlas); private net: NetClient | null = null; private panels = new PanelStack();
   /** PC 端鼠标视角；手机版不建（用虚拟按键转视角），保持 null */
   private mouseLook: MouseLook | null = null;
@@ -245,6 +247,12 @@ export class Game {
     /** TNT 测试专用：把小人摆到某一列 / 快进 n 秒 */
     tntMove: (col: number): void => this.tntGame?.debugMove(col),
     tntSkip: (seconds: number): void => this.tntGame?.debugSkip(seconds),
+    /** 植物大战僵尸测试专用：读状态 / 开第 i 关 / 种植物 / 送麦粒 / 快进 */
+    pvz: () => this.pvz?.debugState() ?? null,
+    pvzStart: (i: number): void => this.pvz?.debugStart(i),
+    pvzPlant: (k: string, r: number, c: number): string | null => this.pvz?.debugPlant(k, r, c) ?? null,
+    pvzSun: (n: number): void => this.pvz?.debugSun(n),
+    pvzSkip: (s: number): void => this.pvz?.debugSkip(s),
     /** 活体动物清单（测猫保底/繁殖用） */
     mobs: (): { kind: string; x: number; z: number }[] =>
       this.mobs.animals.filter((a) => !a.dead).map((a) => ({ kind: a.kind, x: +a.x.toFixed(1), z: +a.z.toFixed(1) })),
@@ -567,10 +575,22 @@ export class Game {
       send: (d) => this.net?.sendVisitTnt(d) ?? false,
       addCoins: (n) => this.addCoins(n),
       toast: (text) => this.hud?.showMessage(text, 2.5),
+      onPickPvz: () => this.pvz!.open(),
+    });
+    // 植物大战僵尸：通关进度进存档（SaveController 台账），解锁靠关卡奖励表
+    this.pvz = new PvzPanel({
+      progress: () => this.saves.pvzLevel,
+      onWin: (i, name) => {
+        this.saves.pvzLevel = Math.max(this.saves.pvzLevel, i + 1);
+        this.hud?.showMessage(name ? `解锁新植物：${name}！` : '冒险模式全部通关！', 4);
+        this.saveNow();
+      },
+      toast: (t) => this.hud?.showMessage(t, 2),
     });
     this.panels.register({ name: 'give', isOpen: () => this.givePanel!.visible, close: () => this.givePanel!.close() });
     this.panels.register({ name: 'chat', isOpen: () => this.chatPanel!.visible, close: () => this.chatPanel!.close() });
     this.panels.register({ name: 'tnt', isOpen: () => this.tntGame!.isOpen(), close: () => this.tntGame!.close(), update: (dt) => this.tntGame!.update(dt) });
+    this.panels.register({ name: 'pvz', isOpen: () => this.pvz!.isOpen(), close: () => this.pvz!.close(), update: (dt) => this.pvz!.update(dt) });
     this.panels.register({ name: 'visitRequest', isOpen: () => this.visitMenu!.requestVisible, close: () => this.visitMenu!.closeRequest() });
     this.panels.register({ name: 'visitPerm', isOpen: () => this.visitMenu!.permVisible, close: () => this.visitMenu!.closePerm() });
     this.panels.register({ name: 'hallMenu', isOpen: () => this.hallMenu!.visible, close: () => this.hallMenu!.close() });
