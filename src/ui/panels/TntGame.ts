@@ -123,6 +123,23 @@ export class TntGame {
 
   isOpen(): boolean { return this.visible; }
 
+  /** 测试钩子：局内状态快照（自动化断言用，正常玩法不走这里） */
+  debugState() {
+    return {
+      screen: this.screen, elapsed: +this.elapsed.toFixed(2), col: +this.playerCol.toFixed(2),
+      coop: this.coop, peerAlive: this.peerAlive, rewards: this.rewardN,
+      hazards: this.hazards.map((h) => ({ col: h.col, row: this.rowOf(h), ladder: h.ladder })),
+      seed: this.seed, endless: this.elapsed >= STAGE1_SECONDS,
+    };
+  }
+
+  /** 测试钩子：把小人摆到某一列（躲 TNT 测试不用模拟长按方向键） */
+  debugMove(col: number): void { this.playerCol = Math.max(0, Math.min(W - 1, col)); }
+
+  /** 测试钩子：快进 n 秒（等不了 120 秒真打无尽模式时用；
+   *  只挪时钟不补碰撞，掉在半路的掉落物按新时刻重算行号） */
+  debugSkip(seconds: number): void { this.elapsed += seconds; }
+
   /** 对电脑按 M：开机。x,y,z 是电脑方块的坐标（双人配对用） */
   open(x: number, y: number, z: number): void {
     this.comp = { x, y, z };

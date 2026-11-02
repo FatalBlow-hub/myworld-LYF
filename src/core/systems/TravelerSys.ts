@@ -89,6 +89,14 @@ export class TravelerSystem {
     return null;
   }
 
+  /** 测试钩子：旅者在不在场 + 位置（自动化验收用，正常玩法不走这里） */
+  debugInfo(): { present: boolean; season?: Season; x?: number; y?: number; z?: number } {
+    const t = this.traveler;
+    if (!t) return { present: false };
+    const p = t.group.position;
+    return { present: true, season: t.season, x: +p.x.toFixed(1), y: +p.y.toFixed(1), z: +p.z.toFixed(1) };
+  }
+
   hide(): void {
     if (!this.traveler) return;
     this.ctx.scene.remove(this.traveler.group);

@@ -1,7 +1,7 @@
 /** 游戏主循环 — 把所有模块装配起来，每帧按固定顺序驱动它们 */
 
 import * as THREE from 'three';
-import { ARENA, CS, DAY, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PVP, VOID_Y, VisitPerm, WOLF, WORLD_SEED } from '../config';
+import { ARENA, CHUNK, CS, DAY, ISLAND_TYPES, IslandType, MOUSE, PLAYER, PVP, VOID_Y, VisitPerm, WOLF, WORLD_SEED } from '../config';
 import { World } from '../world/World';
 import { VOID_ARENA_SPAWN } from '../world/maps/ArenaMaps';
 import { Arena } from './scenes/Arena';
@@ -71,7 +71,7 @@ import { MobCombat } from './actions/MobCombat';
 import { Vehicles } from './scenes/Vehicles';
 import { Challenge } from './scenes/Challenge';
 import { Potions } from '../entities/projectiles/Potions';
-import { BAG_GLASS, WAISTBAG_SLOT, WOLF_CLAW } from '../world/blocks/Block';
+import { BAG_GLASS, isSolid, WAISTBAG_SLOT, WOLF_CLAW } from '../world/blocks/Block';
 import { DIY_GOLD_PICKAXE } from '../world/recipes/GoldenItems';
 import { spawnDrop } from '../entities/objects/drops';
 import { ZOMBIE_NAMES } from '../entities/mobs/Zombie';
@@ -179,6 +179,82 @@ export class Game {
     () => { this.survival!.wakeUp(this.body!, this.spawn); this.pickup!.dropStarShard(this.spawn.x, this.spawn.y, this.spawn.z); },
     () => this.onNewDay(), // 跨天/睡醒：刷新日期，季节变了还要换叶
   );
+
+  /** 自动化测试钩子：浏览器里 `__game.debug.xxx()` 直接读状态/做操作，
+   *  不用再模拟真人按键瞄准（2026-11-02 起验收都走这里）。
+   *  示例：
+   *    __game.debug.state()                  → 场景/位置/日期/岛币/血量/背包快照
+   *    __game.debug.give(404, 1); __game.debug.select(0)   → 拿一台电脑到手上
+   *    __game.debug.setBlock(x,y,z,404); __game.debug.openComputer(x,y,z) → 直接开机
+   *    __game.debug.tnt()                    → TNT 局内状态（screen/elapsed/coop/奖励次数）
+   *    __game.debug.setDate(7, 1)            → 跳到 7 月 1 日（测旅者窗口）
+   *  注意：这只是测试后门，正式玩法不从这里走；addCoins 只给验收记账用 */
+  readonly debug = {
+    /** 当前状态快照（测试断言用） */
+    state: (): Record<string, unknown> => {
+      const b = this.body;
+      return {
+        scene: this.scene,
+        pos: b ? { x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2) } : null,
+        yaw: b ? +b.yaw.toFixed(2) : 0, pitch: b ? +b.pitch.toFixed(2) : 0,
+        date: { ...this.day.date }, season: seasonOf(this.day.date), time: +this.day.time.toFixed(2),
+        coins: this.coins, hp: this.health?.hp ?? null, hunger: this.hunger?.value ?? null,
+        slot: this.slot,
+        hotbar: this.inventory?.hotbar.map((s) => (s ? { id: s.id, n: s.count } : null)) ?? [],
+        creative: this.inventory?.infinite ?? false,
+        traveler: this.travelerSys.debugInfo(),
+        tnt: this.tntGame?.debugState() ?? null,
+      };
+    },
+    /** 传送到指定坐标（速度清零，免得继续飘） */
+    teleport: (x: number, y: number, z: number): void => {
+      const b = this.body; if (!b) return;
+      b.x = x; b.y = y; b.z = z; b.vx = b.vy = b.vz = 0;
+    },
+    /** 直接定视角：yaw 左右转、pitch 抬头低头（弧度，会自动夹到能看的范围） */
+    look: (yaw: number, pitch: number): void => {
+      const b = this.body; if (!b) return;
+      b.yaw = yaw; b.pitch = Math.max(-PLAYER.LOOK_LIMIT, Math.min(PLAYER.LOOK_LIMIT, pitch));
+    },
+    /** 给物品进背包（跟捡到一个一样） */
+    give: (id: number, n = 1): void => { this.inventory?.add(id, n); },
+    /** 选中快捷栏第几格（0~8） */
+    select: (i: number): void => {
+      this.slot = Math.max(0, Math.min(8, i));
+      this.hud?.selectSlot(this.slot);
+    },
+    /** 读/写某个坐标的方块 */
+    blockAt: (x: number, y: number, z: number): number => this.world.getBlock(x, y, z),
+    setBlock: (x: number, y: number, z: number, id: number): void => { this.world.setBlock(x, y, z, id); },
+    /** 从高空往下找第一块实地，返回站得上去的 y（找不到返回 null） */
+    groundAt: (x: number, z: number, fromY = CHUNK.HEIGHT - 1): number | null => {
+      for (let y = Math.min(CHUNK.HEIGHT - 1, Math.floor(fromY)); y >= 0; y--) {
+        if (isSolid(this.world.getBlock(Math.floor(x), y, Math.floor(z)))) return y + 1;
+      }
+      return null;
+    },
+    /** 跳游戏日期：月 1~12、日 1~10（测旅者/季节窗口用） */
+    setDate: (month: number, day: number): void => {
+      this.day.setDate({ month, day });
+      this.hud?.setDate(dateLabel(this.day.date));
+    },
+    /** 直接开电脑小游戏（等效对电脑方块按 M） */
+    openComputer: (x: number, y: number, z: number): void => { this.tntGame?.open(x, y, z); },
+    /** TNT 小游戏局内状态（没开机返回 null） */
+    tnt: () => this.tntGame?.debugState() ?? null,
+    /** TNT 测试专用：把小人摆到某一列 / 快进 n 秒 */
+    tntMove: (col: number): void => this.tntGame?.debugMove(col),
+    tntSkip: (seconds: number): void => this.tntGame?.debugSkip(seconds),
+    /** 活体动物清单（测猫保底/繁殖用） */
+    mobs: (): { kind: string; x: number; z: number }[] =>
+      this.mobs.animals.filter((a) => !a.dead).map((a) => ({ kind: a.kind, x: +a.x.toFixed(1), z: +a.z.toFixed(1) })),
+    /** 旅者在不在场 + 位置 */
+    traveler: () => this.travelerSys.debugInfo(),
+    /** 岛币记账（验收奖励/商店用，能加能扣） */
+    addCoins: (n: number): void => this.addCoins(n),
+    /** 立即写存档 */
+    save: (): void => this.saveNow(),
+  };
 
   constructor(container: HTMLElement) {
     this.renderer = new Renderer(container);
