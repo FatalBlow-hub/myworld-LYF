@@ -198,11 +198,11 @@ export class Game {
         pos: b ? { x: +b.x.toFixed(2), y: +b.y.toFixed(2), z: +b.z.toFixed(2) } : null,
         yaw: b ? +b.yaw.toFixed(2) : 0, pitch: b ? +b.pitch.toFixed(2) : 0,
         date: { ...this.day.date }, season: seasonOf(this.day.date), time: +this.day.time.toFixed(2),
-        coins: this.coins, hp: this.health?.hp ?? null, hunger: this.hunger?.value ?? null,
+        coins: this.economy ? this.coins : null, hp: this.health?.hp ?? null, hunger: this.hunger?.value ?? null,
         slot: this.slot,
         hotbar: this.inventory?.hotbar.map((s) => (s ? { id: s.id, n: s.count } : null)) ?? [],
         creative: this.inventory?.infinite ?? false,
-        traveler: this.travelerSys.debugInfo(),
+        traveler: this.travelerSys?.debugInfo() ?? null,
         tnt: this.tntGame?.debugState() ?? null,
       };
     },
