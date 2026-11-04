@@ -172,6 +172,37 @@ export const SELL_PRICE: Record<number, { coins: number; per: number }> = {
   404: { coins: 10, per: 1 },    // 电脑
   403: { coins: 6.5, per: 1 },   // 芯片
   63:  { coins: 3.5, per: 1 },   // 喷泉
+  // —— 武器装备（用户拍板）——
+  320: { coins: 0.75, per: 1 },  // 木剑
+  321: { coins: 4.5, per: 1 },   // 铁剑
+  322: { coins: 8, per: 1 },     // 金剑
+  323: { coins: 15, per: 1 },    // 钻石剑
+  324: { coins: 10, per: 1 },    // 雪花剑
+  325: { coins: 10, per: 1 },    // 血腥之剑
+  350: { coins: 15, per: 1 },    // 樱花剑
+  352: { coins: 3, per: 1 },     // 枫叶飞刀
+  353: { coins: 2, per: 1 },     // 柳条陷阱
+  177: { coins: 3, per: 1 },     // 轮滑鞋
+  398: { coins: 3, per: 1 },     // 钓鱼竿
+  400: { coins: 4.5, per: 1 },   // 铸铁钓鱼竿
+  399: { coins: 12.5, per: 1 },  // 金色钓鱼竿
+  316: { coins: 5, per: 1 },     // 黑色木镐
+  218: { coins: 5, per: 1 },     // 金稿子
+  317: { coins: 5, per: 1 },     // 小战士弓
+  318: { coins: 10, per: 1 },    // 小战士火弓
+  319: { coins: 10, per: 1 },    // 小战士冰弓
+  129: { coins: 66.25, per: 1 }, // 坦克
+  // 腰包一律 1，金色腰包 7
+  185: { coins: 1, per: 1 }, 186: { coins: 1, per: 1 }, 187: { coins: 1, per: 1 },
+  188: { coins: 1, per: 1 }, 189: { coins: 1, per: 1 }, 190: { coins: 1, per: 1 },
+  191: { coins: 1, per: 1 }, 192: { coins: 1, per: 1 }, 193: { coins: 1, per: 1 },
+  194: { coins: 1, per: 1 }, 195: { coins: 1, per: 1 }, 196: { coins: 1, per: 1 },
+  197: { coins: 1, per: 1 }, 198: { coins: 1, per: 1 }, 199: { coins: 1, per: 1 },
+  200: { coins: 1, per: 1 }, 201: { coins: 1, per: 1 }, 202: { coins: 1, per: 1 },
+  203: { coins: 1, per: 1 }, 204: { coins: 1, per: 1 }, 205: { coins: 1, per: 1 },
+  206: { coins: 1, per: 1 }, 207: { coins: 1, per: 1 }, 347: { coins: 1, per: 1 },
+  351: { coins: 1, per: 1 },
+  212: { coins: 7, per: 1 },     // 金色腰包
 };
 
 
