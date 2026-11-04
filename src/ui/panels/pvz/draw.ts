@@ -1,7 +1,8 @@
 /** 植物大战僵尸·画布渲染 — 卡片栏/草坪/植物/僵尸/弹道/阳光/助力卡/腐败球/播报 */
 
-import { COLS, ROWS, PLANTS, ZOMBIES, CARDS } from './data';
-import { PvzSim, Plant, Zombie, SunToken } from './engine';
+import { COLS, ROWS, PLANTS, CARDS } from './data';
+import { PvzSim, SunToken } from './engine';
+import { drawPlant, drawZombie } from './sprites';
 
 export const PVZ_W = 640, PVZ_H = 400;
 const CARD_H = 46;          // 顶部卡片栏高
@@ -57,19 +58,28 @@ export function drawPvz(c: CanvasRenderingContext2D, sim: PvzSim, sel: number, b
   c.fillStyle = '#5a7a4a';
   c.fillRect(GX - 6, GY, 4, ROWS * CH);
 
-  // 阳光（天上掉的 + 植物产的，点一个收一个）
+  // 阳光（天上掉的 + 植物产的，点一个收一个）：小太阳+光线
   for (const s of sim.suns) {
     const x = GX + s.col * CW + CW / 2, y = GY + s.row * CH + CH / 2;
+    c.strokeStyle = '#f8e04a'; c.lineWidth = 2;
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + 0.4;
+      c.beginPath(); c.moveTo(x + Math.cos(a) * 11, y + Math.sin(a) * 11);
+      c.lineTo(x + Math.cos(a) * 15, y + Math.sin(a) * 15); c.stroke();
+    }
+    c.lineWidth = 1;
     c.fillStyle = '#f0d43a';
-    c.beginPath(); c.arc(x, y, 12, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(x, y, 10, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#f8e88a';
+    c.beginPath(); c.arc(x - 2, y - 2, 5, 0, Math.PI * 2); c.fill();
     c.fillStyle = '#a87a10';
-    c.font = 'bold 11px sans-serif'; c.textAlign = 'center';
+    c.font = 'bold 10px sans-serif'; c.textAlign = 'center';
     c.fillText(String(s.value), x, y + 4);
   }
   // 植物
-  for (const p of sim.plants) drawPlant(c, p);
+  for (const p of sim.plants) drawPlant(c, p, GX + p.col * CW + CW / 2, GY + p.row * CH + CH / 2 + 14);
   // 僵尸
-  for (const z of sim.zombies) if (!z.dead && z.state !== 'gone') drawZombie(c, z);
+  for (const z of sim.zombies) if (!z.dead && z.state !== 'gone') drawZombie(c, z, GX + z.x * CW + CW / 2, GY + z.row * CH + CH - 6);
   // 腐败球
   for (const b of sim.balls) {
     const x = GX + b.x * CW + CW / 2, y = GY + b.row * CH + CH / 2;
@@ -126,47 +136,4 @@ export function drawPvz(c: CanvasRenderingContext2D, sim: PvzSim, sel: number, b
   c.fillStyle = '#ffe97a'; c.font = 'bold 14px sans-serif';
   const last = sim.log[sim.log.length - 1];
   if (last) c.fillText(last, 8, PVZ_H - 8);
-}
-
-function drawPlant(c: CanvasRenderingContext2D, p: Plant): void {
-  const x = GX + p.col * CW + CW / 2, y = GY + p.row * CH + CH / 2;
-  c.fillStyle = PLANTS[p.kind].color;
-  if (p.kind === 'potato' && !p.armed) {
-    // 未成型：只有信号灯
-    c.fillStyle = '#5a4a2a'; c.fillRect(x - 3, y - 14, 6, 14);
-    c.fillStyle = '#e83a3a'; c.beginPath(); c.arc(x, y - 16, 4, 0, Math.PI * 2); c.fill();
-  } else {
-    c.beginPath(); c.arc(x, y, 14, 0, Math.PI * 2); c.fill();
-    c.fillStyle = 'rgba(0,0,0,.35)'; c.font = '9px sans-serif'; c.textAlign = 'center';
-    c.fillText(PLANTS[p.kind].cn.slice(0, 2), x, y + 3);
-  }
-  // 南瓜壳
-  if ((p.pumpkin ?? 0) > 0) {
-    c.strokeStyle = '#e88a2a'; c.lineWidth = 4;
-    c.strokeRect(x - 18, y - 18, 36, 36); c.lineWidth = 1;
-  }
-  if (p.laddered) { c.fillStyle = '#c8a85a'; c.fillRect(x - 10, y - 18, 3, 36); c.fillRect(x + 7, y - 18, 3, 36); }
-  if ((p.chew ?? 0) > 0) { c.fillStyle = '#fff'; c.font = '9px sans-serif'; c.fillText('嚼…', x, y - 20); }
-}
-
-function drawZombie(c: CanvasRenderingContext2D, z: Zombie): void {
-  const d = ZOMBIES[z.kind];
-  const x = GX + z.x * CW + CW / 2, base = GY + z.row * CH + CH - 6;
-  const big = z.kind === 'white' || z.kind === 'red' || z.kind === 'mech';
-  const h = big ? 46 : 30;
-  c.fillStyle = z.charm ? '#e87ab8' : z.freezeT > 0 ? '#7ab8e8' : d.color;
-  c.fillRect(x - (big ? 16 : 10), base - h, big ? 32 : 20, h);
-  // 眼睛
-  c.fillStyle = z.charm ? '#3a8ae8' : z.kind === 'red' ? '#f00' : '#fff';
-  c.fillRect(x - 5, base - h + 6, 4, 4); c.fillRect(x + 2, base - h + 6, 4, 4);
-  c.fillStyle = '#222'; c.font = '9px sans-serif'; c.textAlign = 'center';
-  c.fillText(d.cn.slice(0, 3), x, base - h - 4);
-  // 减速/中毒/冰冻标记
-  if (z.slowT > 0) { c.fillStyle = '#9adcf8'; c.fillRect(x - 10, base - h - 8, 20, 3); }
-  if (z.poisonT > 0) { c.fillStyle = '#3a9a2a'; c.fillRect(x - 10, base - h - 12, 20, 3); }
-  if (z.kind === 'balloon') { c.fillStyle = '#c85a8a'; c.beginPath(); c.arc(x, base - h - 12, 8, 0, Math.PI * 2); c.fill(); }
-  // 血条
-  const full = ZOMBIES[z.kind].hp;
-  c.fillStyle = '#000'; c.fillRect(x - 12, base - h - 6, 24, 3);
-  c.fillStyle = '#5ec84a'; c.fillRect(x - 12, base - h - 6, 24 * Math.max(0, z.hp / full), 3);
 }
