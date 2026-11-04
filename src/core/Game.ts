@@ -80,6 +80,8 @@ import { hurtPlayer } from '../player/stats/damage';
 import { NetClient } from '../net/Client';
 import { TntGame } from '../ui/panels/TntGame';
 import { PvzPanel } from '../ui/panels/PvzPanel';
+import { LEVELS as PVZ_LEVELS } from '../ui/panels/pvz/data';
+import { ENDLESS_BLOCK } from '../world/blocks/tech';
 import { probeAuth } from '../ui/account/Auth';
 
 export type SceneMode = 'island' | 'hall' | 'visit' | 'void' | 'arena' | 'cs'; // cs=红焰大赛的 CS 沙漠场地
@@ -582,7 +584,14 @@ export class Game {
       progress: () => this.saves.pvzLevel,
       onWin: (i, name) => {
         this.saves.pvzLevel = Math.max(this.saves.pvzLevel, i + 1);
-        this.hud?.showMessage(name ? `解锁新植物：${name}！` : '冒险模式全部通关！', 4);
+        if (PVZ_LEVELS[i]?.boss) {
+          // BOSS 关定稿奖励：55 岛币 + 无尽方块
+          this.addCoins(55);
+          this.inventory?.add(ENDLESS_BLOCK, 1);
+          this.hud?.showMessage('通关奖励：55 岛币 + 无尽方块！', 4);
+        } else {
+          this.hud?.showMessage(name ? `解锁新植物：${name}！` : '冒险模式全部通关！', 4);
+        }
         this.saveNow();
       },
       toast: (t) => this.hud?.showMessage(t, 2),
