@@ -198,8 +198,9 @@ export class PlayerActions {
       const season = seasonOf(this.d.day.date);
       const canopy = id === LEAVES || id === WILLOW_LEAVES || id in FRUIT_OF_LEAF;
       const seasonCanopy = canopy && id !== WILLOW_LEAVES;
-      const seasonPick = seasonCanopy && season === 'summer' ? PETAL_SAKURA
-        : seasonCanopy && season === 'autumn' ? MAPLE_LEAF : AIR;
+      // 夏秋挖树冠：树叶本体照样掉，另有 12.5% 概率额外掉樱花花瓣/枫叶（2026-11-04 设定）
+      const seasonPick = seasonCanopy && Math.random() < SEASON_FOOD.PETAL_CHANCE
+        ? (season === 'summer' ? PETAL_SAKURA : season === 'autumn' ? MAPLE_LEAF : AIR) : AIR;
       // 柳条陷阱：挖掉不返还伪装方块，而是把陷阱本体收回去（设定原文）
       const wasTrap = TRAP_BLOCK_IDS.includes(id);
       if (wasTrap && !creative) {
@@ -209,9 +210,11 @@ export class PlayerActions {
       // 挖石头中彩票（2026-11-01 设定：0.01%）：这块石头其实藏着无尽方块——掉无尽方块，不给圆石
       const luckyEndless = id === STONE && !creative && Math.random() < ENDLESS_DROP.CHANCE;
       if (luckyEndless) hud.showMessage(`石头里藏着一块${BLOCKS[ENDLESS_BLOCK].cn}！`, 3);
-      if (seasonPick !== AIR) {
-        if (!creative) inventory.add(seasonPick, 1); // 花瓣/枫叶必掉 1 个，树叶本体就不给了
-      } else if (!wasTrap && drop !== AIR && !creative) {
+      if (seasonPick !== AIR && !creative) {
+        inventory.add(seasonPick, 1);
+        hud.showMessage(`叶子里藏着一片${BLOCKS[seasonPick].cn}！`);
+      }
+      if (!wasTrap && drop !== AIR && !creative) {
         inventory.add(luckyEndless ? ENDLESS_BLOCK : drop, luckyEndless ? 1 : dropCountOf(id)); // 创造模式挖了不进包
       }
       // 冬季挖树冠：12.5% 掉一颗红/黄/蓝装饰珠子（设定：挖桦树叶掉，现用普通树叶代替）

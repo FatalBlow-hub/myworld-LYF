@@ -168,6 +168,7 @@ export const SEASON_FOOD = {
   SHIELD_BLOCK: 1,
   SHIELD_DURABILITY: 55,
   BEAD_CHANCE: 0.125,  // 冬季挖树叶掉装饰珠子的概率
+  PETAL_CHANCE: 0.125, // 夏/秋挖树冠额外掉樱花花瓣/枫叶的概率（树叶本体照样掉，2026-11-04 设定）
   BIRCH_SNOWFLAKE_CHANCE: 0.15, // 冬季挖普通树叶（设定的"桦树叶"）额外掉一朵雪花的概率
   WILLOW_SNOWFLAKE_CHANCE: 0.125, // 冬季挖柳树叶（枝条挂细雪）额外掉一朵雪花的概率（2026-10-31 设定）
   CALAMUS_CHANCE: 0.125, // 夏季水面长出菖蒲叶的概率

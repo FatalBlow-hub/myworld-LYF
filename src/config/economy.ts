@@ -203,6 +203,28 @@ export const SELL_PRICE: Record<number, { coins: number; per: number }> = {
   206: { coins: 1, per: 1 }, 207: { coins: 1, per: 1 }, 347: { coins: 1, per: 1 },
   351: { coins: 1, per: 1 },
   212: { coins: 7, per: 1 },     // 金色腰包
+  // —— 矿石锭和杂料（用户拍板）——
+  114: { coins: 3, per: 1 },     // 铁锭
+  179: { coins: 0.15, per: 1 },  // 圆石碎
+  126: { coins: 1.5, per: 1 },   // 氢气瓶
+  128: { coins: 2.25, per: 1 },  // 轮子
+  130: { coins: 2, per: 1 },     // 炮弹
+  216: { coins: 0.75, per: 1 },  // 冰分子
+  401: { coins: 2.25, per: 1 },  // 狼星碎片
+  402: { coins: 7, per: 1 },     // 狼之利爪
+  102: { coins: 0.02, per: 1 },  // 木棍
+  // —— 收集品（用户拍板）——
+  145: { coins: 2, per: 1 },     // 灰羽毛
+  146: { coins: 2, per: 1 },     // 绿羽毛
+  147: { coins: 2, per: 1 },     // 蓝羽毛
+  148: { coins: 2, per: 1 },     // 黄羽毛
+  149: { coins: 2, per: 1 },     // 黑羽毛
+  345: { coins: 0.25, per: 1 },  // 柳絮孢子
+  338: { coins: 1, per: 1 },     // 樱花花瓣
+  339: { coins: 1, per: 1 },     // 枫叶
+  364: { coins: 0.5, per: 1 },   // 装饰珠子·红
+  365: { coins: 0.5, per: 1 },   // 装饰珠子·黄
+  366: { coins: 0.5, per: 1 },   // 装饰珠子·蓝
 };
 
 
