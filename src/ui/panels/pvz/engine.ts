@@ -8,13 +8,13 @@
 import {
   COLS, ROWS, PLANTS, ZOMBIES, CARDS, CARD_KINDS, PlantKind, ZKind, CardKind, LevelDef,
   START_SUN, SKY_SUN_EVERY, SKY_SUN_LIVE, SUN_VALUE, SUNBUD_VALUE, SUNFLOWER_EVERY, SUNBUD_EVERY,
-  POTATO_ARM, CHOMPER_CHEW, FIRST_WAVE, WAVE_GAP, FINAL_GAP, CARD_BEFORE_WAVE,
+  POTATO_ARM, POTATO_DMG, CHOMPER_CHEW, FIRST_WAVE, WAVE_GAP, FINAL_GAP, CARD_BEFORE_WAVE,
   SUN_RATE_T, ATK_RATE_T, DAYTIME_T, FREEZE_T, HOURGLASS_DELAY, WIND_PUSH,
   MECH_SUMMON_EVERY, MECH_BALL_EVERY, MECH_ROW_EVERY, BALL_HP, BALL_SPEED, unlockedCards,
 } from './data';
 
 export interface Plant { kind: PlantKind; row: number; col: number; hp: number; t: number; armed?: boolean; chew?: number; pumpkin?: number; laddered?: boolean }
-export interface Zombie { kind: ZKind; row: number; x: number; hp: number; slowT: number; poisonT: number; freezeT: number; eatT: number; state: string; charm?: boolean; summonT?: number; ballT?: number; rowT?: number; dead?: boolean }
+export interface Zombie { kind: ZKind; row: number; x: number; hp: number; slowT: number; poisonT: number; freezeT: number; eatT: number; state: string; charm?: boolean; usedLadder?: boolean; summonT?: number; ballT?: number; rowT?: number; dead?: boolean }
 export interface Proj { kind: 'pea' | 'ice' | 'venom' | 'knife' | 'arrow' | 'bomb'; row: number; x: number; vx: number; tx: number; dmg: number; hits?: Set<Zombie> }
 export interface SunToken { row: number; col: number; live: number; value: number }
 export interface CorruptBall { row: number; x: number; hp: number }
@@ -250,7 +250,7 @@ export class PvzSim {
           const hit = this.zombies.find((z) => !z.dead && z.row === p.row && !z.charm && z.state !== 'dig' && z.state !== 'gone' && !ZOMBIES[z.kind].flying && Math.abs(z.x - p.col) < 0.85);
           if (hit) {
             // 只炸自己这一格：伤害=一个普通僵尸的满血——普通僵尸炸死，血尸/巨人只掉一截
-            for (const z of this.zombies.filter((z) => !z.dead && z.row === p.row && !ZOMBIES[z.kind].flying && Math.abs(z.x - p.col) <= 0.9)) this.hurt(z, ZOMBIES.basic.hp);
+            for (const z of this.zombies.filter((z) => !z.dead && z.row === p.row && !ZOMBIES[z.kind].flying && Math.abs(z.x - p.col) <= 0.9)) this.hurt(z, POTATO_DMG);
             p.hp = 0; this.pushLog('轰！土豆TNT炸了');
           }
         }
@@ -338,9 +338,10 @@ export class PvzSim {
       const aheadCol = z.state === 'back' ? Math.ceil(z.x) : Math.floor(z.x);
       const plant = this.plantAt(z.row, Math.max(0, Math.min(COLS - 1, aheadCol)));
       const blocking = !!plant && Math.abs(z.x - plant.col) <= 0.6 && !plant.laddered && plant.kind !== 'spike' && !ZOMBIES[z.kind].flying;
-      // 木梯僵尸：碰到坚果/竹盾/南瓜壳 → 架梯子翻过去不啃，之后所有僵尸直接翻过这格
-      if (blocking && z.kind === 'ladder' && (plant!.kind === 'nut' || plant!.kind === 'bamboo' || (plant!.pumpkin ?? 0) > 0)) {
+      // 木梯僵尸：碰到坚果/竹盾/南瓜壳 → 架梯子翻过去不啃，梯子一次性用完就没了
+      if (blocking && z.kind === 'ladder' && !z.usedLadder && (plant!.kind === 'nut' || plant!.kind === 'bamboo' || (plant!.pumpkin ?? 0) > 0)) {
         plant!.laddered = true;
+        z.usedLadder = true;
         this.pushLog('木梯僵尸架上梯子了，僵尸都能翻过去！');
       } else if (blocking) {
         z.eatT += dt;

@@ -133,6 +133,7 @@ export const SUNBUD_VALUE = 15;    // 阳光小花产的值
 export const SUNFLOWER_EVERY = 24; // 向日葵产一粒
 export const SUNBUD_EVERY = 15;    // 阳光小花产一粒
 export const POTATO_ARM = 15;      // 土豆 TNT 成型要几秒
+export const POTATO_DMG = 22;      // 土豆 TNT 爆炸伤害（普通僵尸正好炸死，血尸掉一截）
 export const CHOMPER_CHEW = 40;    // 大嘴花嚼几秒
 export const Z_EAT_DPS = 2;        // 僵尸啃植物秒伤（表里有特例）
 export const FIRST_WAVE = 60;      // 开局几秒刷第一波（BOSS关=机甲登场后再等60秒）
