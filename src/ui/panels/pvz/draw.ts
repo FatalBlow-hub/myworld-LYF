@@ -42,7 +42,7 @@ export function boostAt(sim: PvzSim, mx: number, my: number): number {
 }
 /** 阳光命中测试 */
 export function sunAt(sim: PvzSim, mx: number, my: number): SunToken | null {
-  return sim.suns.find((s) => Math.hypot(mx - (GX + s.col * CW + CW / 2), my - (GY + s.row * CH + CH / 2)) < 22) ?? null;
+  return sim.suns.find((s) => Math.hypot(mx - (GX + s.x * CW + CW / 2), my - (GY + s.y * CH + CH / 2)) < 22) ?? null;
 }
 
 export function drawPvz(c: CanvasRenderingContext2D, sim: PvzSim, sel: number, boostSel: number, levelNo: number): void {
@@ -60,7 +60,7 @@ export function drawPvz(c: CanvasRenderingContext2D, sim: PvzSim, sel: number, b
 
   // 阳光（天上掉的 + 植物产的，点一个收一个）：小太阳+光线
   for (const s of sim.suns) {
-    const x = GX + s.col * CW + CW / 2, y = GY + s.row * CH + CH / 2;
+    const x = GX + s.x * CW + CW / 2, y = GY + s.y * CH + CH / 2;
     c.strokeStyle = '#f8e04a'; c.lineWidth = 2;
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * Math.PI * 2 + 0.4;

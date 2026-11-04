@@ -16,7 +16,7 @@ import {
 export interface Plant { kind: PlantKind; row: number; col: number; hp: number; t: number; armed?: boolean; chew?: number; pumpkin?: number; laddered?: boolean }
 export interface Zombie { kind: ZKind; row: number; x: number; hp: number; slowT: number; poisonT: number; freezeT: number; eatT: number; state: string; charm?: boolean; usedLadder?: boolean; summonT?: number; ballT?: number; rowT?: number; dead?: boolean }
 export interface Proj { kind: 'pea' | 'ice' | 'venom' | 'knife' | 'arrow' | 'bomb'; row: number; x: number; vx: number; tx: number; dmg: number; hits?: Set<Zombie> }
-export interface SunToken { row: number; col: number; live: number; value: number }
+export interface SunToken { x: number; y: number; ty: number; live: number; value: number } // x/y 是格子单位的自由坐标（不一定在格心）
 export interface CorruptBall { row: number; x: number; hp: number }
 
 export type SimResult = 'play' | 'win' | 'lose';
@@ -163,16 +163,11 @@ export class PvzSim {
     this.pushLog(`第 ${this.wave} 波来了！`);
   }
 
-  /** 产阳光植物把阳光刷在旁边的格子（上下左右/斜角都行，掉到场内） */
+  /** 产阳光植物把阳光蹦在自己旁边（自由落点，不吸格心） */
   private sunNear(p: Plant, value: number): void {
-    const cells: [number, number][] = [];
-    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
-      if (!dr && !dc) continue;
-      const r = p.row + dr, c = p.col + dc;
-      if (r >= 0 && r < ROWS && c >= 0 && c < COLS) cells.push([r, c]);
-    }
-    const [r, c] = cells.length ? cells[Math.floor(Math.random() * cells.length)] : [p.row, p.col];
-    this.suns.push({ row: r, col: c, live: SKY_SUN_LIVE, value });
+    const x = Math.max(0.4, Math.min(COLS - 0.4, p.col + (Math.random() - 0.5) * 1.6));
+    const y = Math.max(0.4, Math.min(ROWS - 0.4, p.row + 0.5 + (Math.random() - 0.5) * 0.9));
+    this.suns.push({ x, y, ty: y, live: SKY_SUN_LIVE, value });
   }
 
   update(dt: number): void {
@@ -190,11 +185,14 @@ export class PvzSim {
     for (const k in this.cardCd) if (this.cardCd[k] > 0) this.cardCd[k] -= dt;
     if (this.sunRateT > 0) this.sunRateT -= dt;
     if (this.atkRateT > 0) this.atkRateT -= dt;
-    // 天上掉阳光
+    // 天上掉阳光：从屏幕顶慢慢飘到草坪上某个随机位置
     if ((this.elapsed % SKY_SUN_EVERY) < dt) {
-      this.suns.push({ row: Math.floor(Math.random() * ROWS), col: Math.floor(Math.random() * COLS), live: SKY_SUN_LIVE, value: SUN_VALUE });
+      this.suns.push({ x: 0.3 + Math.random() * (COLS - 0.6), y: -0.6, ty: 0.4 + Math.random() * (ROWS - 0.8), live: SKY_SUN_LIVE, value: SUN_VALUE });
     }
-    for (const s of this.suns) s.live -= dt;
+    for (const s of this.suns) {
+      if (s.y < s.ty) s.y = Math.min(s.ty, s.y + 1.2 * dt); // 还在飘
+      else s.live -= dt;                                   // 落地了才开始倒计时
+    }
     this.suns = this.suns.filter((s) => s.live > 0);
     // BOSS 机甲 1 秒登场
     if (this.level.boss && this.elapsed >= 1 && !this.zombies.some((z) => z.kind === 'mech')) {
