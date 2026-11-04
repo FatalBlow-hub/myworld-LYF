@@ -249,8 +249,8 @@ export class PvzSim {
         if (p.armed) {
           const hit = this.zombies.find((z) => !z.dead && z.row === p.row && !z.charm && z.state !== 'dig' && z.state !== 'gone' && !ZOMBIES[z.kind].flying && Math.abs(z.x - p.col) < 0.85);
           if (hit) {
-            // 只炸自己这一格：挨着的僵尸全死，隔一格的没事
-            for (const z of this.zombies.filter((z) => !z.dead && z.row === p.row && !ZOMBIES[z.kind].flying && Math.abs(z.x - p.col) <= 0.9)) this.hurt(z, 90);
+            // 只炸自己这一格：伤害=一个普通僵尸的满血——普通僵尸炸死，血尸/巨人只掉一截
+            for (const z of this.zombies.filter((z) => !z.dead && z.row === p.row && !ZOMBIES[z.kind].flying && Math.abs(z.x - p.col) <= 0.9)) this.hurt(z, ZOMBIES.basic.hp);
             p.hp = 0; this.pushLog('轰！土豆TNT炸了');
           }
         }
