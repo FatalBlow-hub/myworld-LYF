@@ -221,10 +221,11 @@ export class PvzSim {
     for (const p of this.plants) {
       p.t += dt;
       const inRow = this.zombies.filter((z) => !z.dead && z.row === p.row && z.x > p.col && z.state !== 'gone' && !z.charm);
+      const inRowGround = inRow.filter((z) => !ZOMBIES[z.kind].flying); // 地面射手不会对气球开火
       const sunMul = this.sunRateT > 0 ? 2 : 1;
       if (p.kind === 'sunflower' && p.t >= SUNFLOWER_EVERY / sunMul) { p.t = 0; this.sunNear(p, SUN_VALUE); }
       if (p.kind === 'sunbud' && p.t >= SUNBUD_EVERY / sunMul) { p.t = 0; this.sunNear(p, SUNBUD_VALUE); }
-      if ((p.kind === 'pea' || p.kind === 'snow' || p.kind === 'venom') && inRow.length && p.t >= this.atkInterval(1.4)) {
+      if ((p.kind === 'pea' || p.kind === 'snow' || p.kind === 'venom') && inRowGround.length && p.t >= this.atkInterval(1.4)) {
         p.t = 0;
         const kind = p.kind === 'snow' ? 'ice' : p.kind === 'venom' ? 'venom' : 'pea';
         this.projs.push({ kind, row: p.row, x: p.col + 0.4, vx: 3.5, tx: COLS + 1, dmg: 1 });
@@ -248,7 +249,7 @@ export class PvzSim {
         if (p.armed) {
           const hit = this.zombies.find((z) => !z.dead && z.row === p.row && !z.charm && z.state !== 'dig' && z.state !== 'gone' && !ZOMBIES[z.kind].flying && Math.abs(z.x - p.col) < 0.85);
           if (hit) {
-            for (const z of this.zombies.filter((z) => !z.dead && z.row === p.row)) this.hurt(z, 90);
+            for (const z of this.zombies.filter((z) => !z.dead && z.row === p.row && !ZOMBIES[z.kind].flying)) this.hurt(z, 90);
             p.hp = 0; this.pushLog('轰！土豆TNT炸了一整行');
           }
         }

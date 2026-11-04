@@ -116,10 +116,10 @@ export const LEVELS: LevelDef[] = [
 /** 初始就解锁的卡（第 1 关的奖励就是它俩，等于开局自带） */
 export const BASE_CARDS: PlantKind[] = ['sunflower', 'pea'];
 
-/** 已通关关卡数 → 本局能用的卡片列表（基础卡 + 各关奖励） */
+/** 已通关关卡数 → 本局能用的卡片列表（基础卡 + 已打通关卡的奖励，本关奖励通关后才给） */
 export function unlockedCards(doneLevels: number): PlantKind[] {
   const set = new Set<PlantKind>(BASE_CARDS);
-  for (let i = 0; i <= doneLevels && i < LEVELS.length; i++) LEVELS[i].unlock.forEach((k) => set.add(k));
+  for (let i = 0; i < doneLevels && i < LEVELS.length; i++) LEVELS[i].unlock.forEach((k) => set.add(k));
   return [...set];
 }
 
