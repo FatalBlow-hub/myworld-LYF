@@ -249,8 +249,9 @@ export class PvzSim {
         if (p.armed) {
           const hit = this.zombies.find((z) => !z.dead && z.row === p.row && !z.charm && z.state !== 'dig' && z.state !== 'gone' && !ZOMBIES[z.kind].flying && Math.abs(z.x - p.col) < 0.85);
           if (hit) {
-            for (const z of this.zombies.filter((z) => !z.dead && z.row === p.row && !ZOMBIES[z.kind].flying)) this.hurt(z, 90);
-            p.hp = 0; this.pushLog('轰！土豆TNT炸了一整行');
+            // 只炸自己这一格：挨着的僵尸全死，隔一格的没事
+            for (const z of this.zombies.filter((z) => !z.dead && z.row === p.row && !ZOMBIES[z.kind].flying && Math.abs(z.x - p.col) <= 0.9)) this.hurt(z, 90);
+            p.hp = 0; this.pushLog('轰！土豆TNT炸了');
           }
         }
       }
