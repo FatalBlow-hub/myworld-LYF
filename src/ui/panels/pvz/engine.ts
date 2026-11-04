@@ -246,7 +246,7 @@ export class PvzSim {
       if (p.kind === 'potato') {
         if (!p.armed && p.t >= POTATO_ARM) { p.armed = true; this.pushLog('土豆TNT成型了！'); }
         if (p.armed) {
-          const hit = this.zombies.find((z) => !z.dead && z.row === p.row && Math.abs(z.x - p.col) < 0.5);
+          const hit = this.zombies.find((z) => !z.dead && z.row === p.row && !z.charm && z.state !== 'dig' && z.state !== 'gone' && !ZOMBIES[z.kind].flying && Math.abs(z.x - p.col) < 0.85);
           if (hit) {
             for (const z of this.zombies.filter((z) => !z.dead && z.row === p.row)) this.hurt(z, 90);
             p.hp = 0; this.pushLog('轰！土豆TNT炸了一整行');
@@ -296,9 +296,6 @@ export class PvzSim {
       if (z.poisonT > 0) { z.poisonT -= dt; this.hurt(z, 0.5 * dt); }
       if (z.freezeT > 0) { z.freezeT -= dt; continue; } // 冻住了：不走不吃
       const speed = def.speed * (z.slowT > 0 ? 0.5 : 1) * (z.charm ? -1 : 1);
-      const col = Math.floor(z.x);
-      const plant = this.plantAt(z.row, Math.max(0, Math.min(COLS - 1, col)));
-      const blocking = plant && !plant.laddered && plant.kind !== 'spike' && !ZOMBIES[z.kind].flying;
       // 魅惑僵尸：往右走打别的僵尸
       if (z.charm) {
         z.x += Math.abs(def.speed) * dt;
@@ -334,35 +331,37 @@ export class PvzSim {
         if (z.rowT <= 0) { z.rowT = MECH_ROW_EVERY; z.row = Math.floor(Math.random() * ROWS); }
         continue; // 机甲不吃植物不走动
       }
-      if (z.state === 'back') z.x += Math.abs(def.speed) * dt; // 矿工冒头后往回走
-      else z.x -= Math.abs(speed) * dt;
-      // 雪傀儡：走到中场掉头跑
-      if (z.kind === 'yeti' && z.x < COLS - 3 && z.state === 'walk') z.state = 'flee';
       if (z.state === 'flee') { z.x += Math.abs(def.speed) * dt; if (z.x > COLS + 0.5) z.state = 'gone'; continue; }
-      if (z.state === 'gone') continue;
-      // 巨人/冰车：不啃，直接砸/碾
-      const smasher = z.kind === 'white' || z.kind === 'red' || z.kind === 'bike';
-      if (blocking) {
+      // 挡路判定：僵尸要走到贴近植物才停下（往左走查脚下格、矿工回头查前面一格），挡住就不走了
+      const aheadCol = z.state === 'back' ? Math.ceil(z.x) : Math.floor(z.x);
+      const plant = this.plantAt(z.row, Math.max(0, Math.min(COLS - 1, aheadCol)));
+      const blocking = !!plant && Math.abs(z.x - plant.col) <= 0.6 && !plant.laddered && plant.kind !== 'spike' && !ZOMBIES[z.kind].flying;
+      // 木梯僵尸：碰到坚果/竹盾/南瓜壳 → 架梯子翻过去不啃，之后所有僵尸直接翻过这格
+      if (blocking && z.kind === 'ladder' && (plant!.kind === 'nut' || plant!.kind === 'bamboo' || (plant!.pumpkin ?? 0) > 0)) {
+        plant!.laddered = true;
+        this.pushLog('木梯僵尸架上梯子了，僵尸都能翻过去！');
+      } else if (blocking) {
         z.eatT += dt;
-        if (smasher) {
-          if (z.eatT >= 1.5) { z.eatT = 0; plant.hp = 0; this.pushLog(`${def.cn}砸扁了${PLANTS[plant.kind].cn}！`); }
+        // 巨人/冰车：不啃，直接砸/碾
+        if (z.kind === 'white' || z.kind === 'red' || z.kind === 'bike') {
+          if (z.eatT >= 1.5) { z.eatT = 0; plant!.hp = 0; this.pushLog(`${def.cn}砸扁了${PLANTS[plant!.kind].cn}！`); }
         } else {
           // 普通啃咬：先啃南瓜壳
-          if (plant.pumpkin != null && plant.pumpkin > 0) { plant.pumpkin -= def.eatDps * dt; if (plant.pumpkin <= 0) this.pushLog('南瓜方框被啃破了！'); }
-          else if (plant.kind === 'hypno' && z.kind !== 'white' && z.kind !== 'red') {
+          if (plant!.pumpkin != null && plant!.pumpkin > 0) { plant!.pumpkin -= def.eatDps * dt; if (plant!.pumpkin <= 0) this.pushLog('南瓜方框被啃破了！'); }
+          else if (plant!.kind === 'hypno') {
             // 粉伞伞：咬一口就被魅惑，回头替植物打（巨人免疫）
-            plant.hp = 0; z.charm = true; this.pushLog(`${def.cn}被魅惑了！`);
+            plant!.hp = 0; z.charm = true; this.pushLog(`${def.cn}被魅惑了！`);
           } else {
-            plant.hp -= def.eatDps * dt;
+            plant!.hp -= def.eatDps * dt;
           }
         }
         continue;
       }
-      // 木梯僵尸：碰到坚果/竹盾/南瓜壳 → 架梯子，之后所有僵尸直接翻过这格
-      if (z.kind === 'ladder' && plant && !plant.laddered && (plant.kind === 'nut' || plant.kind === 'bamboo' || (plant.pumpkin ?? 0) > 0)) {
-        plant.laddered = true;
-        this.pushLog('木梯僵尸架上梯子了，僵尸都能翻过去！');
-      }
+      // 没被挡住才走
+      if (z.state === 'back') { z.x += Math.abs(def.speed) * dt; if (z.x > COLS + 0.5) z.state = 'gone'; }
+      else z.x -= Math.abs(speed) * dt;
+      // 雪傀儡：走到中场掉头跑
+      if (z.kind === 'yeti' && z.x < COLS - 3 && z.state === 'walk') z.state = 'flee';
       z.eatT = 0;
     }
     // 输了判定在 update 顶部
@@ -388,12 +387,14 @@ export class PvzSim {
           if (ZOMBIES[z.kind].flying) this.popBalloon(z);
           else this.hurt(z, pr.dmg);
         }
-      } else if (landed) {
-        const hit = this.zombies.find((z) => !z.dead && z.row === pr.row && Math.abs(z.x - pr.x) < 0.45 && z.x > 0);
-        if (hit) {
-          if (ZOMBIES[hit.kind].flying) this.popBalloon(hit);
-          else this.hurt(hit, pr.dmg);
-          pr.dmg = -1;
+      } else if (landing) {
+        if (landed) {
+          const hit = this.zombies.find((z) => !z.dead && z.row === pr.row && Math.abs(z.x - pr.x) < 0.45 && z.x > 0);
+          if (hit) {
+            if (ZOMBIES[hit.kind].flying) this.popBalloon(hit);
+            else this.hurt(hit, pr.dmg);
+            pr.dmg = -1;
+          }
         }
       } else {
         // 直线弹（豌豆/冰/毒）：打同行第一个活僵尸，打不着飞的
