@@ -114,6 +114,20 @@ export const SELL_PRICE: Record<number, { coins: number; per: number }> = {
   332: { coins: 3, per: 1 },     // 玻璃瓶(沼泽液)
   333: { coins: 3, per: 1 },     // 玻璃瓶(幻泽液)
   335: { coins: 3, per: 1 },     // 玻璃瓶(溺泽液)
+  // —— 2026-11-04 新价目：血尸红颜料最贵，其他颜料一律 1 ——
+  124: { coins: 2, per: 1 },     // 血尸红颜料
+  103: { coins: 1, per: 1 },     // 灵魂蓝颜料
+  104: { coins: 1, per: 1 }, 105: { coins: 1, per: 1 }, 106: { coins: 1, per: 1 },
+  107: { coins: 1, per: 1 }, 108: { coins: 1, per: 1 }, 109: { coins: 1, per: 1 },
+  117: { coins: 1, per: 1 }, 118: { coins: 1, per: 1 }, 211: { coins: 1, per: 1 },
+  131: { coins: 1, per: 1 }, 132: { coins: 1, per: 1 }, 133: { coins: 1, per: 1 },
+  134: { coins: 1, per: 1 }, 135: { coins: 1, per: 1 }, 158: { coins: 1, per: 1 },
+  127: { coins: 0.1, per: 1 },   // 橡胶
+  3:   { coins: 0.5, per: 1 },   // 石头
+  12:  { coins: 0.5, per: 1 },   // 圆石（石头挖下来的实际掉落物）
+  101: { coins: 0.1, per: 1 },   // 熟肉
+  150: { coins: 0.25, per: 1 },  // 玻璃碎片
+  70:  { coins: 0.05, per: 1 },  // 水草
 };
 
 
