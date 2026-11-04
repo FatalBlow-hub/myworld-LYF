@@ -1,6 +1,7 @@
 /** 方块形状 — 异形方块（台阶/楼梯/栅栏/箱子/告示牌/门）的碰撞盒和渲染盒；花草（cross）是薄片没有盒子，由网格化器单独画 */
 
 import { BLOCKS } from '../blocks/Block';
+import { DOOR_OPEN } from '../blocks/data';
 
 /** 一个盒子：[x0, y0, z0, x1, y1, z1]，坐标是格子内的 0~1 */
 export type Box = [number, number, number, number, number, number];
@@ -82,7 +83,7 @@ export function solidBoxes(id: number, meta: number): Box[] {
     case 'carpet': return CARPET_BOX;
     case 'bed': return BED_BOX;
     case 'bamboo': return BAMBOO_COLUMN;
-    default: return def.doorPanel ? [] : FULL;
+    default: return def.doorPanel ? DOOR_PANEL.map((b) => rotateBox(b, (meta + 3) % 4)) : FULL;
   }
 }
 
@@ -101,6 +102,7 @@ export function renderBoxes(id: number, meta: number): Box[] {
     case 'sign': return [...SIGN_POLE, rotateBox(SIGN_BOARD, meta)];
     case 'cross': return [];
     case 'bamboo': return BAMBOO_COLUMN;
-    default: return def?.doorPanel ? DOOR_PANEL : FULL;
+    // 门板：关门在面朝玩家那一条边，开门转到侧边（转90°）；doorPanel 且实心的才有碰撞
+    default: return def?.doorPanel ? DOOR_PANEL.map((b) => rotateBox(b, (meta + (id === DOOR_OPEN ? 0 : 3)) % 4)) : FULL;
   }
 }

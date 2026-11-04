@@ -176,7 +176,10 @@ export function place(world: World, hit: BlockHit, blockId: number, body: Player
   if (overlapsPlayer(body, x, y, z)) return false;  // 不能把自己埋进去
   world.setBlock(x, y, z, blockId);
   if (BLOCKS[blockId].oriented) world.setMeta(x, y, z, meta);
-  if (blockId === DOOR_CLOSED) world.setBlock(x, y + 1, z, DOOR_CLOSED);
+  if (blockId === DOOR_CLOSED) {
+    world.setBlock(x, y + 1, z, DOOR_CLOSED);
+    if (BLOCKS[blockId].oriented) world.setMeta(x, y + 1, z, meta); // 上半截朝向跟着下半截
+  }
   if (head) {
     world.setBlock(x + head[0], y, z + head[2], blockId);
     world.setMeta(x + head[0], y, z + head[2], (meta % 4) + 4); // meta+4 = 这格是床头
@@ -206,14 +209,19 @@ export function plantCarrot(world: World, hit: BlockHit): boolean {
   return true;
 }
 
-/** 开门/关门：门和它的另一半一起翻状态 */
+/** 开门/关门：门和它的另一半一起翻状态（setBlock 会清 meta，朝向得先存后补） */
 export function useDoor(world: World, hit: BlockHit): boolean {
   const id = world.getBlock(hit.x, hit.y, hit.z);
   if (!isDoor(id)) return false;
   const next = toggleDoor(id);
-  world.setBlock(hit.x, hit.y, hit.z, next);
-  if (isDoor(world.getBlock(hit.x, hit.y + 1, hit.z))) world.setBlock(hit.x, hit.y + 1, hit.z, next);
-  if (isDoor(world.getBlock(hit.x, hit.y - 1, hit.z))) world.setBlock(hit.x, hit.y - 1, hit.z, next);
+  const flip = (x: number, y: number, z: number): void => {
+    const m = world.getMeta(x, y, z);
+    world.setBlock(x, y, z, next);
+    world.setMeta(x, y, z, m);
+  };
+  flip(hit.x, hit.y, hit.z);
+  if (isDoor(world.getBlock(hit.x, hit.y + 1, hit.z))) flip(hit.x, hit.y + 1, hit.z);
+  if (isDoor(world.getBlock(hit.x, hit.y - 1, hit.z))) flip(hit.x, hit.y - 1, hit.z);
   return true;
 }
 

@@ -525,7 +525,7 @@ export const BLOCKS: Record<number, BlockDef> = {
   [WOOD]:        { cn: '木头',   tex: { top: 'wood_top', side: 'wood_side' }, solid: true, seeThrough: false, hardness: 1.2 },
   [LEAVES]:      { cn: '树叶',   tex: { top: 'leaves', side: 'leaves' }, solid: true, seeThrough: false, hardness: 0.25 },
   [PLANKS]:      { cn: '木板',   tex: { top: 'planks', side: 'planks' }, solid: true, seeThrough: false, hardness: 1 },
-  [DOOR_CLOSED]: { cn: '门',     tex: { top: 'door', side: 'door' }, solid: true, seeThrough: true, hardness: 1, drop: DOOR_CLOSED },
+  [DOOR_CLOSED]: { cn: '门',     tex: { top: 'door', side: 'door' }, solid: true, seeThrough: true, hardness: 1, drop: DOOR_CLOSED, doorPanel: true, oriented: true },
   [DOOR_OPEN]:   { cn: '门(开)', tex: { top: 'door', side: 'door' }, solid: false, seeThrough: true, hardness: 1, drop: DOOR_CLOSED, doorPanel: true, targetable: true },
   [GLASS]:       { cn: '玻璃',   tex: { top: 'glass', side: 'glass' }, solid: true, seeThrough: true, hardness: 0.4, alphaBlend: true },
   [COBBLE]:      { cn: '圆石',   tex: { top: 'cobble', side: 'cobble' }, solid: true, seeThrough: false, hardness: 2 },
