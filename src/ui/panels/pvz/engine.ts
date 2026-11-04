@@ -274,7 +274,7 @@ export class PvzSim {
           const prey = this.zombies.find((z) => !z.dead && z.row === p.row && Math.abs(z.x - p.col) < 1.2 && !z.charm && !ZOMBIES[z.kind].flying);
           if (prey) {
             const big = prey.kind === 'white' || prey.kind === 'red' || prey.kind === 'bike' || prey.kind === 'mech';
-            if (big) this.hurt(prey, 2 * 0.4);   // 吞不下巨人/车/机甲：只能持续咬
+            if (big) this.hurt(prey, 30);   // 吞不下巨人/车/机甲：每口咬 30
             else { prey.dead = true; this.kills++; p.chew = CHOMPER_CHEW; this.pushLog('大嘴花吞下了一只僵尸！'); }
           }
         }
