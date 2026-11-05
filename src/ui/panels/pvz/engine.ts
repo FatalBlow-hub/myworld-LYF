@@ -46,8 +46,8 @@ export class PvzSim {
   kills = 0;
   log: string[] = [];          // 最近的战斗播报（面板上方滚动条）
 
-  constructor(public level: LevelDef, doneLevels: number, venomCol = -1) {
-    this.cards = unlockedCards(doneLevels);
+  constructor(public level: LevelDef, doneLevels: number, venomCol = -1, picked?: PlantKind[]) {
+    this.cards = picked ?? unlockedCards(doneLevels);
     for (const k of this.cards) this.cardCd[k] = 0;
     if (venomCol >= 0) for (let r = 0; r < ROWS; r++) this.venomTiles.add(`${r},${venomCol}`);
     if (level.boss) this.waveWait = FIRST_WAVE + 1; // 机甲 1 秒登场，登场后再等 60 秒
@@ -296,11 +296,13 @@ export class PvzSim {
         p.t = 0;
         if ((p.chew ?? 0) > 0) { p.chew = (p.chew ?? 0) - 0.4; }
         else {
-          const prey = this.zombies.find((z) => !z.dead && z.row === p.row && Math.abs(z.x - p.col) < 1.2 && !z.charm && !ZOMBIES[z.kind].flying);
-          if (prey) {
-            const big = prey.kind === 'white' || prey.kind === 'red' || prey.kind === 'diamond' || prey.kind === 'bike' || prey.kind === 'mech';
-            if (big) this.hurt(prey, 30);   // 吞不下巨人/车/机甲：每口咬 30
-            else { prey.dead = true; this.kills++; p.chew = CHOMPER_CHEW; this.pushLog('大嘴花吞下了一只僵尸！'); }
+          const near = (z: Zombie) => !z.dead && z.row === p.row && Math.abs(z.x - p.col) < 1.2 && !z.charm && !ZOMBIES[z.kind].flying;
+          // 嘴边有大块头（巨人/车/机甲）优先咬它：吞不下只能啃，每口 30，吞小怪才去嚼
+          const big = this.zombies.find((z) => near(z) && (z.kind === 'white' || z.kind === 'red' || z.kind === 'diamond' || z.kind === 'bike' || z.kind === 'mech'));
+          if (big) this.hurt(big, 30);
+          else {
+            const prey = this.zombies.find(near);
+            if (prey) { prey.dead = true; this.kills++; p.chew = CHOMPER_CHEW; this.pushLog('大嘴花吞下了一只僵尸！'); }
           }
         }
       }

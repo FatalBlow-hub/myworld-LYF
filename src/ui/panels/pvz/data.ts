@@ -72,9 +72,9 @@ export const ZOMBIES: Record<ZKind, ZDef> = {
   digger:  { cn: '木镐僵尸',   hp: 28, speed: 0.25, eatDps: 2, color: '#5a4a3a' },          // 矿工：挖地道偷后排
   bike:    { cn: '自行车僵尸', hp: 60, speed: 0.35, eatDps: 999, color: '#4a6a9a' },        // 冰车：碾压植物
   balloon: { cn: '气球腐败者', hp: 20, speed: 0.12, eatDps: 0, color: '#c85a8a', flying: true }, // 气球破了落地变普通僵尸
-  white:   { cn: '白眼巨人',   hp: 150, speed: 0.08, eatDps: 999, color: '#d8d8e8' },        // 巨人砸植物不吃
-  red:     { cn: '红眼巨人',   hp: 300, speed: 0.08, eatDps: 999, color: '#c83a3a' },        // 红眼更硬
-  diamond: { cn: '蓝钻甲巨人', hp: 600, speed: 0.08, eatDps: 999, color: '#3a6ad8' },        // 小BOSS：红眼两倍血
+  white:   { cn: '白眼巨人',   hp: 75, speed: 0.08, eatDps: 999, color: '#d8d8e8' },         // 巨人砸植物不吃
+  red:     { cn: '红眼巨人',   hp: 150, speed: 0.08, eatDps: 999, color: '#c83a3a' },        // 红眼更硬
+  diamond: { cn: '蓝钻甲巨人', hp: 266, speed: 0.08, eatDps: 999, color: '#3a6ad8' },        // 小BOSS
   mech:    { cn: '腐败机甲',   hp: 400, speed: 0, eatDps: 0, color: '#2a1a3a' },             // BOSS：站右侧召唤+喷腐败球
 };
 

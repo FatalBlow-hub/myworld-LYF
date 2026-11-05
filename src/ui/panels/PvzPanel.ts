@@ -4,7 +4,7 @@
  *  助力卡：每波来前 1 秒抽一张，显示在屏幕底右——点卡再点草坪任意一格激活，一次性。 */
 
 import { PvzSim } from './pvz/engine';
-import { LEVELS, VENOM_FROM, VENOM_COL } from './pvz/data';
+import { LEVELS, VENOM_FROM, VENOM_COL, PLANTS, unlockedCards, PlantKind } from './pvz/data';
 import { drawPvz, cellAt, cardAt, boostAt, sunAt, PVZ_W, PVZ_H } from './pvz/draw';
 
 export interface PvzDeps {
@@ -15,8 +15,10 @@ export interface PvzDeps {
   toast: (text: string) => void;
 }
 
-type Stage = 'levels' | 'play' | 'win' | 'lose';
-const PER_ROW = 7; // 选关每行按钮数（19 关排 3 行）
+type Stage = 'levels' | 'pick' | 'play' | 'win' | 'lose';
+const PER_ROW = 7;      // 选关每行按钮数（19 关排 3 行）
+const PICK_COLS = 7;    // 选卡每行卡片数
+const PICK_MAX = 10;    // 最多带 10 张卡上场
 
 export class PvzPanel {
   visible = false;
@@ -30,6 +32,8 @@ export class PvzPanel {
   private boostSel = -1;     // 选中的助力卡
   private lvlIdx = -1;
   private resultT = 0;
+  private picked: PlantKind[] = [];    // 选卡阶段挑好的植物
+  private unlockList: PlantKind[] = []; // 已解锁的全部植物
 
   constructor(private d: PvzDeps) {
     this.el = document.createElement('div');
@@ -65,10 +69,24 @@ export class PvzPanel {
 
   private startLevel(i: number): void {
     this.lvlIdx = i;
-    this.sim = new PvzSim(LEVELS[i], this.d.progress(), i >= VENOM_FROM ? VENOM_COL : -1); // 19关起第5列是毒液地块
+    // 像 PVZ 一样先进选卡界面：已解锁的卡摆出来，最多挑 10 张（默认带上前 10 张）
+    this.unlockList = unlockedCards(this.d.progress());
+    this.picked = this.unlockList.slice(0, PICK_MAX);
+    this.stage = 'pick';
+  }
+
+  private confirmPick(): void {
+    if (!this.picked.length) { this.d.toast('至少选 1 张卡'); return; }
+    const i = this.lvlIdx;
+    this.sim = new PvzSim(LEVELS[i], this.d.progress(), i >= VENOM_FROM ? VENOM_COL : -1, this.picked); // 19关起第5列是毒液地块
     this.stage = 'play';
     this.sel = -1;
     this.boostSel = -1;
+  }
+
+  /** 选卡界面的格子位置 */
+  private pickCell(i: number): { x: number; y: number } {
+    return { x: 46 + (i % PICK_COLS) * 102, y: 118 + Math.floor(i / PICK_COLS) * 70 };
   }
 
   private onClick(e: MouseEvent): void {
@@ -79,6 +97,24 @@ export class PvzPanel {
       for (let i = 0; i < LEVELS.length; i++) {
         const x = 80 + (i % PER_ROW) * 66, y = 104 + Math.floor(i / PER_ROW) * 56;
         if (mx >= x && mx <= x + 52 && my >= y && my <= y + 42 && this.playable(i)) { this.startLevel(i); return; }
+      }
+      return;
+    }
+    if (this.stage === 'pick') {
+      // 返回按钮
+      if (mx >= 30 && mx <= 100 && my >= 20 && my <= 50) { this.stage = 'levels'; return; }
+      // 开战按钮
+      if (mx >= PVZ_W / 2 - 80 && mx <= PVZ_W / 2 + 80 && my >= 352 && my <= 390) { this.confirmPick(); return; }
+      for (let i = 0; i < this.unlockList.length; i++) {
+        const { x, y } = this.pickCell(i);
+        if (mx >= x && mx <= x + 96 && my >= y && my <= y + 64) {
+          const k = this.unlockList[i], at = this.picked.indexOf(k);
+          if (at >= 0) this.picked.splice(at, 1);
+          else if (this.picked.length < PICK_MAX) this.picked.push(k);
+          else this.d.toast(`最多带 ${PICK_MAX} 张卡`);
+          this.draw();
+          return;
+        }
       }
       return;
     }
@@ -148,6 +184,35 @@ export class PvzPanel {
       c.fillText('每波僵尸来前会抽到助力卡：点卡再点草坪任意一格使用', PVZ_W / 2, 334);
       return;
     }
+    if (this.stage === 'pick') {
+      c.fillStyle = '#101c2a'; c.fillRect(0, 0, PVZ_W, PVZ_H);
+      c.fillStyle = '#ffe97a'; c.font = 'bold 24px sans-serif'; c.textAlign = 'center';
+      c.fillText(`第 ${this.lvlIdx + 1} 关 · 选植物`, PVZ_W / 2, 50);
+      c.font = '13px sans-serif'; c.fillStyle = '#cfeaff';
+      c.fillText(`点亮卡片 = 带上场，最多 ${PICK_MAX} 张（已选 ${this.picked.length}/${PICK_MAX}）`, PVZ_W / 2, 76);
+      c.fillStyle = '#2a6a9a'; c.fillRect(30, 20, 70, 30);
+      c.fillStyle = '#fff'; c.font = '13px sans-serif'; c.fillText('←返回', 65, 40);
+      this.unlockList.forEach((k, i) => {
+        const { x, y } = this.pickCell(i);
+        const at = this.picked.indexOf(k), on = at >= 0;
+        c.fillStyle = on ? '#3a7a3a' : '#1a2a3a';
+        c.fillRect(x, y, 96, 64);
+        c.strokeStyle = on ? '#ffd700' : '#345';
+        c.lineWidth = on ? 3 : 1; c.strokeRect(x, y, 96, 64); c.lineWidth = 1;
+        c.fillStyle = PLANTS[k].color; c.fillRect(x + 6, y + 6, 18, 18);
+        c.fillStyle = '#fff'; c.font = 'bold 12px sans-serif'; c.textAlign = 'left';
+        c.fillText(PLANTS[k].cn, x + 28, y + 20);
+        c.fillStyle = '#ffd76a'; c.font = '11px sans-serif';
+        c.fillText(`${PLANTS[k].cost} 阳光`, x + 8, y + 48);
+        if (on) { c.fillStyle = '#ffd700'; c.font = 'bold 14px sans-serif'; c.textAlign = 'right'; c.fillText(`${at + 1}`, x + 92, y + 18); }
+      });
+      const canGo = this.picked.length > 0;
+      c.fillStyle = canGo ? '#4a9a3a' : '#444';
+      c.fillRect(PVZ_W / 2 - 80, 352, 160, 38);
+      c.fillStyle = '#fff'; c.font = 'bold 17px sans-serif'; c.textAlign = 'center';
+      c.fillText('一起摇滚吧！', PVZ_W / 2, 376);
+      return;
+    }
     if (!this.sim) return;
     drawPvz(c, this.sim, this.sel, this.boostSel, this.lvlIdx + 1);
     if (this.stage === 'win' || this.stage === 'lose') {
@@ -180,7 +245,7 @@ export class PvzPanel {
     };
   }
   /** 测试钩子：直接开打第 i 关 / 种植物 / 收阳光 / 送阳光 / 塞助力卡 */
-  debugStart(i: number): void { this.startLevel(i); }
+  debugStart(i: number): void { this.startLevel(i); this.confirmPick(); }
   debugPlant(kind: string, row: number, col: number): string | null { return this.sim?.plant(kind as never, row, col) ?? 'no sim'; }
   debugSun(n: number): void { if (this.sim) this.sim.sun += n; }
   debugSkip(s: number): void { if (this.sim) { this.sim.update(s); } }
@@ -188,7 +253,6 @@ export class PvzPanel {
   debugUseCard(i: number): void { this.sim?.useCard(i); }
 }
 
-import { PLANTS } from './pvz/data';
 /** 本关通关解锁的植物名（没有返回 null） */
 function unlockName(lvlIdx: number): string | null {
   const ks = LEVELS[lvlIdx]?.unlock;
