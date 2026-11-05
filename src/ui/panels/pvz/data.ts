@@ -24,7 +24,7 @@ export interface PlantDef {
 
 export const PLANTS: Record<PlantKind, PlantDef> = {
   sunflower: { cn: '像素向日葵', cost: 50, hp: 6, cd: 5, color: '#f0c53a' },
-  sunbud:    { cn: '阳光小花',   cost: 25, hp: 3, cd: 5, color: '#f8e88a' },
+  sunbud:    { cn: '阳光小花',   cost: 25, hp: 3, cd: 10, color: '#f8e88a' },
   pea:       { cn: '豌豆发射器', cost: 100, hp: 6, cd: 5, color: '#4aa832' },
   snow:      { cn: '寒冰发射器', cost: 125, hp: 6, cd: 5, color: '#7ac8e8' },
   venom:     { cn: '毒液发射器', cost: 125, hp: 6, cd: 5, color: '#2a7a2a' },
