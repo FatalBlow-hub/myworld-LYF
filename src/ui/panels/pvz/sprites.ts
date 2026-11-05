@@ -224,6 +224,30 @@ export function drawPlant(c: C, p: Plant, x: number, y: number): void {
       c.fillText('?', x, y - 4);
       break;
     }
+    case 'venomspike': {                             // 毒液地刺：紫尖刺+毒滴
+      for (const dx of [-12, -6, 0, 6, 12])
+        TRI(c, x + dx - 3, y, x + dx, y - 12, x + dx + 3, y, '#6a3a8a');
+      R(c, x - 14, y - 2, 28, 3, '#3a1a4a');
+      O(c, x - 6, y - 14, 1.5, '#c86af8'); O(c, x + 6, y - 14, 1.5, '#c86af8');
+      break;
+    }
+    case 'icespike': {                               // 冰地刺：冰蓝尖刺
+      for (const dx of [-12, -6, 0, 6, 12])
+        TRI(c, x + dx - 3, y, x + dx, y - 12, x + dx + 3, y, '#6aa8d8');
+      R(c, x - 14, y - 2, 28, 3, '#3a6a8a');
+      O(c, x, y - 14, 1.5, '#d8f0ff');
+      break;
+    }
+    case 'sunear': {                                 // 光穗草：金色麦穗+光晕
+      R(c, x - 2, y - 24, 4, 24, '#3a8a34');
+      for (let i = 0; i < 4; i++) {
+        O(c, x - 5 + (i % 2) * 10, y - 26 - Math.floor(i / 2) * 5, 3, '#e8c85a');
+      }
+      O(c, x, y - 31, 3.5, '#ffd76a');
+      c.strokeStyle = 'rgba(255,215,106,.5)'; c.lineWidth = 1.5;
+      c.beginPath(); c.arc(x, y - 16, 14, 0, Math.PI * 2); c.stroke(); c.lineWidth = 1;
+      break;
+    }
     case 'sunbloom': {                               // 阳光蓓蕾：金色花蕾，洒阳光时左右摇摆
       const sway = p.t > 0 ? (Math.floor(p.t * 4) % 2 ? 3 : -3) : 0;
       R(c, x - 2 + sway * 0.3, y - 16, 4, 16, '#3a8a34');

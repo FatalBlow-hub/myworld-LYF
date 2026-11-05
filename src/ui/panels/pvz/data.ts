@@ -10,7 +10,8 @@ export type PlantKind =
   | 'umbrella' | 'spike' | 'chomper' | 'hypno' | 'melon' | 'pumpkin' | 'gloom' | 'bamboo'
   | 'arrow' | 'iceshroom' | 'dandelion'
   | 'mosspea' | 'mossbox' | 'venombud' | 'toxin' | 'specialpea' | 'soulweed' | 'soulbox' | 'copycarrot'
-  | 'sunbloom';
+  | 'sunbloom'
+  | 'sunear' | 'venomspike' | 'icespike';
 
 /** 只能种在毒液地块上的植物 */
 export const VENOM_PLANTS: PlantKind[] = ['mosspea', 'mossbox', 'venombud', 'toxin'];
@@ -53,6 +54,9 @@ export const PLANTS: Record<PlantKind, PlantDef> = {
   soulbox:    { cn: '蓝魂方框',   cost: 125, hp: 60, cd: 8, color: '#5a7ad8' },
   copycarrot: { cn: '复制胡萝卜', cost: 65, hp: 80, cd: 8, color: '#e8782a' },
   sunbloom:   { cn: '阳光蓓蕾',   cost: 50, hp: 6, cd: 27, color: '#ffd76a' },
+  sunear:     { cn: '光穗草',     cost: 75, hp: 6, cd: 8, color: '#e8c85a' },
+  venomspike: { cn: '毒液地刺',   cost: 125, hp: 999, cd: 5, color: '#6a3a8a' },
+  icespike:   { cn: '冰地刺',     cost: 125, hp: 999, cd: 5, color: '#6aa8d8' },
 };
 
 // —— 僵尸 ——
@@ -104,7 +108,7 @@ export const CARDS: Record<CardKind, CardDef> = {
 export const CARD_KINDS = Object.keys(CARDS) as CardKind[];
 
 // —— 关卡：unlock=通关奖励（新植物）；waves=每波刷的怪 ——
-export interface LevelDef { unlock: PlantKind[]; waves: Partial<Record<ZKind, number>>[]; boss?: boolean; special?: boolean; delayed?: { wave: number; kind: ZKind; t: number }[] }
+export interface LevelDef { unlock: PlantKind[]; waves: Partial<Record<ZKind, number>>[]; boss?: boolean; special?: boolean; delayed?: { wave: number; kind: ZKind; t: number }[]; gaps?: Record<number, number> }
 
 const mix = (z: Partial<Record<ZKind, number>>) => z;
 
@@ -137,6 +141,10 @@ export const LEVELS: LevelDef[] = [
   { unlock: ['mossbox'], waves: [mix({ basic: 1, sunzombie: 1, digger: 1 }), mix({ ladder: 2, balloon: 1 }), mix({ basic: 2, sunzombie: 1, digger: 1, white: 1 })] }, // 24
   { unlock: ['copycarrot'], waves: [mix({ basic: 1, sunzombie: 1, ladder: 1 }), mix({ digger: 2 }), mix({ balloon: 2, basic: 1, sunzombie: 1, red: 1 })] }, // 25
   { special: true, unlock: ['sunbloom'], waves: [mix({ basic: 5 }), mix({ basic: 10 }), mix({ bucket: 10, cone: 10 }), mix({ ladder: 10, white: 1 })], delayed: [{ wave: 3, kind: 'red', t: 10 }] }, // ★ 最后的普通关
+  // —— 三期难关（金色特殊关之后、BOSS 之前）——
+  { unlock: ['sunear'], waves: [mix({ basic: 3, cone: 2 }), mix({ bucket: 2, basic: 4 }), mix({ cone: 3, bucket: 2, white: 2 }), mix({ bucket: 3, cone: 4, white: 2, red: 1 })] }, // 29
+  { unlock: ['venomspike'], waves: [mix({ basic: 4, cone: 2 }), mix({ cone: 3, bucket: 2, balloon: 2 }), mix({ bucket: 3, balloon: 2, white: 2 }), mix({ bucket: 4, balloon: 3, white: 3, red: 1 })] }, // 30
+  { unlock: ['icespike'], waves: [mix({ cone: 3, bucket: 2 }), mix({ bucket: 3, bike: 1 }), mix({ bucket: 3, bike: 2, white: 2 }), mix({ bucket: 4, bike: 2, white: 3, red: 2 }), mix({ bucket: 5, bike: 3, white: 3, red: 5 })], gaps: { 4: 17 } }, // 31 第4波后17秒出第5波
   { unlock: [], waves: [mix({ basic: 1, sunzombie: 1, cone: 1 }), mix({ bucket: 1 }), mix({ balloon: 2 })], boss: true }, // 最终BOSS 腐败机甲
 ];
 
@@ -191,3 +199,8 @@ export const SOUL_SLOW = 10;       // 蓝魂草冻结后减速秒
 export const SOUL_DMG = 0.5;       // 蓝魂草固定扣半格
 export const SOUL_SLOW_RATE = 2 / 3; // 蓝魂方框啃咬双减速
 export const COPY_DELAY = 3;       // 复制胡萝卜种下几秒后生效
+export const SUNEARD_EVERY = 22;   // 光穗草产阳光间隔
+export const SUNEARD_VALUE = 50;   // 光穗草一次产多少
+export const SUNEARD_AURA = 1.25;  // 3×3 内阳光植物产速×1.25（冷却-20%）
+export const VSPIKE_POISON = 3;    // 毒液地刺附毒秒数
+export const ISPIKE_SLOW = 2;      // 冰地刺减速秒数
