@@ -17,7 +17,7 @@ export interface PvzDeps {
 
 type Stage = 'levels' | 'pick' | 'play' | 'win' | 'lose';
 const PER_ROW = 7;      // 选关每行按钮数（19 关排 3 行）
-const PICK_COLS = 7;    // 选卡每行卡片数
+const PICK_COLS = 8;    // 选卡每行卡片数（29 张排 4 行内）
 const PICK_MAX = 10;    // 最多带 10 张卡上场
 
 export class PvzPanel {
@@ -86,7 +86,7 @@ export class PvzPanel {
 
   /** 选卡界面的格子位置 */
   private pickCell(i: number): { x: number; y: number } {
-    return { x: 46 + (i % PICK_COLS) * 102, y: 118 + Math.floor(i / PICK_COLS) * 70 };
+    return { x: 28 + (i % PICK_COLS) * 94, y: 96 + Math.floor(i / PICK_COLS) * 56 };
   }
 
   private onClick(e: MouseEvent): void {
@@ -107,7 +107,7 @@ export class PvzPanel {
       if (mx >= PVZ_W / 2 - 80 && mx <= PVZ_W / 2 + 80 && my >= 352 && my <= 390) { this.confirmPick(); return; }
       for (let i = 0; i < this.unlockList.length; i++) {
         const { x, y } = this.pickCell(i);
-        if (mx >= x && mx <= x + 96 && my >= y && my <= y + 64) {
+        if (mx >= x && mx <= x + 88 && my >= y && my <= y + 52) {
           const k = this.unlockList[i], at = this.picked.indexOf(k);
           if (at >= 0) this.picked.splice(at, 1);
           else if (this.picked.length < PICK_MAX) this.picked.push(k);
@@ -196,15 +196,15 @@ export class PvzPanel {
         const { x, y } = this.pickCell(i);
         const at = this.picked.indexOf(k), on = at >= 0;
         c.fillStyle = on ? '#3a7a3a' : '#1a2a3a';
-        c.fillRect(x, y, 96, 64);
+        c.fillRect(x, y, 88, 52);
         c.strokeStyle = on ? '#ffd700' : '#345';
-        c.lineWidth = on ? 3 : 1; c.strokeRect(x, y, 96, 64); c.lineWidth = 1;
-        c.fillStyle = PLANTS[k].color; c.fillRect(x + 6, y + 6, 18, 18);
-        c.fillStyle = '#fff'; c.font = 'bold 12px sans-serif'; c.textAlign = 'left';
-        c.fillText(PLANTS[k].cn, x + 28, y + 20);
-        c.fillStyle = '#ffd76a'; c.font = '11px sans-serif';
-        c.fillText(`${PLANTS[k].cost} 阳光`, x + 8, y + 48);
-        if (on) { c.fillStyle = '#ffd700'; c.font = 'bold 14px sans-serif'; c.textAlign = 'right'; c.fillText(`${at + 1}`, x + 92, y + 18); }
+        c.lineWidth = on ? 3 : 1; c.strokeRect(x, y, 88, 52); c.lineWidth = 1;
+        c.fillStyle = PLANTS[k].color; c.fillRect(x + 5, y + 5, 15, 15);
+        c.fillStyle = '#fff'; c.font = 'bold 11px sans-serif'; c.textAlign = 'left';
+        c.fillText(PLANTS[k].cn, x + 24, y + 17);
+        c.fillStyle = '#ffd76a'; c.font = '10px sans-serif';
+        c.fillText(`${PLANTS[k].cost} 阳光`, x + 6, y + 42);
+        if (on) { c.fillStyle = '#ffd700'; c.font = 'bold 13px sans-serif'; c.textAlign = 'right'; c.fillText(`${at + 1}`, x + 84, y + 16); }
       });
       const canGo = this.picked.length > 0;
       c.fillStyle = canGo ? '#4a9a3a' : '#444';
