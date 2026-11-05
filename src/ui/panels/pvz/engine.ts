@@ -15,7 +15,7 @@ import {
   SOUL_FREEZE, SOUL_SLOW, SOUL_DMG, SOUL_SLOW_RATE, COPY_DELAY, unlockedCards,
 } from './data';
 
-export interface Plant { kind: PlantKind; row: number; col: number; hp: number; t: number; armed?: boolean; chew?: number; pumpkin?: number; moss?: number; soul?: number; laddered?: boolean; done?: boolean }
+export interface Plant { kind: PlantKind; row: number; col: number; hp: number; t: number; armed?: boolean; chew?: number; pumpkin?: number; moss?: number; soul?: number; laddered?: boolean; done?: boolean; drops?: number }
 export interface Zombie { kind: ZKind; row: number; x: number; hp: number; slowT: number; poisonT: number; freezeT: number; eatT: number; state: string; charm?: boolean; usedLadder?: boolean; soulSlowT?: number; summonT?: number; ballT?: number; rowT?: number; dead?: boolean }
 export interface Proj { kind: 'pea' | 'ice' | 'venom' | 'knife' | 'arrow' | 'bomb' | 'moss' | 'minibomb'; row: number; x: number; vx: number; tx: number; dmg: number; hits?: Set<Zombie> }
 export interface SunToken { x: number; y: number; ty: number; live: number; value: number } // x/y 是格子单位的自由坐标（不一定在格心）
@@ -36,6 +36,7 @@ export class PvzSim {
   balls: CorruptBall[] = [];   // 机甲喷的腐败球
   pendingCards: CardKind[] = []; // 抽到手还没用的助力卡
   venomTiles = new Set<string>(); // 毒液地块 "r,c"：毒死的僵尸留下 / 19关起第5列自带
+  private delayed: { kind: ZKind; t: number }[] = []; // 波次里的迟到僵尸（如红眼巨人晚10秒）
   cards: PlantKind[];
   cardCd: Record<string, number> = {};
   // 助力卡增益
@@ -164,6 +165,7 @@ export class PvzSim {
         z.x += (i++) * 0.4;
       }
     }
+    this.level.delayed?.forEach((d) => { if (d.wave === this.wave) this.delayed.push({ kind: d.kind, t: d.t }); });
     this.wave++;
     // 下一波是不是最后一波：是→60秒，否→40秒（10秒缓冲+30/50秒冷却）
     this.waveWait = this.wave === this.level.waves.length - 1 ? FINAL_GAP : WAVE_GAP;
@@ -202,6 +204,9 @@ export class PvzSim {
       else s.live -= dt;                                   // 落地了才开始倒计时
     }
     this.suns = this.suns.filter((s) => s.live > 0);
+    // 迟到僵尸到点出场
+    for (const d of this.delayed) { d.t -= dt; if (d.t <= 0) { this.spawnZombie(d.kind); this.pushLog(`${ZOMBIES[d.kind].cn}姗姗来迟！`); } }
+    this.delayed = this.delayed.filter((d) => d.t > 0);
     // BOSS 机甲 1 秒登场
     if (this.level.boss && this.elapsed >= 1 && !this.zombies.some((z) => z.kind === 'mech')) {
       const m = this.spawnZombie('mech', 2);
@@ -216,7 +221,7 @@ export class PvzSim {
     if (this.zombies.some((z) => !z.dead && z.x < 0.1 && z.state !== 'gone' && !z.charm)) this.result = 'lose';
     if (this.level.boss) {
       if (this.zombies.some((z) => z.kind === 'mech' && z.dead)) this.result = 'win'; // 机甲爆了直接通关
-    } else if (this.wave >= this.level.waves.length && this.zombies.every((z) => z.dead)) {
+    } else if (this.wave >= this.level.waves.length && !this.delayed.length && this.zombies.every((z) => z.dead)) {
       this.result = 'win';
     }
   }
@@ -232,6 +237,12 @@ export class PvzSim {
       if (p.kind === 'sunflower' && p.t >= SUNFLOWER_EVERY / sunMul) { p.t = 0; this.sunNear(p, SUN_VALUE); }
       if (p.kind === 'sunbud' && p.t >= SUNBUD_EVERY / sunMul) { p.t = 0; this.sunNear(p, SUNBUD_VALUE); }
       if (p.kind === 'venombud' && p.t >= VENOMBUD_EVERY / sunMul) { p.t = 0; this.sunNear(p, SUN_VALUE); }
+      if (p.kind === 'sunbloom') {
+        // 阳光蓓蕾：种下就转圈，5 秒内每半秒洒一个 15 阳光（共 150），洒完消失
+        const drops = Math.min(10, Math.floor(p.t / 0.5));
+        while ((p.drops ?? 0) < drops) { p.drops = (p.drops ?? 0) + 1; this.sunNear(p, 15); }
+        if (p.t >= 5.2) { p.hp = 0; this.pushLog('阳光蓓蕾洒完阳光，消失了'); }
+      }
       if (p.kind === 'mosspea' && inRowGround.length && p.t >= this.atkInterval(MOSSPEA_INT)) {
         p.t = 0;
         this.projs.push({ kind: 'moss', row: p.row, x: p.col + 0.4, vx: 3.5, tx: COLS + 1, dmg: MOSSPEA_DMG });

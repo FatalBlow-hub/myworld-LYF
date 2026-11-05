@@ -9,7 +9,8 @@ export type PlantKind =
   | 'sunflower' | 'sunbud' | 'pea' | 'snow' | 'venom' | 'nut' | 'potato' | 'catapult'
   | 'umbrella' | 'spike' | 'chomper' | 'hypno' | 'melon' | 'pumpkin' | 'gloom' | 'bamboo'
   | 'arrow' | 'iceshroom' | 'dandelion'
-  | 'mosspea' | 'mossbox' | 'venombud' | 'toxin' | 'specialpea' | 'soulweed' | 'soulbox' | 'copycarrot';
+  | 'mosspea' | 'mossbox' | 'venombud' | 'toxin' | 'specialpea' | 'soulweed' | 'soulbox' | 'copycarrot'
+  | 'sunbloom';
 
 /** 只能种在毒液地块上的植物 */
 export const VENOM_PLANTS: PlantKind[] = ['mosspea', 'mossbox', 'venombud', 'toxin'];
@@ -51,6 +52,7 @@ export const PLANTS: Record<PlantKind, PlantDef> = {
   soulweed:   { cn: '蓝魂草',     cost: 75, hp: 6, cd: 8, color: '#4a6ac8' },
   soulbox:    { cn: '蓝魂方框',   cost: 125, hp: 60, cd: 8, color: '#5a7ad8' },
   copycarrot: { cn: '复制胡萝卜', cost: 65, hp: 80, cd: 8, color: '#e8782a' },
+  sunbloom:   { cn: '阳光蓓蕾',   cost: 0, hp: 6, cd: 31, color: '#ffd76a' },
 };
 
 // —— 僵尸 ——
@@ -102,7 +104,7 @@ export const CARDS: Record<CardKind, CardDef> = {
 export const CARD_KINDS = Object.keys(CARDS) as CardKind[];
 
 // —— 关卡：unlock=通关奖励（新植物）；waves=每波刷的怪 ——
-export interface LevelDef { unlock: PlantKind[]; waves: Partial<Record<ZKind, number>>[]; boss?: boolean; special?: boolean }
+export interface LevelDef { unlock: PlantKind[]; waves: Partial<Record<ZKind, number>>[]; boss?: boolean; special?: boolean; delayed?: { wave: number; kind: ZKind; t: number }[] }
 
 const mix = (z: Partial<Record<ZKind, number>>) => z;
 
@@ -134,7 +136,8 @@ export const LEVELS: LevelDef[] = [
   { unlock: ['soulbox'], waves: [mix({ sunzombie: 1 }), mix({ basic: 1 }), mix({ basic: 1, sunzombie: 1 }), mix({ diamond: 1 })] }, // 23 小BOSS
   { unlock: ['mossbox'], waves: [mix({ basic: 1, sunzombie: 1, digger: 1 }), mix({ ladder: 2, balloon: 1 }), mix({ basic: 2, sunzombie: 1, digger: 1, white: 1 })] }, // 24
   { unlock: ['copycarrot'], waves: [mix({ basic: 1, sunzombie: 1, ladder: 1 }), mix({ digger: 2 }), mix({ balloon: 2, basic: 1, sunzombie: 1, red: 1 })] }, // 25
-  { unlock: [], waves: [mix({ basic: 1, sunzombie: 1, cone: 1 }), mix({ bucket: 1 }), mix({ balloon: 2 })], boss: true }, // 26 最终BOSS 腐败机甲
+  { special: true, unlock: ['sunbloom'], waves: [mix({ basic: 5 }), mix({ basic: 10 }), mix({ bucket: 10, cone: 10 }), mix({ ladder: 10, white: 1 })], delayed: [{ wave: 3, kind: 'red', t: 10 }] }, // ★ 最后的普通关
+  { unlock: [], waves: [mix({ basic: 1, sunzombie: 1, cone: 1 }), mix({ bucket: 1 }), mix({ balloon: 2 })], boss: true }, // 最终BOSS 腐败机甲
 ];
 
 /** 初始就解锁的卡（第 1 关的奖励就是它俩，等于开局自带） */

@@ -224,6 +224,17 @@ export function drawPlant(c: C, p: Plant, x: number, y: number): void {
       c.fillText('?', x, y - 4);
       break;
     }
+    case 'sunbloom': {                               // 阳光蓓蕾：金色花蕾，洒阳光时左右摇摆
+      const sway = p.t > 0 ? (Math.floor(p.t * 4) % 2 ? 3 : -3) : 0;
+      R(c, x - 2 + sway * 0.3, y - 16, 4, 16, '#3a8a34');
+      O(c, x + sway, y - 20, 9, '#ffd76a');
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 + sway * 0.1;
+        O(c, x + sway + Math.cos(a) * 9, y - 20 + Math.sin(a) * 9, 2.5, '#ffec9a');
+      }
+      O(c, x + sway, y - 20, 4.5, '#e8a83a');
+      break;
+    }
     default: {
       O(c, x, y - 10, 12, PLANTS[p.kind].color);
       break;
