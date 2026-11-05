@@ -246,7 +246,13 @@ export function drawPlant(c: C, p: Plant, x: number, y: number): void {
     c.fillStyle = '#e88a2a';
     for (const [cx, cy] of [[-18, -34], [18, -34], [-18, 2], [18, 2]]) { c.beginPath(); c.arc(x + cx, y + cy, 4, 0, Math.PI * 2); c.fill(); }
   }
-  if (p.laddered) { R(c, x - 10, y - 34, 3, 36, '#c8a85a'); R(c, x + 7, y - 34, 3, 36, '#c8a85a'); R(c, x - 10, y - 26, 20, 2, '#c8a85a'); R(c, x - 10, y - 14, 20, 2, '#c8a85a'); }
+  // 架上的木梯：又大又显眼，斜靠在植物上
+  if (p.laddered) {
+    const lx = x + 2;
+    R(c, lx - 8, y - 40, 4, 42, '#a07830'); R(c, lx + 8, y - 40, 4, 42, '#a07830');
+    for (let i = 0; i < 5; i++) R(c, lx - 8, y - 36 + i * 9, 20, 3, '#c8a85a');
+    R(c, lx - 8, y - 40, 20, 3, '#8a6428');
+  }
   if ((p.chew ?? 0) > 0) { c.fillStyle = '#fff'; c.font = '9px sans-serif'; c.textAlign = 'center'; c.fillText('嚼…', x, y - 36); }
 }
 

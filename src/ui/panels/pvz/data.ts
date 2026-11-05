@@ -120,10 +120,10 @@ export const LEVELS: LevelDef[] = [
   { unlock: ['snow'], waves: [mix({ basic: 2, cone: 2 }), mix({ bucket: 1, bike: 1 }), mix({ balloon: 2 })] },        // 11
   { unlock: ['venom'], waves: [mix({ basic: 2, cone: 1 }), mix({ ladder: 1, digger: 1 }), mix({ yeti: 1, balloon: 1 })] }, // 12
   { unlock: ['dandelion'], waves: [mix({ basic: 2, cone: 2 }), mix({ bucket: 1 }), mix({ balloon: 2 })] },            // 13
-  { unlock: ['pumpkin'], waves: [mix({ basic: 2, cone: 2 }), mix({ bucket: 2, ladder: 1 }), mix({ bike: 1, digger: 1 })] }, // 14
-  { unlock: ['gloom'], waves: [mix({ cone: 2, bucket: 1 }), mix({ yeti: 1 }), mix({ balloon: 2 })] },                 // 15
-  { unlock: ['arrow'], waves: [mix({ basic: 2, cone: 2 }), mix({ ladder: 1, bike: 1 }), mix({ digger: 1, yeti: 1 }), mix({ balloon: 1 })] }, // 16
-  { unlock: ['bamboo'], waves: [mix({ basic: 2, cone: 2 }), mix({ ladder: 1, bike: 1 }), mix({ digger: 1, yeti: 1 }), mix({ balloon: 1 })] }, // 17
+  { unlock: ['pumpkin'], waves: [mix({ basic: 2, cone: 2 }), mix({ bucket: 2, ladder: 1 }), mix({ bike: 1, digger: 1, white: 1 })] }, // 14
+  { unlock: ['gloom'], waves: [mix({ cone: 2, bucket: 1 }), mix({ yeti: 1 }), mix({ balloon: 2, white: 1 })] },                 // 15
+  { unlock: ['arrow'], waves: [mix({ basic: 2, cone: 2 }), mix({ ladder: 1, bike: 1 }), mix({ digger: 1, yeti: 1 }), mix({ balloon: 1, white: 1 })] }, // 16
+  { unlock: ['bamboo'], waves: [mix({ basic: 2, cone: 2 }), mix({ ladder: 1, bike: 1 }), mix({ digger: 1, yeti: 1 }), mix({ balloon: 1, white: 1, red: 1 })] }, // 17
   // —— 二期新关（2026-11-05 定稿）：18~25 关 + 小BOSS ——
   { unlock: ['mosspea'], waves: [mix({ basic: 2 }), mix({ basic: 2 }), mix({ basic: 3 })] },                          // 18
   { unlock: ['venombud'], waves: [mix({ basic: 2 }), mix({ basic: 2, ladder: 1 }), mix({ basic: 3, ladder: 1 })] },   // 19
@@ -131,8 +131,8 @@ export const LEVELS: LevelDef[] = [
   { unlock: ['specialpea'], waves: [mix({ basic: 2 }), mix({ ladder: 2 }), mix({ basic: 2, balloon: 1 })] },          // 21
   { unlock: ['soulweed'], waves: [mix({ basic: 2 }), mix({ ladder: 2 }), mix({ basic: 2, digger: 1 })] },             // 22
   { unlock: ['soulbox'], waves: [mix({ basic: 1 }), mix({ basic: 1 }), mix({ basic: 2 }), mix({ diamond: 1 })] },     // 23 小BOSS
-  { unlock: ['mossbox'], waves: [mix({ basic: 2, digger: 1 }), mix({ ladder: 2, balloon: 1 }), mix({ basic: 3, digger: 1 })] }, // 24
-  { unlock: ['copycarrot'], waves: [mix({ basic: 2, ladder: 1 }), mix({ digger: 2 }), mix({ balloon: 2, basic: 2 })] }, // 25
+  { unlock: ['mossbox'], waves: [mix({ basic: 2, digger: 1 }), mix({ ladder: 2, balloon: 1 }), mix({ basic: 3, digger: 1, white: 1 })] }, // 24
+  { unlock: ['copycarrot'], waves: [mix({ basic: 2, ladder: 1 }), mix({ digger: 2 }), mix({ balloon: 2, basic: 2, red: 1 })] }, // 25
   { unlock: [], waves: [mix({ basic: 2, cone: 1 }), mix({ bucket: 1 }), mix({ balloon: 2 })], boss: true },           // 26 最终BOSS 腐败机甲
 ];
 

@@ -369,7 +369,7 @@ export class PvzSim {
       const plant = this.plantAt(z.row, Math.max(0, Math.min(COLS - 1, aheadCol)));
       const blocking = !!plant && Math.abs(z.x - plant.col) <= 0.6 && !plant.laddered && plant.kind !== 'spike' && !ZOMBIES[z.kind].flying;
       // 木梯僵尸：碰到坚果/竹盾/南瓜壳 → 架梯子翻过去不啃，梯子一次性用完就没了
-      if (blocking && z.kind === 'ladder' && !z.usedLadder && (plant!.kind === 'nut' || plant!.kind === 'bamboo' || (plant!.pumpkin ?? 0) > 0)) {
+      if (blocking && z.kind === 'ladder' && !z.usedLadder && (plant!.kind === 'nut' || plant!.kind === 'bamboo' || (plant!.pumpkin ?? 0) > 0 || (plant!.moss ?? 0) > 0 || (plant!.soul ?? 0) > 0)) {
         plant!.laddered = true;
         z.usedLadder = true;
         this.pushLog('木梯僵尸架上梯子了，僵尸都能翻过去！');
