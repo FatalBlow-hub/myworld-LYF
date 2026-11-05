@@ -210,7 +210,7 @@ export class PvzPanel {
       c.fillStyle = canGo ? '#4a9a3a' : '#444';
       c.fillRect(PVZ_W / 2 - 80, 352, 160, 38);
       c.fillStyle = '#fff'; c.font = 'bold 17px sans-serif'; c.textAlign = 'center';
-      c.fillText('一起摇滚吧！', PVZ_W / 2, 376);
+      c.fillText('开始战斗', PVZ_W / 2, 376);
       return;
     }
     if (!this.sim) return;
