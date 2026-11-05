@@ -52,7 +52,7 @@ export const PLANTS: Record<PlantKind, PlantDef> = {
   soulweed:   { cn: '蓝魂草',     cost: 75, hp: 6, cd: 8, color: '#4a6ac8' },
   soulbox:    { cn: '蓝魂方框',   cost: 125, hp: 60, cd: 8, color: '#5a7ad8' },
   copycarrot: { cn: '复制胡萝卜', cost: 65, hp: 80, cd: 8, color: '#e8782a' },
-  sunbloom:   { cn: '阳光蓓蕾',   cost: 0, hp: 6, cd: 31, color: '#ffd76a' },
+  sunbloom:   { cn: '阳光蓓蕾',   cost: 50, hp: 6, cd: 27, color: '#ffd76a' },
 };
 
 // —— 僵尸 ——
