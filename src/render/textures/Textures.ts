@@ -66,7 +66,7 @@ const TILE_NAMES = [
   'coal_chunk', 'coal_bar', 'coal', 'coal_dust',
   ...Object.keys(FIRE_PAINTERS),
   'mang_shard', 'mang_lamp', 'star_lamp', 'hydrogen_lamp',
-  'seaweed', 'bucket_water',
+  'seaweed', 'bucket_water', 'lava', 'bucket_lava',
   // —— 星空系列 ——
   'star_shard', 'starwool', 'star_table_top', 'star_table_side',
   // —— 血尸系列 ——

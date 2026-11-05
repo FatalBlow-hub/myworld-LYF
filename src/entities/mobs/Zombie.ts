@@ -4,7 +4,7 @@
 
 import * as THREE from 'three';
 import { BLOODZOMBIE, CORRUPT, GHOST, POTION, RAT, STARZOMBIE, ZOMBIE } from '../../config';
-import { AIR, SLOW_NET, WATER } from '../../world/blocks/Block';
+import { AIR, LAVA, SLOW_NET, WATER } from '../../world/blocks/Block';
 import { World } from '../../world/World';
 import { heightAt } from '../../world/terrain/TerrainGen';
 import { collidesAABB, stepWalk } from '../../player/motion/Physics';
@@ -138,6 +138,11 @@ export class Zombie {
       this.hp = Math.max(0, this.hp - amount);
       if (this.hp <= 0) this.dead = true;
     });
+    // 踩到/泡进岩浆：每秒掉 3 血（岩浆是防御僵尸用的）
+    if (world.getBlock(Math.floor(this.x), Math.floor(this.y), Math.floor(this.z)) === LAVA) {
+      this.hp = Math.max(0, this.hp - 3 * dt);
+      if (this.hp <= 0) this.dead = true;
+    }
     if (this.dead) { this.syncMesh(); return false; }
     if (this.frozenT > 0) { this.vy = 0; this.syncMesh(); return false; }
     if (this.trapT > 0) { this.vy = 0; this.syncMesh(); return false; } // 柳条陷阱：原地困住

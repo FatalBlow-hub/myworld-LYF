@@ -206,6 +206,8 @@ export const POTION_DEADLY = 156;  // 剧毒瓶：砸中每 2 秒 -2 血，持�
 export const POTION_BREATH = 157;  // 防溺瓶：自己喝，水下呼吸 60 秒
 export const DYE_DEEPGREEN = 158;  // 深绿颜料：黑+绿融合；僵尸 1/20 掉；深泽液能拆成它
 // —— 装了泽液的桶：铁桶 5 种 + 玻璃桶 5 种，count = 装了几格（最多 3，不混装） ——
+export const LAVA = 359;         // 岩浆：挖沙子 3% 概率下面是它；泡进去每秒 6 血，僵尸踩到每秒 3 血
+export const LAVA_BUCKET = 360;  // 岩浆桶：铁桶对着岩浆按 P 舀走，按 L 倒出
 export const SW_BUCKET_LIGHT = 159;
 export const SW_BUCKET_MID = 160;
 export const SW_BUCKET_PHANTOM = 161;
@@ -242,9 +244,10 @@ export const BOTTLE_FILL: Record<number, { bucket: number; liquid: number }> = {
   [BOTTLE_SW_DEEP]: { bucket: GLASS_BOTTLE, liquid: SWAMP_DEEP },
   [BOTTLE_SW_DROWN]: { bucket: GLASS_BOTTLE, liquid: SWAMP_DROWN },
 };
-/** 所有装满的液体容器 → 空容器 + 装的液体（铁桶水/铁桶泽液/玻璃桶泽液/玻璃瓶一切） */
+/** 所有装满的液体容器 → 空容器 + 装的液体（铁桶水/铁桶泽液/玻璃桶泽液/玻璃瓶一切/岩浆桶） */
 export const LIQUID_FILL: Record<number, { bucket: number; liquid: number }> = {
   [WATER_BUCKET]: { bucket: BUCKET, liquid: WATER },
+  [LAVA_BUCKET]: { bucket: BUCKET, liquid: LAVA },
   ...SWAMP_FILL,
   ...BOTTLE_FILL,
 };
@@ -257,7 +260,7 @@ export const liquidCapOf = (container: number): number => container === GLASS_BO
 /** 这桶能不能装泽液（空桶/玻璃桶/玻璃瓶/已经装了泽液的容器都行） */
 export const isSwampBucket = (id: number): boolean => id === BUCKET || id === GLASS_BUCKET || id === GLASS_BOTTLE || id in SWAMP_FILL;
 /** 算液体的方块：清水 + 五种泽液（都会往下流，不会往旁边流） */
-export const isLiquid = (id: number): boolean => id === WATER || isSwamp(id);
+export const isLiquid = (id: number): boolean => id === WATER || isSwamp(id) || id === LAVA;
 /** 算梯子的方块：木梯子 + 藤蔓梯子（藤蔓只是装饰，两种都能爬） */
 export const isLadder = (id: number): boolean => id === LADDER || id === VINE_LADDER;
 /** 四种药水瓶 ID 表 */
@@ -623,6 +626,8 @@ export const BLOCKS: Record<number, BlockDef> = {
   // 水草：长在水底的绿色水草，只能种回水里（脚底下那格得是实地）
   [SEAWEED]:     { cn: '水草', tex: { top: 'seaweed', side: 'seaweed' }, solid: false, seeThrough: true, hardness: 0.05, shape: 'cross', targetable: true },
   [WATER_BUCKET]: { cn: '水桶', tex: { top: 'bucket_water', side: 'bucket_water' }, solid: false, seeThrough: true, hardness: 0, item: true },
+  [LAVA]:         { cn: '岩浆', tex: { top: 'lava', side: 'lava' }, solid: false, seeThrough: true, hardness: INF, alphaBlend: true },
+  [LAVA_BUCKET]:  { cn: '岩浆桶', tex: { top: 'bucket_lava', side: 'bucket_lava' }, solid: false, seeThrough: true, hardness: 0, item: true },
   // —— 星空系列：星星碎片睡觉才掉，都会发光（贴图画得亮晶晶） ——
   [STAR_WOOL]:   { cn: '星空羊毛', tex: { top: 'starwool', side: 'starwool' }, solid: true, seeThrough: false, hardness: 0.5, glow: true },
   [STAR_TABLE]:  { cn: '星空工作台', tex: { top: 'star_table_top', side: 'star_table_side', front: 'star_table_top' }, solid: true, seeThrough: false, hardness: 1.2, glow: true },

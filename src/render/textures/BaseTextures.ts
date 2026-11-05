@@ -27,6 +27,14 @@ export const BASE_PAINTERS: Record<string, Painter> = {
     c.fillStyle = 'rgba(90,150,230,0.6)';
     for (let i = 0; i < 4; i++) c.fillRect(x + Math.floor(Math.random() * 12), y + i * 4 + 1, 4, 1);
   },
+  lava: (c, x, y) => {
+    c.fillStyle = 'rgba(220,80,20,0.92)';
+    c.fillRect(x, y, TILE, TILE);
+    c.fillStyle = 'rgba(255,160,40,0.7)';
+    for (let i = 0; i < 4; i++) c.fillRect(x + Math.floor(Math.random() * 12), y + i * 4 + 1, 5, 2);
+    c.fillStyle = 'rgba(255,220,90,0.8)';
+    for (let i = 0; i < 5; i++) c.fillRect(x + Math.floor(Math.random() * 14), y + Math.floor(Math.random() * 14), 2, 1);
+  },
   wood_side: (c, x, y) => {
     fill(c, x, y, '#6b4a2a');
     c.fillStyle = '#57391f';

@@ -1,7 +1,7 @@
 /** 方块拾取 — 从眼睛沿视线发射线找方块，执行挖掘 / 放置 / 开关门 */
 
 import { CHUNK, PLAYER } from '../config';
-import { AIR, BAMBOO, BLOCKS, CARROT_SEED, DIRT, DOOR_CLOSED, GRASS, RICE_SEED, SEAWEED, STAR_WOOL, WATER, dropOf, isBed, isDoor, isLiquid, isPlant, isSolid, toggleDoor } from '../world/blocks/Block';
+import { AIR, BAMBOO, BLOCKS, CARROT_SEED, DIRT, DOOR_CLOSED, GRASS, LAVA, RICE_SEED, SAND, SEAWEED, STAR_WOOL, WATER, dropOf, isBed, isDoor, isLiquid, isPlant, isSolid, toggleDoor } from '../world/blocks/Block';
 import { bambooStandable } from '../world/terrain/bamboo';
 import { META_DIRS } from '../world/recipes/Shapes';
 import { World } from '../world/World';
@@ -122,6 +122,10 @@ export function mine(world: World, hit: BlockHit): number {
   const m = world.getMeta(hit.x, hit.y, hit.z);
   const drop = dropOf(id);
   world.setBlock(hit.x, hit.y, hit.z, AIR);
+  // 挖沙子 3% 概率发现底下藏着岩浆（下面的沙子再挖还是 3%，沙漠往下挖小心岩浆层）
+  if (id === SAND && Math.random() < 0.03 && world.getBlock(hit.x, hit.y - 1, hit.z) === SAND) {
+    world.setBlock(hit.x, hit.y - 1, hit.z, LAVA);
+  }
   if (isDoor(id)) {
     // 门是两格高，另一半在头上或脚下
     if (isDoor(world.getBlock(hit.x, hit.y + 1, hit.z))) world.setBlock(hit.x, hit.y + 1, hit.z, AIR);

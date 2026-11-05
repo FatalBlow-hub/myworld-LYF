@@ -1,7 +1,7 @@
 /** 生命 — 血条、氧气、伤害结算；创造模式同一套事件进来但全部免疫 */
 
 import { EAT_HP, FoodEffect, HEALTH, SWAMP_HURT, SWAY } from '../../config';
-import { SWAMP_DEEP, SWAMP_LIGHT, SWAMP_MID, SWAMP_PHANTOM } from '../../world/blocks/Block';
+import { LAVA, SWAMP_DEEP, SWAMP_LIGHT, SWAMP_MID, SWAMP_PHANTOM } from '../../world/blocks/Block';
 import { PlayerBody } from '../motion/Physics';
 import { TimedEffects } from './TimedEffects';
 
@@ -20,6 +20,7 @@ const SWAMP_RULE: Record<number, { dmg: number; every: number }> = {
   [SWAMP_MID]: SWAMP_HURT.MID,
   [SWAMP_PHANTOM]: SWAMP_HURT.PHANTOM,
   [SWAMP_DEEP]: SWAMP_HURT.DEEP,
+  [LAVA]: { dmg: 6, every: 1 }, // 泡岩浆每秒 6 血
 };
 
 export class Health {

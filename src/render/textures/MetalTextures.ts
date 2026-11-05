@@ -42,6 +42,10 @@ export function addMetalPainters(PAINTERS: Record<string, Painter>): void {
     PAINTERS.bucket(c, x, y); c.fillStyle = '#4aa8e0'; c.fillRect(x + 4, y + 7, 8, 2);
     c.fillStyle = '#9cd8f8'; c.fillRect(x + 5, y + 7, 3, 1);
   };
+  PAINTERS.bucket_lava = (c, x, y) => {
+    PAINTERS.bucket(c, x, y); c.fillStyle = '#e05818'; c.fillRect(x + 4, y + 7, 8, 2);
+    c.fillStyle = '#ffc040'; c.fillRect(x + 5, y + 7, 3, 1);
+  };
   PAINTERS.seaweed = (c, x, y) => {
     c.fillStyle = '#2e7d32';
     for (let s = 0; s < 4; s++) {

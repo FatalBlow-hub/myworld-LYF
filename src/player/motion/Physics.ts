@@ -1,7 +1,7 @@
 /** 物理 — 玩家是个长方体盒子：受重力、撞方块会停下、水里能游、能自动跨上一格台阶 */
 
 import { PLAYER, SKATES, TANK, WAISTBAG } from '../../config';
-import { SWAMP_DROWN, WATER, isLadder, isSwamp } from '../../world/blocks/Block';
+import { LAVA, SWAMP_DROWN, WATER, isLadder, isSwamp } from '../../world/blocks/Block';
 import { World } from '../../world/World';
 import { Controller } from './Controller';
 
@@ -95,7 +95,7 @@ function swampAt(world: World, x: number, y: number, z: number): number {
     for (let bz = Math.floor(z - half); bz < z + half; bz++) {
       for (let by = Math.floor(y); by < y + PLAYER.HEIGHT; by++) {
         const id = world.getBlock(bx, by, bz);
-        if (isSwamp(id)) return id;
+        if (isSwamp(id) || id === LAVA) return id;
       }
     }
   }
