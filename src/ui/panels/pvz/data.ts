@@ -56,7 +56,7 @@ export const PLANTS: Record<PlantKind, PlantDef> = {
 // —— 僵尸 ——
 export type ZKind =
   | 'basic' | 'cone' | 'bucket' | 'yeti' | 'ladder' | 'digger' | 'bike'
-  | 'balloon' | 'white' | 'red' | 'diamond' | 'mech';
+  | 'balloon' | 'white' | 'red' | 'diamond' | 'mech' | 'sunzombie';
 
 export interface ZDef {
   cn: string; hp: number; speed: number; eatDps: number;
@@ -75,6 +75,7 @@ export const ZOMBIES: Record<ZKind, ZDef> = {
   white:   { cn: '白眼巨人',   hp: 75, speed: 0.08, eatDps: 999, color: '#d8d8e8' },         // 巨人砸植物不吃
   red:     { cn: '红眼巨人',   hp: 150, speed: 0.08, eatDps: 999, color: '#c83a3a' },        // 红眼更硬
   diamond: { cn: '蓝钻甲巨人', hp: 266, speed: 0.08, eatDps: 999, color: '#3a6ad8' },        // 小BOSS
+  sunzombie: { cn: '阳光僵尸', hp: 10, speed: 0.15, eatDps: 2, color: '#e8e8d8' },           // 16关起混编：打死掉25阳光
   mech:    { cn: '腐败机甲',   hp: 400, speed: 0, eatDps: 0, color: '#2a1a3a' },             // BOSS：站右侧召唤+喷腐败球
 };
 
@@ -122,18 +123,18 @@ export const LEVELS: LevelDef[] = [
   { unlock: ['dandelion'], waves: [mix({ basic: 2, cone: 2 }), mix({ bucket: 1 }), mix({ balloon: 2 })] },            // 13
   { unlock: ['pumpkin'], waves: [mix({ basic: 2, cone: 2 }), mix({ bucket: 2, ladder: 1 }), mix({ bike: 1, digger: 1, white: 1 })] }, // 14
   { unlock: ['gloom'], waves: [mix({ cone: 2, bucket: 1 }), mix({ yeti: 1 }), mix({ balloon: 2, white: 1 })] },                 // 15
-  { unlock: ['arrow'], waves: [mix({ basic: 2, cone: 2 }), mix({ ladder: 1, bike: 1 }), mix({ digger: 1, yeti: 1 }), mix({ balloon: 1, white: 1 })] }, // 16
-  { unlock: ['bamboo'], waves: [mix({ basic: 2, cone: 2 }), mix({ ladder: 1, bike: 1 }), mix({ digger: 1, yeti: 1 }), mix({ balloon: 1, white: 1, red: 1 })] }, // 17
+  { unlock: ['arrow'], waves: [mix({ basic: 1, sunzombie: 1, cone: 2 }), mix({ ladder: 1, bike: 1 }), mix({ digger: 1, yeti: 1 }), mix({ balloon: 1, white: 1 })] }, // 16
+  { unlock: ['bamboo'], waves: [mix({ basic: 1, sunzombie: 1, cone: 2 }), mix({ ladder: 1, bike: 1 }), mix({ digger: 1, yeti: 1 }), mix({ balloon: 1, white: 1, red: 1 })] }, // 17
   // —— 二期新关（2026-11-05 定稿）：18~25 关 + 小BOSS ——
-  { unlock: ['mosspea'], waves: [mix({ basic: 2 }), mix({ basic: 2 }), mix({ basic: 3 })] },                          // 18
-  { unlock: ['venombud'], waves: [mix({ basic: 2 }), mix({ basic: 2, ladder: 1 }), mix({ basic: 3, ladder: 1 })] },   // 19
-  { unlock: ['toxin'], waves: [mix({ basic: 2 }), mix({ ladder: 1 }), mix({ basic: 2, balloon: 1 })] },               // 20
-  { unlock: ['specialpea'], waves: [mix({ basic: 2 }), mix({ ladder: 2 }), mix({ basic: 2, balloon: 1 })] },          // 21
-  { unlock: ['soulweed'], waves: [mix({ basic: 2 }), mix({ ladder: 2 }), mix({ basic: 2, digger: 1 })] },             // 22
-  { unlock: ['soulbox'], waves: [mix({ basic: 1 }), mix({ basic: 1 }), mix({ basic: 2 }), mix({ diamond: 1 })] },     // 23 小BOSS
-  { unlock: ['mossbox'], waves: [mix({ basic: 2, digger: 1 }), mix({ ladder: 2, balloon: 1 }), mix({ basic: 3, digger: 1, white: 1 })] }, // 24
-  { unlock: ['copycarrot'], waves: [mix({ basic: 2, ladder: 1 }), mix({ digger: 2 }), mix({ balloon: 2, basic: 2, red: 1 })] }, // 25
-  { unlock: [], waves: [mix({ basic: 2, cone: 1 }), mix({ bucket: 1 }), mix({ balloon: 2 })], boss: true },           // 26 最终BOSS 腐败机甲
+  { unlock: ['mosspea'], waves: [mix({ basic: 1, sunzombie: 1 }), mix({ basic: 2 }), mix({ basic: 2, sunzombie: 1 })] }, // 18
+  { unlock: ['venombud'], waves: [mix({ basic: 1, sunzombie: 1 }), mix({ basic: 2, ladder: 1 }), mix({ basic: 2, sunzombie: 1, ladder: 1 })] }, // 19
+  { unlock: ['toxin'], waves: [mix({ basic: 1, sunzombie: 1 }), mix({ ladder: 1 }), mix({ basic: 1, sunzombie: 1, balloon: 1 })] }, // 20
+  { unlock: ['specialpea'], waves: [mix({ basic: 1, sunzombie: 1 }), mix({ ladder: 2 }), mix({ basic: 1, sunzombie: 1, balloon: 1 })] }, // 21
+  { unlock: ['soulweed'], waves: [mix({ basic: 1, sunzombie: 1 }), mix({ ladder: 2 }), mix({ basic: 1, sunzombie: 1, digger: 1 })] }, // 22
+  { unlock: ['soulbox'], waves: [mix({ sunzombie: 1 }), mix({ basic: 1 }), mix({ basic: 1, sunzombie: 1 }), mix({ diamond: 1 })] }, // 23 小BOSS
+  { unlock: ['mossbox'], waves: [mix({ basic: 1, sunzombie: 1, digger: 1 }), mix({ ladder: 2, balloon: 1 }), mix({ basic: 2, sunzombie: 1, digger: 1, white: 1 })] }, // 24
+  { unlock: ['copycarrot'], waves: [mix({ basic: 1, sunzombie: 1, ladder: 1 }), mix({ digger: 2 }), mix({ balloon: 2, basic: 1, sunzombie: 1, red: 1 })] }, // 25
+  { unlock: [], waves: [mix({ basic: 1, sunzombie: 1, cone: 1 }), mix({ bucket: 1 }), mix({ balloon: 2 })], boss: true }, // 26 最终BOSS 腐败机甲
 ];
 
 /** 初始就解锁的卡（第 1 关的奖励就是它俩，等于开局自带） */

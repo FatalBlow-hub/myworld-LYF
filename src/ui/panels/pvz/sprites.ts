@@ -290,6 +290,13 @@ function zBody(c: C, x: number, base: number, z: Zombie): void {
     for (const dy of [0, 7, 14, 21]) R(c, x + 7 * s, top - 4 * s + dy * s, 7 * s, 1.5 * s, '#b89a5a');
   }
   if (z.kind === 'digger') R(c, x - 9 * s, top - 3 * s, 5 * s, 3 * s, '#8a6a3a');                       // 矿工镐把
+  if (z.kind === 'sunzombie') {                          // 阳光僵尸：发白+头顶小太阳
+    O(c, x + 7 * s, top - 4 * s, 3.5 * s, '#ffd700');
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      O(c, x + 7 * s + Math.cos(a) * 5.5 * s, top - 4 * s + Math.sin(a) * 5.5 * s, 1.2 * s, '#ffd700');
+    }
+  }
   if (z.kind === 'diamond') {                          // 蓝钻甲：蓝头盔+钻石剑
     R(c, x - 6 * s, top - 3 * s, 12 * s, 4 * s, '#5a8af8');
     R(c, x - bw / 2 - 14 * s, base - 8 * s - h + 4, 10 * s, 2.5 * s, '#7ad8f8');

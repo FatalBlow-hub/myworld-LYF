@@ -316,6 +316,8 @@ export class PvzSim {
     z.hp -= dmg;
     if (z.hp <= 0) {
       z.dead = true; this.kills++;
+      // 阳光僵尸：打死直接入账 25 阳光
+      if (z.kind === 'sunzombie') { this.sun += SUN_VALUE; this.pushLog('击败阳光僵尸，+25 阳光！'); }
       // 被毒死的僵尸脚下变毒液地块
       if (z.poisonT > 0) this.venomTiles.add(`${z.row},${Math.max(0, Math.min(COLS - 1, Math.floor(z.x)))}`);
     }
