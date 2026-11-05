@@ -57,6 +57,14 @@ export function drawPvz(c: CanvasRenderingContext2D, sim: PvzSim, sel: number, b
   // 房子线（最左一列内缘）
   c.fillStyle = '#5a7a4a';
   c.fillRect(GX - 6, GY, 4, ROWS * CH);
+  // 毒液地块：绿色毒渍
+  for (const key of sim.venomTiles) {
+    const [r, col] = key.split(',').map(Number);
+    c.fillStyle = 'rgba(90,160,40,.55)';
+    c.fillRect(GX + col * CW + 2, GY + r * CH + 2, CW - 5, CH - 5);
+    c.fillStyle = 'rgba(40,90,20,.5)';
+    c.beginPath(); c.arc(GX + col * CW + CW / 2, GY + r * CH + CH / 2, 10, 0, Math.PI * 2); c.fill();
+  }
 
   // 阳光（天上掉的 + 植物产的，点一个收一个）：小太阳+光线
   for (const s of sim.suns) {

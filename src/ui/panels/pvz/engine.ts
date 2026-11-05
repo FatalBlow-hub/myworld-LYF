@@ -10,12 +10,14 @@ import {
   START_SUN, SKY_SUN_EVERY, SKY_SUN_LIVE, SUN_VALUE, SUNBUD_VALUE, SUNFLOWER_EVERY, SUNBUD_EVERY,
   POTATO_ARM, POTATO_DMG, CHOMPER_CHEW, FIRST_WAVE, WAVE_GAP, FINAL_GAP, CARD_BEFORE_WAVE,
   SUN_RATE_T, ATK_RATE_T, DAYTIME_T, FREEZE_T, HOURGLASS_DELAY, WIND_PUSH,
-  MECH_SUMMON_EVERY, MECH_BALL_EVERY, MECH_ROW_EVERY, BALL_HP, BALL_SPEED, unlockedCards,
+  MECH_SUMMON_EVERY, MECH_BALL_EVERY, MECH_ROW_EVERY, BALL_HP, BALL_SPEED,
+  VENOM_PLANTS, MOSSPEA_INT, MOSSPEA_DMG, MOSSPEA_POISON, TOXIN_POISON, VENOMBUD_EVERY,
+  SOUL_FREEZE, SOUL_SLOW, SOUL_DMG, SOUL_SLOW_RATE, COPY_DELAY, unlockedCards,
 } from './data';
 
-export interface Plant { kind: PlantKind; row: number; col: number; hp: number; t: number; armed?: boolean; chew?: number; pumpkin?: number; laddered?: boolean }
-export interface Zombie { kind: ZKind; row: number; x: number; hp: number; slowT: number; poisonT: number; freezeT: number; eatT: number; state: string; charm?: boolean; usedLadder?: boolean; summonT?: number; ballT?: number; rowT?: number; dead?: boolean }
-export interface Proj { kind: 'pea' | 'ice' | 'venom' | 'knife' | 'arrow' | 'bomb'; row: number; x: number; vx: number; tx: number; dmg: number; hits?: Set<Zombie> }
+export interface Plant { kind: PlantKind; row: number; col: number; hp: number; t: number; armed?: boolean; chew?: number; pumpkin?: number; moss?: number; soul?: number; laddered?: boolean; done?: boolean }
+export interface Zombie { kind: ZKind; row: number; x: number; hp: number; slowT: number; poisonT: number; freezeT: number; eatT: number; state: string; charm?: boolean; usedLadder?: boolean; soulSlowT?: number; summonT?: number; ballT?: number; rowT?: number; dead?: boolean }
+export interface Proj { kind: 'pea' | 'ice' | 'venom' | 'knife' | 'arrow' | 'bomb' | 'moss' | 'minibomb'; row: number; x: number; vx: number; tx: number; dmg: number; hits?: Set<Zombie> }
 export interface SunToken { x: number; y: number; ty: number; live: number; value: number } // x/y 是格子单位的自由坐标（不一定在格心）
 export interface CorruptBall { row: number; x: number; hp: number }
 
@@ -33,6 +35,7 @@ export class PvzSim {
   suns: SunToken[] = [];
   balls: CorruptBall[] = [];   // 机甲喷的腐败球
   pendingCards: CardKind[] = []; // 抽到手还没用的助力卡
+  venomTiles = new Set<string>(); // 毒液地块 "r,c"：毒死的僵尸留下 / 19关起第5列自带
   cards: PlantKind[];
   cardCd: Record<string, number> = {};
   // 助力卡增益
@@ -43,9 +46,10 @@ export class PvzSim {
   kills = 0;
   log: string[] = [];          // 最近的战斗播报（面板上方滚动条）
 
-  constructor(public level: LevelDef, doneLevels: number) {
+  constructor(public level: LevelDef, doneLevels: number, venomCol = -1) {
     this.cards = unlockedCards(doneLevels);
     for (const k of this.cards) this.cardCd[k] = 0;
+    if (venomCol >= 0) for (let r = 0; r < ROWS; r++) this.venomTiles.add(`${r},${venomCol}`);
     if (level.boss) this.waveWait = FIRST_WAVE + 1; // 机甲 1 秒登场，登场后再等 60 秒
   }
 
@@ -59,8 +63,10 @@ export class PvzSim {
     if (!this.freeNext && this.sun < d.cost) return '阳光不够';
     if (this.cardCd[kind] > 0) return '还在冷却';
     const cur = this.plantAt(row, col);
-    if (kind === 'pumpkin') {
-      if (!cur || cur.kind === 'pumpkin' || cur.pumpkin != null) return '要套在别的植物上';
+    const isShell = kind === 'pumpkin' || kind === 'mossbox' || kind === 'soulbox';
+    if (VENOM_PLANTS.includes(kind) && !this.venomTiles.has(`${row},${col}`)) return '要种在毒液地块上';
+    if (isShell) {
+      if (!cur || isShell && cur.kind === kind || cur.pumpkin != null || cur.moss != null || cur.soul != null) return '要套在别的植物上';
     } else if (cur) return '这格有植物了';
     if (this.freeNext) this.freeNext = false; else this.sun -= d.cost;
     this.cardCd[kind] = d.cd;
@@ -71,6 +77,8 @@ export class PvzSim {
       this.pushLog(`变身西瓜变成了${PLANTS[kind].cn}！`);
     }
     if (kind === 'pumpkin' && cur) { cur.pumpkin = PLANTS.pumpkin.hp; return null; }
+    if (kind === 'mossbox' && cur) { cur.moss = PLANTS.mossbox.hp; return null; }
+    if (kind === 'soulbox' && cur) { cur.soul = PLANTS.soulbox.hp; return null; }
     if (kind === 'iceshroom') {
       // 冰霜菇：种下去当场炸开寒气，冻住全场（自行车免疫），自己消耗掉
       this.freezeAll();
@@ -105,7 +113,7 @@ export class PvzSim {
       case 'hourglass': if (this.wave < this.level.waves.length) this.waveWait += HOURGLASS_DELAY; break;
       case 'wind':
         for (const z of this.zombies) {
-          if (z.dead || z.kind === 'white' || z.kind === 'red' || z.kind === 'mech') continue;
+          if (z.dead || z.kind === 'white' || z.kind === 'red' || z.kind === 'diamond' || z.kind === 'mech') continue;
           z.x += WIND_PUSH;
         }
         break;
@@ -223,6 +231,25 @@ export class PvzSim {
       const sunMul = this.sunRateT > 0 ? 2 : 1;
       if (p.kind === 'sunflower' && p.t >= SUNFLOWER_EVERY / sunMul) { p.t = 0; this.sunNear(p, SUN_VALUE); }
       if (p.kind === 'sunbud' && p.t >= SUNBUD_EVERY / sunMul) { p.t = 0; this.sunNear(p, SUNBUD_VALUE); }
+      if (p.kind === 'venombud' && p.t >= VENOMBUD_EVERY / sunMul) { p.t = 0; this.sunNear(p, SUN_VALUE); }
+      if (p.kind === 'mosspea' && inRowGround.length && p.t >= this.atkInterval(MOSSPEA_INT)) {
+        p.t = 0;
+        this.projs.push({ kind: 'moss', row: p.row, x: p.col + 0.4, vx: 3.5, tx: COLS + 1, dmg: MOSSPEA_DMG });
+      }
+      if (p.kind === 'specialpea' && inRowGround.length && p.t >= this.atkInterval(1.4)) {
+        p.t = 0;
+        for (let n = 0; n < 3; n++) {
+          const kind: Proj['kind'] = Math.random() < 0.5 ? 'pea'
+            : (['venom', 'ice', 'minibomb'] as const)[Math.floor(Math.random() * 3)];
+          this.projs.push({ kind, row: p.row, x: p.col + 0.4 + n * 0.15, vx: 3.5, tx: COLS + 1, dmg: kind === 'minibomb' ? 2 : 1 });
+        }
+      }
+      if (p.kind === 'copycarrot' && !p.done && p.t >= COPY_DELAY) {
+        for (const q of this.plants) {
+          if (Math.abs(q.row - p.row) <= 1 && Math.abs(q.col - p.col) <= 1) { q.kind = 'copycarrot'; q.hp = PLANTS.copycarrot.hp; q.done = true; }
+        }
+        this.pushLog('复制胡萝卜把周围的植物都变成了自己！');
+      }
       if ((p.kind === 'pea' || p.kind === 'snow' || p.kind === 'venom') && inRowGround.length && p.t >= this.atkInterval(1.4)) {
         p.t = 0;
         const kind = p.kind === 'snow' ? 'ice' : p.kind === 'venom' ? 'venom' : 'pea';
@@ -271,7 +298,7 @@ export class PvzSim {
         else {
           const prey = this.zombies.find((z) => !z.dead && z.row === p.row && Math.abs(z.x - p.col) < 1.2 && !z.charm && !ZOMBIES[z.kind].flying);
           if (prey) {
-            const big = prey.kind === 'white' || prey.kind === 'red' || prey.kind === 'bike' || prey.kind === 'mech';
+            const big = prey.kind === 'white' || prey.kind === 'red' || prey.kind === 'diamond' || prey.kind === 'bike' || prey.kind === 'mech';
             if (big) this.hurt(prey, 30);   // 吞不下巨人/车/机甲：每口咬 30
             else { prey.dead = true; this.kills++; p.chew = CHOMPER_CHEW; this.pushLog('大嘴花吞下了一只僵尸！'); }
           }
@@ -285,7 +312,11 @@ export class PvzSim {
   private hurt(z: Zombie, dmg: number): void {
     if (z.dead) return;
     z.hp -= dmg;
-    if (z.hp <= 0) { z.dead = true; this.kills++; }
+    if (z.hp <= 0) {
+      z.dead = true; this.kills++;
+      // 被毒死的僵尸脚下变毒液地块
+      if (z.poisonT > 0) this.venomTiles.add(`${z.row},${Math.max(0, Math.min(COLS - 1, Math.floor(z.x)))}`);
+    }
   }
 
   private tickZombies(dt: number): void {
@@ -293,15 +324,16 @@ export class PvzSim {
       if (z.dead) continue;
       const def = ZOMBIES[z.kind];
       if (z.slowT > 0) z.slowT -= dt;
+      if ((z.soulSlowT ?? 0) > 0) z.soulSlowT! -= dt;
       if (z.poisonT > 0) { z.poisonT -= dt; this.hurt(z, 0.5 * dt); }
       if (z.freezeT > 0) { z.freezeT -= dt; continue; } // 冻住了：不走不吃
-      const speed = def.speed * (z.slowT > 0 ? 0.5 : 1) * (z.charm ? -1 : 1);
+      const speed = def.speed * (z.slowT > 0 ? 0.5 : 1) * ((z.soulSlowT ?? 0) > 0 ? SOUL_SLOW_RATE : 1) * (z.charm ? -1 : 1);
       // 魅惑僵尸：往右走打别的僵尸
       if (z.charm) {
         z.x += Math.abs(def.speed) * dt;
         const foe = this.zombies.find((o) => !o.dead && o !== z && o.row === z.row && Math.abs(o.x - z.x) < 0.6 && !o.charm);
         if (foe) this.hurt(foe, 4 * dt);
-        if (z.x > COLS + 0.5) z.state = 'gone';
+        if (z.x > COLS + 0.5) z.dead = true; // 魅惑队友走出草坪=退场算死亡
         continue;
       }
       if (z.state === 'gone') { z.dead = true; continue; }
@@ -342,16 +374,30 @@ export class PvzSim {
         z.usedLadder = true;
         this.pushLog('木梯僵尸架上梯子了，僵尸都能翻过去！');
       } else if (blocking) {
-        z.eatT += dt;
-        // 巨人/冰车：不啃，直接砸/碾
-        if (z.kind === 'white' || z.kind === 'red' || z.kind === 'bike') {
+        // 巨人/冰车/蓝钻甲：不啃，直接砸/碾
+        const eatRate = (plant!.soul ?? 0) > 0 ? SOUL_SLOW_RATE : 1; // 蓝魂方框：啃它也变慢
+        z.eatT += dt * eatRate;
+        if (z.kind === 'white' || z.kind === 'red' || z.kind === 'diamond' || z.kind === 'bike') {
           if (z.eatT >= 1.5) { z.eatT = 0; plant!.hp = 0; this.pushLog(`${def.cn}砸扁了${PLANTS[plant!.kind].cn}！`); }
         } else {
-          // 普通啃咬：先啃南瓜壳
-          if (plant!.pumpkin != null && plant!.pumpkin > 0) { plant!.pumpkin -= def.eatDps * dt; if (plant!.pumpkin <= 0) this.pushLog('南瓜方框被啃破了！'); }
+          // 普通啃咬：先啃各种壳（蓝魂→苔藓→南瓜），壳破才啃本体
+          if ((plant!.soul ?? 0) > 0) {
+            plant!.soul! -= def.eatDps * dt * eatRate;
+            z.soulSlowT = 2; if (plant!.soul! <= 0) this.pushLog('蓝魂方框被啃破了！');
+          } else if ((plant!.moss ?? 0) > 0) {
+            plant!.moss! -= def.eatDps * dt;
+            z.poisonT = Math.max(z.poisonT, 1); if (plant!.moss! <= 0) this.pushLog('苔藓方框被啃破了！');
+          } else if (plant!.pumpkin != null && plant!.pumpkin > 0) { plant!.pumpkin -= def.eatDps * dt; if (plant!.pumpkin <= 0) this.pushLog('南瓜方框被啃破了！'); }
           else if (plant!.kind === 'hypno') {
             // 粉伞伞：咬一口就被魅惑，回头替植物打（巨人免疫）
             plant!.hp = 0; z.charm = true; this.pushLog(`${def.cn}被魅惑了！`);
+          } else if (plant!.kind === 'toxin') {
+            // 毒素菇：吃掉它的僵尸中毒 15 秒
+            plant!.hp = 0; z.poisonT = TOXIN_POISON; this.pushLog(`${def.cn}吃了毒素菇，中毒了！`);
+          } else if (plant!.kind === 'soulweed') {
+            // 蓝魂草：吃完冻结 5 秒 + 解冻后减速 10 秒 + 固定扣半格
+            plant!.hp = 0; z.freezeT = SOUL_FREEZE; z.slowT = SOUL_FREEZE + SOUL_SLOW; this.hurt(z, SOUL_DMG);
+            this.pushLog(`${def.cn}被蓝魂草冻住了！`);
           } else {
             plant!.hp -= def.eatDps * dt;
           }
@@ -383,14 +429,14 @@ export class PvzSim {
       // 箭羽草：穿透这一行所有僵尸，飞行的一箭破气球
       if (pr.kind === 'arrow') {
         for (const z of this.zombies) {
-          if (z.dead || z.row !== pr.row || Math.abs(z.x - pr.x) >= 0.45 || z.x <= 0 || pr.hits!.has(z)) continue;
+          if (z.dead || z.row !== pr.row || Math.abs(z.x - pr.x) >= 0.45 || z.x <= 0 || z.charm || pr.hits!.has(z)) continue;
           pr.hits!.add(z);
           if (ZOMBIES[z.kind].flying) this.popBalloon(z);
           else this.hurt(z, pr.dmg);
         }
       } else if (landing) {
         if (landed) {
-          const hit = this.zombies.find((z) => !z.dead && z.row === pr.row && Math.abs(z.x - pr.x) < 0.45 && z.x > 0);
+          const hit = this.zombies.find((z) => !z.dead && z.row === pr.row && Math.abs(z.x - pr.x) < 0.45 && z.x > 0 && !z.charm);
           if (hit) {
             if (ZOMBIES[hit.kind].flying) this.popBalloon(hit);
             else this.hurt(hit, pr.dmg);
@@ -398,13 +444,18 @@ export class PvzSim {
           }
         }
       } else {
-        // 直线弹（豌豆/冰/毒）：打同行第一个活僵尸，打不着飞的
-        const hit = this.zombies.find((z) => !z.dead && z.row === pr.row && Math.abs(z.x - pr.x) < 0.45 && z.x > 0 && !ZOMBIES[z.kind].flying);
+        // 直线弹（豌豆/冰/毒/藓/小炸）：打同行第一个活僵尸（小炸弹能崩气球），不打魅惑队友
+        const hit = this.zombies.find((z) => !z.dead && z.row === pr.row && Math.abs(z.x - pr.x) < 0.45 && z.x > 0 && !z.charm
+          && (pr.kind === 'minibomb' || !ZOMBIES[z.kind].flying));
         if (hit) {
-          this.hurt(hit, pr.dmg);
-          if (pr.kind === 'ice') hit.slowT = 4;
-          if (pr.kind === 'venom') hit.poisonT = 5;
-          pr.dmg = -1;
+          if (ZOMBIES[hit.kind].flying) { this.popBalloon(hit); pr.dmg = -1; }
+          else {
+            this.hurt(hit, pr.dmg);
+            if (pr.kind === 'ice') hit.slowT = 4;
+            if (pr.kind === 'venom') hit.poisonT = 5;
+            if (pr.kind === 'moss') hit.poisonT = Math.max(hit.poisonT, MOSSPEA_POISON);
+            pr.dmg = -1;
+          }
         }
       }
       if (pr.x > COLS + 1 || (landing && landed)) pr.dmg = -1;

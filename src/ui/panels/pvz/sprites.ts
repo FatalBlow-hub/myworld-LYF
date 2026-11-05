@@ -171,10 +171,73 @@ export function drawPlant(c: C, p: Plant, x: number, y: number): void {
       }
       break;
     }
+    case 'mosspea': {                                // 葫芦藓：苔藓射手
+      stem(c, x, y);
+      leaf(c, x - 4, y - 4);
+      shooterHead(c, x, y, '#4a7a3a', '#3a6a2c');
+      O(c, x - 3, y - 27, 2, '#7ab05a'); O(c, x + 3, y - 30, 2, '#7ab05a'); // 头顶苔藓
+      break;
+    }
+    case 'mossbox': {                                // 苔藓方框：绿苔壳（一般不单独出现，套植物上）
+      c.strokeStyle = '#6a8a4a'; c.lineWidth = 4; c.strokeRect(x - 18, y - 34, 36, 36); c.lineWidth = 1;
+      break;
+    }
+    case 'venombud': {                               // 毒液花：紫芯小花
+      stem(c, x, y, 10);
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        O(c, x + Math.cos(a) * 6, y - 15 + Math.sin(a) * 6, 3, '#7a4a9a');
+      }
+      O(c, x, y - 15, 4, '#3a1a4a');
+      break;
+    }
+    case 'toxin': {                                  // 毒素菇：紫蘑菇+毒斑
+      R(c, x - 3, y - 13, 6, 13, '#c8b8d8');
+      O(c, x, y - 17, 11, '#7a4a9a');
+      c.fillStyle = '#5a2a7a'; c.beginPath(); c.arc(x, y - 17, 11, Math.PI, 0); c.fill();
+      O(c, x - 5, y - 20, 2.5, '#c86af8'); O(c, x + 4, y - 15, 2, '#c86af8');
+      break;
+    }
+    case 'specialpea': {                             // 特种豌豆：三炮口
+      stem(c, x, y);
+      leaf(c, x - 4, y - 4);
+      shooterHead(c, x, y, '#2a5a3a', '#1a4a28');
+      R(c, x + 6, y - 29, 9, 4, '#1a4a28');          // 上炮口
+      R(c, x + 6, y - 19, 9, 4, '#1a4a28');          // 下炮口
+      break;
+    }
+    case 'soulweed': {                               // 蓝魂草：蓝色小魂火
+      R(c, x - 2, y - 10, 4, 10, '#3a5aa8');
+      O(c, x, y - 16, 8, '#4a6ac8');
+      O(c, x, y - 17, 5, '#8aaef8');
+      O(c, x - 1, y - 19, 2.5, '#d8e8ff');
+      break;
+    }
+    case 'soulbox': {
+      c.strokeStyle = '#5a7ad8'; c.lineWidth = 4; c.strokeRect(x - 18, y - 34, 36, 36); c.lineWidth = 1;
+      break;
+    }
+    case 'copycarrot': {                             // 复制胡萝卜：橙萝卜+问号
+      TRI(c, x - 6, y, x + 6, y, x, y - 22, '#e8782a');
+      R(c, x - 2, y - 28, 2, 8, '#4a9a34'); R(c, x + 2, y - 28, 2, 8, '#4a9a34');
+      c.fillStyle = '#fff'; c.font = 'bold 10px sans-serif'; c.textAlign = 'center';
+      c.fillText('?', x, y - 4);
+      break;
+    }
     default: {
       O(c, x, y - 10, 12, PLANTS[p.kind].color);
       break;
     }
+  }
+  // 苔藓壳/蓝魂壳
+  if ((p.moss ?? 0) > 0) {
+    c.strokeStyle = '#6a8a4a'; c.lineWidth = 4;
+    c.strokeRect(x - 18, y - 34, 36, 36); c.lineWidth = 1;
+  }
+  if ((p.soul ?? 0) > 0) {
+    c.strokeStyle = '#5a7ad8'; c.lineWidth = 5;
+    c.strokeRect(x - 19, y - 35, 38, 38); c.lineWidth = 1;
+    O(c, x - 19, y - 35, 3, '#8aaef8'); O(c, x + 19, y - 35, 3, '#8aaef8');
   }
   // 南瓜壳：画成橙色大边框角（套在植物外面）
   if ((p.pumpkin ?? 0) > 0) {
@@ -189,7 +252,7 @@ export function drawPlant(c: C, p: Plant, x: number, y: number): void {
 
 /** 僵尸小人：方块头+身子+前伸双臂+两条腿；big=巨人大一号 */
 function zBody(c: C, x: number, base: number, z: Zombie): void {
-  const big = z.kind === 'white' || z.kind === 'red' || z.kind === 'mech';
+  const big = z.kind === 'white' || z.kind === 'red' || z.kind === 'diamond' || z.kind === 'mech';
   const s = big ? 1.9 : 1;
   const skin = z.charm ? '#e87ab8' : z.freezeT > 0 ? '#7ab8e8' : ZOMBIES[z.kind].color;
   const bob = Math.sin(z.x * 6) * 1.5;                // 走路颠簸
@@ -221,6 +284,11 @@ function zBody(c: C, x: number, base: number, z: Zombie): void {
     for (const dy of [0, 7, 14, 21]) R(c, x + 7 * s, top - 4 * s + dy * s, 7 * s, 1.5 * s, '#b89a5a');
   }
   if (z.kind === 'digger') R(c, x - 9 * s, top - 3 * s, 5 * s, 3 * s, '#8a6a3a');                       // 矿工镐把
+  if (z.kind === 'diamond') {                          // 蓝钻甲：蓝头盔+钻石剑
+    R(c, x - 6 * s, top - 3 * s, 12 * s, 4 * s, '#5a8af8');
+    R(c, x - bw / 2 - 14 * s, base - 8 * s - h + 4, 10 * s, 2.5 * s, '#7ad8f8');
+    TRI(c, x - bw / 2 - 16 * s, base - 8 * s - h + 4, x - bw / 2 - 14 * s, base - 8 * s - h + 2, x - bw / 2 - 14 * s, base - 8 * s - h + 8, '#7ad8f8');
+  }
   if (z.kind === 'yeti') { O(c, x - 4 * s, top + 1 * s, 2 * s, '#fff'); O(c, x + 4 * s, top + 1 * s, 2 * s, '#fff'); } // 雪人毛
   if (z.kind === 'balloon') {                          // 头顶气球+线
     c.strokeStyle = '#8a4a6a'; c.beginPath(); c.moveTo(x, top); c.lineTo(x, top - 14 * s); c.stroke();

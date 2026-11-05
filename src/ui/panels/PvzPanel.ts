@@ -4,7 +4,7 @@
  *  助力卡：每波来前 1 秒抽一张，显示在屏幕底右——点卡再点草坪任意一格激活，一次性。 */
 
 import { PvzSim } from './pvz/engine';
-import { LEVELS } from './pvz/data';
+import { LEVELS, VENOM_FROM, VENOM_COL } from './pvz/data';
 import { drawPvz, cellAt, cardAt, boostAt, sunAt, PVZ_W, PVZ_H } from './pvz/draw';
 
 export interface PvzDeps {
@@ -65,7 +65,7 @@ export class PvzPanel {
 
   private startLevel(i: number): void {
     this.lvlIdx = i;
-    this.sim = new PvzSim(LEVELS[i], this.d.progress()); // 解锁 = 基础卡 + 前面关卡奖励（本关奖励通关后才给）
+    this.sim = new PvzSim(LEVELS[i], this.d.progress(), i >= VENOM_FROM ? VENOM_COL : -1); // 19关起第5列是毒液地块
     this.stage = 'play';
     this.sel = -1;
     this.boostSel = -1;

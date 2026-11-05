@@ -8,7 +8,11 @@
 export type PlantKind =
   | 'sunflower' | 'sunbud' | 'pea' | 'snow' | 'venom' | 'nut' | 'potato' | 'catapult'
   | 'umbrella' | 'spike' | 'chomper' | 'hypno' | 'melon' | 'pumpkin' | 'gloom' | 'bamboo'
-  | 'arrow' | 'iceshroom' | 'dandelion';
+  | 'arrow' | 'iceshroom' | 'dandelion'
+  | 'mosspea' | 'mossbox' | 'venombud' | 'toxin' | 'specialpea' | 'soulweed' | 'soulbox' | 'copycarrot';
+
+/** 只能种在毒液地块上的植物 */
+export const VENOM_PLANTS: PlantKind[] = ['mosspea', 'mossbox', 'venombud', 'toxin'];
 
 export interface PlantDef {
   cn: string;      // 名字
@@ -38,12 +42,21 @@ export const PLANTS: Record<PlantKind, PlantDef> = {
   arrow:     { cn: '箭羽草',     cost: 125, hp: 6, cd: 5, color: '#3a8a6a' },
   iceshroom: { cn: '冰霜菇',     cost: 75, hp: 6, cd: 30, color: '#b8e8f8' },
   dandelion: { cn: '蒲公英炸弹', cost: 125, hp: 6, cd: 5, color: '#f8f8d8' },
+  // —— 二期毒液/蓝魂系（2026-11-05 定稿）——
+  mosspea:    { cn: '葫芦藓',     cost: 75, hp: 6, cd: 5, color: '#4a7a3a' },
+  mossbox:    { cn: '苔藓方框',   cost: 75, hp: 60, cd: 8, color: '#6a8a4a' },
+  venombud:   { cn: '毒液花',     cost: 50, hp: 6, cd: 5, color: '#5a3a8a' },
+  toxin:      { cn: '毒素菇',     cost: 100, hp: 6, cd: 8, color: '#7a4a9a' },
+  specialpea: { cn: '特种豌豆',   cost: 175, hp: 6, cd: 5, color: '#2a5a3a' },
+  soulweed:   { cn: '蓝魂草',     cost: 75, hp: 6, cd: 8, color: '#4a6ac8' },
+  soulbox:    { cn: '蓝魂方框',   cost: 125, hp: 60, cd: 8, color: '#5a7ad8' },
+  copycarrot: { cn: '复制胡萝卜', cost: 65, hp: 80, cd: 8, color: '#e8782a' },
 };
 
 // —— 僵尸 ——
 export type ZKind =
   | 'basic' | 'cone' | 'bucket' | 'yeti' | 'ladder' | 'digger' | 'bike'
-  | 'balloon' | 'white' | 'red' | 'mech';
+  | 'balloon' | 'white' | 'red' | 'diamond' | 'mech';
 
 export interface ZDef {
   cn: string; hp: number; speed: number; eatDps: number;
@@ -61,6 +74,7 @@ export const ZOMBIES: Record<ZKind, ZDef> = {
   balloon: { cn: '气球腐败者', hp: 20, speed: 0.12, eatDps: 0, color: '#c85a8a', flying: true }, // 气球破了落地变普通僵尸
   white:   { cn: '白眼巨人',   hp: 150, speed: 0.08, eatDps: 999, color: '#d8d8e8' },        // 巨人砸植物不吃
   red:     { cn: '红眼巨人',   hp: 300, speed: 0.08, eatDps: 999, color: '#c83a3a' },        // 红眼更硬
+  diamond: { cn: '蓝钻甲巨人', hp: 600, speed: 0.08, eatDps: 999, color: '#3a6ad8' },        // 小BOSS：红眼两倍血
   mech:    { cn: '腐败机甲',   hp: 400, speed: 0, eatDps: 0, color: '#2a1a3a' },             // BOSS：站右侧召唤+喷腐败球
 };
 
@@ -110,7 +124,16 @@ export const LEVELS: LevelDef[] = [
   { unlock: ['gloom'], waves: [mix({ cone: 2, bucket: 1 }), mix({ yeti: 1 }), mix({ balloon: 2 })] },                 // 15
   { unlock: ['arrow'], waves: [mix({ basic: 2, cone: 2 }), mix({ ladder: 1, bike: 1 }), mix({ digger: 1, yeti: 1 }), mix({ balloon: 1 })] }, // 16
   { unlock: ['bamboo'], waves: [mix({ basic: 2, cone: 2 }), mix({ ladder: 1, bike: 1 }), mix({ digger: 1, yeti: 1 }), mix({ balloon: 1 })] }, // 17
-  { unlock: [], waves: [mix({ basic: 2, cone: 1 }), mix({ bucket: 1 }), mix({ balloon: 2 })], boss: true },           // 18 BOSS 腐败机甲
+  // —— 二期新关（2026-11-05 定稿）：18~25 关 + 小BOSS ——
+  { unlock: ['mosspea'], waves: [mix({ basic: 2 }), mix({ basic: 2 }), mix({ basic: 3 })] },                          // 18
+  { unlock: ['venombud'], waves: [mix({ basic: 2 }), mix({ basic: 2, ladder: 1 }), mix({ basic: 3, ladder: 1 })] },   // 19
+  { unlock: ['toxin'], waves: [mix({ basic: 2 }), mix({ ladder: 1 }), mix({ basic: 2, balloon: 1 })] },               // 20
+  { unlock: ['specialpea'], waves: [mix({ basic: 2 }), mix({ ladder: 2 }), mix({ basic: 2, balloon: 1 })] },          // 21
+  { unlock: ['soulweed'], waves: [mix({ basic: 2 }), mix({ ladder: 2 }), mix({ basic: 2, digger: 1 })] },             // 22
+  { unlock: ['soulbox'], waves: [mix({ basic: 1 }), mix({ basic: 1 }), mix({ basic: 2 }), mix({ diamond: 1 })] },     // 23 小BOSS
+  { unlock: ['mossbox'], waves: [mix({ basic: 2, digger: 1 }), mix({ ladder: 2, balloon: 1 }), mix({ basic: 3, digger: 1 })] }, // 24
+  { unlock: ['copycarrot'], waves: [mix({ basic: 2, ladder: 1 }), mix({ digger: 2 }), mix({ balloon: 2, basic: 2 })] }, // 25
+  { unlock: [], waves: [mix({ basic: 2, cone: 1 }), mix({ bucket: 1 }), mix({ balloon: 2 })], boss: true },           // 26 最终BOSS 腐败机甲
 ];
 
 /** 初始就解锁的卡（第 1 关的奖励就是它俩，等于开局自带） */
@@ -151,3 +174,16 @@ export const MECH_BALL_EVERY = 16; // 机甲低头喷腐败球间隔
 export const MECH_ROW_EVERY = 10;  // 机甲换行间隔
 export const BALL_HP = 3;          // 腐败球被寒冰打几次爆
 export const BALL_SPEED = 1.2;     // 腐败球每秒滚几格
+// —— 二期常量 ——
+export const VENOM_COL = 4;        // 19 关起第 5 列整列是毒液地块（含 BOSS 关）
+export const VENOM_FROM = 18;      // 关卡下标 ≥18 自带毒液列
+export const MOSSPEA_INT = 0.93;   // 葫芦藓攻速=豌豆 2/3
+export const MOSSPEA_DMG = 0.5;    // 葫芦藓单发=半格
+export const MOSSPEA_POISON = 2;   // 葫芦藓命中附毒 2 秒
+export const TOXIN_POISON = 15;    // 毒素菇被吃附毒 15 秒
+export const VENOMBUD_EVERY = 17;  // 毒液花产阳光间隔
+export const SOUL_FREEZE = 5;      // 蓝魂草被吃冻结秒
+export const SOUL_SLOW = 10;       // 蓝魂草冻结后减速秒
+export const SOUL_DMG = 0.5;       // 蓝魂草固定扣半格
+export const SOUL_SLOW_RATE = 2 / 3; // 蓝魂方框啃咬双减速
+export const COPY_DELAY = 3;       // 复制胡萝卜种下几秒后生效
