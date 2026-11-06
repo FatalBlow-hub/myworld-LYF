@@ -28,6 +28,9 @@ const BOOT_SOLO = 1;       // 单人蓝屏几秒（设定：一秒蓝屏就进�
 const BOOT_COOP = 3;       // 双人等待蓝屏几秒（设定：访岛时三秒，等对方按 M）
 const PLAYER_SPEED = 5.5;  // 玩家每秒走几列
 const HIT_RADIUS = 0.45;   // 被砸中的列距判定（半格不到一点，手下留情）
+const ZOMBIE_EVERY = 10;   // 无尽模式每几秒天上掉一个僵尸
+const ZOMBIE_SPEED = PLAYER_SPEED / 5; // 僵尸移速 = 玩家的 1/5
+const JUMP_T = 2;          // 跳起来腾几秒（期间不能再跳）
 
 /** 掉落物：出生时刻 + 列 + 种类（ladder=true 是黑色天梯，只在无尽模式刷） */
 interface Hazard { t: number; col: number; ladder: boolean }
@@ -84,6 +87,10 @@ export class TntGame {
   private playerCol = 4.5;
   private moveTouch = 0;        // 手机左右键：-1/0/1
   private rewardN = 0;          // 无尽模式已经发过几次奖
+  private zombies: { t: number; col: number }[] = []; // 无尽模式天降僵尸（落地后朝玩家走）
+  private zombieN = 0;          // 已经刷了几只
+  private zRng: () => number = Math.random; // 僵尸列号用种子流：双人两端一致
+  private jumpT = 0;            // 跳起来剩余秒数（>0 时在空中一格高）
   private floaties: { text: string; t: number }[] = []; // 画面上飘的"+3 岛币"
 
   // —— 双人联机状态 ——
@@ -272,6 +279,10 @@ export class TntGame {
     this.peerTarget = 4.5;
     this.peerAlive = true;
     this.floaties = [];
+    this.zombies = [];
+    this.zombieN = 0;
+    this.jumpT = 0;
+    this.zRng = mulberry32(seed + 7); // 僵尸列号用独立随机流，别和掉落物表抢
     this.buildSchedule();
     // 中途加入：时间表快进到主机同一时刻，还没掉到底的掉落物都补出来
     if (startAt > 0) {
@@ -305,6 +316,11 @@ export class TntGame {
   private rowOf(h: Hazard): number {
     const step = this.elapsed < STAGE1_SECONDS ? STEP1 : STEP2;
     return AIR_ROWS - Math.floor((this.elapsed - h.t) / step);
+  }
+
+  /** 僵尸在第几行：从天上一格格掉下来（按无尽的天梯节奏），≤0 = 落地了 */
+  private zombieRow(z: { t: number }): number {
+    return AIR_ROWS - Math.floor((this.elapsed - z.t) / STEP2);
   }
 
   /** 每帧跑：PanelStack 的 update 接进来（画面被占时世界暂停，这里照常走） */
@@ -347,6 +363,22 @@ export class TntGame {
     if (left) this.playerCol -= PLAYER_SPEED * dt;
     if (right) this.playerCol += PLAYER_SPEED * dt;
     this.playerCol = Math.max(0, Math.min(W - 1, this.playerCol));
+
+    // 跳跃：按跳键腾一格 2 秒，空中不能再跳（空格）
+    if (this.jumpT > 0) this.jumpT -= dt;
+    else if (c.take('jump')) this.jumpT = JUMP_T;
+
+    // 无尽模式：每 10 秒天上掉一个僵尸（落地后朝玩家走，速度是玩家的 1/5）
+    if (this.elapsed > STAGE1_SECONDS) {
+      const due = Math.floor((this.elapsed - STAGE1_SECONDS) / ZOMBIE_EVERY);
+      while (this.zombieN < due) { this.zombieN++; this.zombies.push({ t: this.elapsed, col: Math.floor(this.zRng() * W) }); }
+      for (const z of this.zombies) {
+        if (this.zombieRow(z) <= 0) z.col += Math.sign(this.playerCol - z.col) * ZOMBIE_SPEED * dt; // 落地了：朝玩家走
+        if (this.zombieRow(z) <= 0 && Math.abs(z.col - this.playerCol) < 0.5 && this.jumpT <= 0) {
+          this.die(); this.draw(); return; // 没跳起来被僵尸抓到：直接失败
+        }
+      }
+    }
 
     // 双人：自己的列号发给对端（变化超过一点点或每 0.15 秒报一次）
     if (this.coop) {
@@ -474,8 +506,16 @@ export class TntGame {
       else this.drawTnt(x, y);
     }
 
-    // 玩家小人（5 个小方块：头 + 身体 + 俩胳膊 + 腿）
-    this.drawPlayer(this.playerCol, '#3a8ae8', true);
+    // 无尽僵尸：天上掉的画在对应行，落地的画在草地上一格
+    for (const z of this.zombies) {
+      const r = this.zombieRow(z);
+      const zx = this.OX + z.col * this.CELL;
+      const zy = r > 0 ? this.OY + (AIR_ROWS - r) * this.CELL : this.OY + AIR_ROWS * this.CELL - this.CELL * 0.6;
+      this.drawZombieSprite(zx, zy);
+    }
+
+    // 玩家小人（5 个小方块：头 + 身体 + 俩胳膊 + 腿）；跳起来时往上一格
+    this.drawPlayer(this.playerCol, '#3a8ae8', true, this.jumpT > 0 ? 1 : 0);
     if (this.coop) {
       if (this.peerBoomT > 0) this.drawBoom(this.peerCol, 1 - this.peerBoomT / 0.6);
       else if (this.peerAlive) this.drawPlayer(this.peerCol, '#e88a3a', false);
@@ -537,10 +577,19 @@ export class TntGame {
   }
 
   /** 小人：头/身体/左右胳膊/腿 5 个小方块，站草上；self 蓝色、对方橙色 */
-  private drawPlayer(col: number, color: string, self: boolean): void {
+  /** 一格高的小僵尸（绿皮方块人） */
+  private drawZombieSprite(x: number, y: number): void {
+    const c = this.ctx, s = this.CELL;
+    c.fillStyle = '#5a8a4a'; c.fillRect(x + s * 0.25, y + s * 0.1, s * 0.5, s * 0.5);       // 头
+    c.fillStyle = '#4a6a3a'; c.fillRect(x + s * 0.25, y + s * 0.6, s * 0.5, s * 0.4);       // 身子
+    c.fillStyle = '#222'; c.fillRect(x + s * 0.35, y + s * 0.25, s * 0.1, s * 0.1);         // 左眼
+    c.fillRect(x + s * 0.6, y + s * 0.25, s * 0.1, s * 0.1);                                 // 右眼
+  }
+
+  private drawPlayer(col: number, color: string, self: boolean, lift = 0): void {
     const c = this.ctx, s = this.CELL;
     const cx = this.OX + (col + 0.5) * s; // 小人的中心线
-    const base = this.OY + AIR_ROWS * s;  // 草地顶
+    const base = this.OY + AIR_ROWS * s - lift * s;  // 草地顶（跳起来时往上一格）
     const u = s * 0.4;                    // 小方块边长
     c.fillStyle = color;
     c.fillRect(cx - u / 2, base - u * 3.0, u, u);       // 头
