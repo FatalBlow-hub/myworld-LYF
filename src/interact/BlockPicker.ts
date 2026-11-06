@@ -122,9 +122,11 @@ export function mine(world: World, hit: BlockHit): number {
   const m = world.getMeta(hit.x, hit.y, hit.z);
   const drop = dropOf(id);
   world.setBlock(hit.x, hit.y, hit.z, AIR);
-  // 挖沙子 3% 概率发现底下藏着岩浆（下面的沙子再挖还是 3%，沙漠往下挖小心岩浆层）
+  // 挖沙子 3% 概率发现底下藏着岩浆（下面的沙子再挖还是 3%，沙漠往下挖小心岩浆层）；
+  // 泡在水里的沙子底下不会藏岩浆（岩浆遇水说不过去）
   if (id === SAND && Math.random() < 0.03 && world.getBlock(hit.x, hit.y - 1, hit.z) === SAND) {
-    world.setBlock(hit.x, hit.y - 1, hit.z, LAVA);
+    const wet = [world.getBlock(hit.x, hit.y, hit.z), world.getBlock(hit.x + 1, hit.y - 1, hit.z), world.getBlock(hit.x - 1, hit.y - 1, hit.z), world.getBlock(hit.x, hit.y - 1, hit.z + 1), world.getBlock(hit.x, hit.y - 1, hit.z - 1)].includes(WATER);
+    if (!wet) world.setBlock(hit.x, hit.y - 1, hit.z, LAVA);
   }
   if (isDoor(id)) {
     // 门是两格高，另一半在头上或脚下
