@@ -185,6 +185,7 @@ export const MECH_SUMMON_EVERY = 3;// 机甲召唤杂兵间隔
 export const MECH_BALL_EVERY = 16; // 机甲低头喷腐败球间隔
 export const MECH_ROW_EVERY = 10;  // 机甲换行间隔
 export const BALL_HP = 3;          // 腐败球被寒冰打几次爆
+export const MECH_ARRIVE = 15;     // 腐败机甲开局几秒登场
 export const BALL_SPEED = 1.2;     // 腐败球每秒滚几格
 // —— 二期常量 ——
 export const VENOM_COL = 4;        // 19 关起第 5 列整列是毒液地块（含 BOSS 关）

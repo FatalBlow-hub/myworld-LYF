@@ -10,7 +10,7 @@ import {
   START_SUN, SKY_SUN_EVERY, SKY_SUN_LIVE, SUN_VALUE, SUNBUD_VALUE, SUNFLOWER_EVERY, SUNBUD_EVERY,
   POTATO_ARM, POTATO_DMG, CHOMPER_CHEW, FIRST_WAVE, WAVE_GAP, FINAL_GAP, CARD_BEFORE_WAVE,
   FREEZE_T,
-  MECH_SUMMON_EVERY, MECH_BALL_EVERY, MECH_ROW_EVERY, BALL_HP, BALL_SPEED,
+  MECH_SUMMON_EVERY, MECH_BALL_EVERY, MECH_ROW_EVERY, BALL_HP, BALL_SPEED, MECH_ARRIVE,
   VENOM_PLANTS, MOSSPEA_INT, MOSSPEA_DMG, MOSSPEA_POISON, TOXIN_POISON, VENOMBUD_EVERY,
   SOUL_FREEZE, SOUL_SLOW, SOUL_DMG, SOUL_SLOW_RATE, COPY_DELAY,
   SUNEARD_EVERY, SUNEARD_VALUE, SUNEARD_AURA, VSPIKE_POISON, ISPIKE_SLOW, BEAN_T, unlockedCards,
@@ -56,7 +56,7 @@ export class PvzSim {
     this.cards = picked ?? unlockedCards(doneLevels);
     for (const k of this.cards) this.cardCd[k] = 0;
     if (venomCol >= 0) for (let r = 0; r < ROWS; r++) this.venomTiles.add(`${r},${venomCol}`);
-    if (level.boss) this.waveWait = FIRST_WAVE + 1; // 机甲 1 秒登场，登场后再等 60 秒
+    if (level.boss) this.waveWait = FIRST_WAVE + MECH_ARRIVE; // 机甲 15 秒登场，登场后再等 60 秒
   }
 
   plantAt(row: number, col: number): Plant | undefined {
@@ -191,7 +191,7 @@ export class PvzSim {
     for (const d of this.delayed) { d.t -= dt; if (d.t <= 0) { const z = this.spawnZombie(d.kind); if (!this.beanGiven && d.kind === this.beanKind) { z.bean = true; this.beanGiven = true; } this.pushLog(`${ZOMBIES[d.kind].cn}姗姗来迟！`); } }
     this.delayed = this.delayed.filter((d) => d.t > 0);
     // BOSS 机甲 1 秒登场
-    if (this.level.boss && this.elapsed >= 1 && !this.zombies.some((z) => z.kind === 'mech')) {
+    if (this.level.boss && this.elapsed >= MECH_ARRIVE && !this.zombies.some((z) => z.kind === 'mech')) {
       const m = this.spawnZombie('mech', 2);
       m.x = COLS - 0.4; m.summonT = MECH_SUMMON_EVERY; m.ballT = MECH_BALL_EVERY; m.rowT = MECH_ROW_EVERY;
       this.pushLog('腐败机甲登场了！');
