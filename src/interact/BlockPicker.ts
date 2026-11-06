@@ -101,7 +101,7 @@ export function pourWater(world: World, hit: BlockHit, liquid: number = WATER): 
   const x = hit.x + hit.nx, y = hit.y + hit.ny, z = hit.z + hit.nz;
   if (y < 0 || y >= CHUNK.HEIGHT || !isLiquid(liquid)) return false;
   const cur = world.getBlock(x, y, z);
-  if (cur !== AIR && !isPlant(cur)) return false; // 只能倒进空气/花草里
+  if (cur !== AIR && !isPlant(cur) && !(liquid === LAVA && cur === WATER)) return false; // 只能倒进空气/花草里；岩浆能把水挤掉
   world.setBlock(x, y, z, liquid);
   return true;
 }

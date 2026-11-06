@@ -1,7 +1,7 @@
 /** 世界 — 区块 + 方块朝向 + 箱子/熔炉内容 + 按碰撞盒的碰撞查询 */
 
 import { CHUNK, SMELT_TIME, WATER_FLOW } from '../config';
-import { AIR, BAMBOO, CROP_NEXT, SAPLING_MATURE, SAPLING_NEXT, SOUL_FURNACE, STONE, isLiquid, Slots } from './blocks/Block';
+import { AIR, BAMBOO, CROP_NEXT, LAVA, SAPLING_MATURE, SAPLING_NEXT, SOUL_FURNACE, STONE, WATER, isLiquid, Slots } from './blocks/Block';
 import { bambooStandable } from './terrain/bamboo';
 import { solidBoxes } from './recipes/Shapes';
 import { tryGrowTree } from './terrain/Trees';
@@ -93,7 +93,8 @@ export class World {
     for (let lx = 0; lx < CHUNK.SIZE; lx++) {
       for (let y = 1; y < CHUNK.HEIGHT; y++) {
         for (let lz = 0; lz < CHUNK.SIZE; lz++) {
-          if (isLiquid(chunk.get(lx, y, lz)) && chunk.get(lx, y - 1, lz) === AIR) {
+          const lid = chunk.get(lx, y, lz), below = chunk.get(lx, y - 1, lz);
+          if (isLiquid(lid) && (below === AIR || (lid === LAVA && below === WATER))) {
             this.wetQueue.add(World.posKey(bx + lx, y, bz + lz));
           }
         }
@@ -122,11 +123,12 @@ export class World {
     chunk.set(lx, wy, lz, id);
     this.dirtyChunks.add(World.key(cx, cz));
 
-    // 液体登记：变成液体且下面是空气 → 排队往下流；挖空了且头顶是液体 → 那格液体也排队
-    if (isLiquid(id) && this.getBlock(wx, wy - 1, wz) === AIR) {
+    // 液体登记：变成液体且下面是空气 → 排队往下流（岩浆下面是水也能沉）；挖空了且头顶是液体 → 那格液体也排队
+    const below = this.getBlock(wx, wy - 1, wz);
+    if (isLiquid(id) && (below === AIR || (id === LAVA && below === WATER))) {
       this.wetQueue.add(World.posKey(wx, wy, wz));
     }
-    if (id === AIR && isLiquid(this.getBlock(wx, wy + 1, wz))) {
+    if ((id === AIR || (id === WATER && this.getBlock(wx, wy + 1, wz) === LAVA)) && isLiquid(this.getBlock(wx, wy + 1, wz))) {
       this.wetQueue.add(World.posKey(wx, wy + 1, wz));
     }
 
@@ -392,8 +394,9 @@ export class World {
       this.wetQueue.delete(key);
       const [x, y, z] = key.split(',').map(Number);
       const id = this.getBlock(x, y, z);
-      // 状态可能已经变了（被人填上或流走了），不再悬空就跳过
-      if (!isLiquid(id) || this.getBlock(x, y - 1, z) !== AIR) continue;
+      // 状态可能已经变了（被人填上或流走了），不再悬空就跳过；岩浆把水挤掉也能沉
+      const below = this.getBlock(x, y - 1, z);
+      if (!isLiquid(id) || (below !== AIR && !(id === LAVA && below === WATER))) continue;
       if (Math.random() < WATER_FLOW.GROW) {
         this.setBlock(x, y - 1, z, id); // 直接下流：下面多一格同样的液体，源头还在
       } else {
