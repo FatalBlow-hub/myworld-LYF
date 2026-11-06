@@ -237,11 +237,14 @@ export class PvzSim {
         p.t = 0;
         this.projs.push({ kind: 'moss', row: p.row, x: p.col + 0.4, vx: 3.5, tx: COLS + 1, dmg: MOSSPEA_DMG });
       }
-      if (p.kind === 'specialpea' && inRowGround.length && p.t >= this.atkInterval(1.4)) {
+      if (p.kind === 'specialpea' && inRowGround.length && p.t >= (boosted ? beanInt : this.atkInterval(1.4))) {
         p.t = 0;
-        for (let n = 0; n < 3; n++) {
-          const kind: Proj['kind'] = Math.random() < 0.5 ? 'pea'
-            : (['venom', 'ice', 'minibomb'] as const)[Math.floor(Math.random() * 3)];
+        const roll = (): Proj['kind'] => Math.random() < 0.5 ? 'pea'
+          : (['venom', 'ice', 'minibomb'] as const)[Math.floor(Math.random() * 3)];
+        // 吃豆：12 秒每 1/6 秒单发；平时：一次三连发
+        const shots = boosted ? 1 : 3;
+        for (let n = 0; n < shots; n++) {
+          const kind = roll();
           this.projs.push({ kind, row: p.row, x: p.col + 0.4 + n * 0.15, vx: 3.5, tx: COLS + 1, dmg: kind === 'minibomb' ? 2 : 1 });
         }
       }
