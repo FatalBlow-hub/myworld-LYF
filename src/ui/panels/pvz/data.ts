@@ -62,7 +62,7 @@ export const PLANTS: Record<PlantKind, PlantDef> = {
 // —— 僵尸 ——
 export type ZKind =
   | 'basic' | 'cone' | 'bucket' | 'yeti' | 'ladder' | 'digger' | 'bike'
-  | 'balloon' | 'white' | 'red' | 'diamond' | 'mech' | 'sunzombie';
+  | 'balloon' | 'white' | 'red' | 'diamond' | 'mech' | 'sunzombie' | 'ufo';
 
 export interface ZDef {
   cn: string; hp: number; speed: number; eatDps: number;
@@ -82,6 +82,7 @@ export const ZOMBIES: Record<ZKind, ZDef> = {
   red:     { cn: '红眼巨人',   hp: 150, speed: 0.08, eatDps: 999, color: '#c83a3a' },        // 红眼更硬
   diamond: { cn: '蓝钻甲巨人', hp: 266, speed: 0.08, eatDps: 999, color: '#3a6ad8' },        // 小BOSS
   sunzombie: { cn: '阳光僵尸', hp: 10, speed: 0.15, eatDps: 2, color: '#e8e8d8' },           // 16关起混编：打死掉25阳光
+  ufo:     { cn: '外星飞碟',   hp: 1666, speed: 0.15, eatDps: 0, color: '#4a5a8a' },         // 外星BOSS：召唤+限伤+百车向前
   mech:    { cn: '腐败机甲',   hp: 1111, speed: 0, eatDps: 0, color: '#2a1a3a' },            // BOSS：站右侧召唤+喷腐败球
 };
 
@@ -108,7 +109,7 @@ export const CARDS: Record<CardKind, CardDef> = {
 export const CARD_KINDS = Object.keys(CARDS) as CardKind[];
 
 // —— 关卡：unlock=通关奖励（新植物）；waves=每波刷的怪 ——
-export interface LevelDef { unlock: PlantKind[]; waves: Partial<Record<ZKind, number>>[]; boss?: boolean; special?: boolean; delayed?: { wave: number; kind: ZKind; t: number }[]; gaps?: Record<number, number> }
+export interface LevelDef { unlock: PlantKind[]; waves: Partial<Record<ZKind, number>>[]; boss?: boolean; special?: boolean; alien?: boolean; delayed?: { wave: number; kind: ZKind; t: number }[]; gaps?: Record<number, number> }
 
 const mix = (z: Partial<Record<ZKind, number>>) => z;
 
@@ -146,6 +147,19 @@ export const LEVELS: LevelDef[] = [
   { unlock: ['venomspike'], waves: [mix({ basic: 4, cone: 2 }), mix({ cone: 3, bucket: 2, balloon: 2 }), mix({ bucket: 3, balloon: 2, white: 2 }), mix({ bucket: 4, balloon: 3, white: 3, red: 1 })] }, // 30
   { unlock: ['icespike'], waves: [mix({ cone: 3, bucket: 2 }), mix({ bucket: 3, bike: 1 }), mix({ bucket: 3, bike: 2, white: 2 }), mix({ bucket: 4, bike: 2, white: 3, red: 2 }), mix({ bucket: 5, bike: 3, white: 3, red: 5 })], gaps: { 4: 17 } }, // 31 第4波后17秒出第5波
   { unlock: [], waves: [mix({ basic: 1, sunzombie: 1, cone: 1 }), mix({ bucket: 1 }), mix({ balloon: 2 })], boss: true }, // 最终BOSS 腐败机甲
+  // —— 外星来客（26 起）：全僵尸换太空皮，难度递增，全员登场 ——
+  { alien: true, unlock: [], waves: [mix({ basic: 3, cone: 1 }), mix({ basic: 4, cone: 2 }), mix({ cone: 3, bucket: 2 })] }, // 26 外星1关
+  { alien: true, unlock: ['potato'], waves: [mix({ basic: 3, cone: 2 }), mix({ cone: 3, bucket: 2, balloon: 1 }), mix({ bucket: 3, balloon: 2 })] }, // 27
+  { alien: true, unlock: ['sunbud'], waves: [mix({ cone: 3, bucket: 2 }), mix({ bucket: 3, balloon: 2, ladder: 1 }), mix({ bucket: 3, digger: 2, balloon: 1 })] }, // 28
+  { alien: true, unlock: ['nut'], waves: [mix({ cone: 4, bucket: 2 }), mix({ bucket: 3, ladder: 2, bike: 1 }), mix({ bucket: 3, bike: 1, white: 1 })] }, // 29
+  { alien: true, unlock: ['catapult'], waves: [mix({ bucket: 3, digger: 2 }), mix({ bike: 2, balloon: 2, yeti: 1 }), mix({ bucket: 3, white: 2 })] }, // 30
+  { alien: true, unlock: ['dandelion'], waves: [mix({ bucket: 3, balloon: 3 }), mix({ bike: 2, ladder: 2, white: 1 }), mix({ balloon: 3, white: 1, red: 1 })] }, // 31
+  { alien: true, unlock: ['mossbox'], waves: [mix({ bucket: 4, bike: 1 }), mix({ balloon: 3, digger: 2, white: 1 }), mix({ bucket: 4, white: 2, red: 1 })] }, // 32
+  { alien: true, unlock: ['spike', 'mosspea'], waves: [mix({ bucket: 4, bike: 2 }), mix({ white: 2, balloon: 3, yeti: 1 }), mix({ bucket: 3, white: 2, red: 2 })] }, // 33
+  { alien: true, unlock: ['specialpea'], waves: [mix({ bucket: 4, white: 2 }), mix({ bike: 3, balloon: 2, red: 1 }), mix({ white: 3, red: 2, digger: 2 })] }, // 34
+  { alien: true, unlock: ['soulbox'], waves: [mix({ bucket: 4, bike: 2, white: 1 }), mix({ balloon: 3, digger: 2, red: 1 }), mix({ white: 3, red: 2, bike: 1 })] }, // 35
+  { alien: true, unlock: ['melon'], waves: [mix({ bucket: 4, white: 2, bike: 1 }), mix({ digger: 2, ladder: 2, red: 2 }), mix({ white: 3, red: 3, balloon: 2 })] }, // 36
+  { alien: true, unlock: [], waves: [], boss: true },                    // 37 外星BOSS 飞碟（无波次只有飞碟）
 ];
 
 /** 初始就解锁的卡（第 1 关的奖励就是它俩，等于开局自带） */
@@ -214,3 +228,39 @@ export const BEAN_T: Partial<Record<PlantKind, { dur: number; int: number }>> = 
   arrow: { dur: 9, int: 0.5 },         // 箭羽草大招：9 秒每 0.5 秒一支
   gloom: { dur: 9, int: 0.9 },         // 氢能灯大招：9 秒 5×5 毒雾每 0.9 秒扣 1 血
 };
+
+// ══════════ 外星来客（打穿 BOSS 后解锁的新游戏）══════════
+export const ALIEN_FROM = 26;         // LEVELS 里从下标 26 起是外星关卡
+export const ALIEN_HP_BONUS = 5;      // 外星僵尸每只多 5 血
+export const ALIEN_SPEED_MUL = 1.25;  // 紫眼巨人/悬浮自行车速度 ×5/4
+export const UFO_SUMMON = 2.5;        // 飞碟每 2.5 秒召唤一只
+export const UFO_DMG_CAP = 12.5;      // 飞碟每秒最多吃 12.5 伤害
+export const UFO_BIKE_EVERY = 202.5;  // 「百车向前」每 202.5 秒召唤一列悬浮自行车
+export const SPACE_DMG = 0.5;         // 太空效果=毒液效果（持续掉血）
+
+/** 外星版僵尸外观：颜色+中文名（太空皮肤） */
+export const ALIEN_Z: Partial<Record<ZKind, { cn: string; color: string }>> = {
+  basic: { cn: '太空僵尸', color: '#9ad8f8' }, cone: { cn: '太空路障', color: '#8a5ad8' },
+  bucket: { cn: '太空铁桶', color: '#2a2a2a' }, balloon: { cn: '太空气球', color: '#2a4a9a' },
+  white: { cn: '蓝眼巨人', color: '#6aaaf8' }, red: { cn: '紫眼巨人', color: '#a04ae8' },
+  bike: { cn: '悬浮自行车', color: '#4a9ae8' }, mech: { cn: '腐败机甲', color: '#2a1a3a' },
+  ufo: { cn: '外星飞碟', color: '#4a5a8a' },
+};
+
+/** 外星版植物名/颜色（同名植物换皮） */
+export const ALIEN_P: Partial<Record<PlantKind, { cn: string; color: string }>> = {
+  pea: { cn: '太空豌豆', color: '#4aa8e8' }, sunflower: { cn: '太空向月葵', color: '#8ab8ff' },
+  potato: { cn: '太空TNT', color: '#6a6af8' }, sunbud: { cn: '月光小花', color: '#b8c8ff' },
+  nut: { cn: '太空坚果', color: '#8a7ae8' }, catapult: { cn: '超时空投手', color: '#5ac8ff' },
+  dandelion: { cn: '太空蒲公英', color: '#d8e8ff' }, mossbox: { cn: '太空方框', color: '#7a6ae8' },
+  spike: { cn: '太空地刺', color: '#5a4ae8' }, specialpea: { cn: '超时空特种豌豆', color: '#2a6ae8' },
+  mosspea: { cn: '太空藓', color: '#4a5ac8' }, soulbox: { cn: '超时空方框', color: '#6a8aff' },
+  melon: { cn: '太空西瓜', color: '#1a1a4a' },
+};
+
+/** 外星版已解锁植物（按外星关卡进度） */
+export function alienCards(doneLevels: number): PlantKind[] {
+  const out: PlantKind[] = ['pea', 'sunflower']; // 第一关开场自带太空豌豆+太空向月葵
+  for (let i = ALIEN_FROM; i <= doneLevels && i < LEVELS.length; i++) out.push(...LEVELS[i].unlock);
+  return out;
+}

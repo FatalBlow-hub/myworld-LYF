@@ -4,7 +4,7 @@
  *  助力卡：每波来前 1 秒抽一张，显示在屏幕底右——点卡再点草坪任意一格激活，一次性。 */
 
 import { PvzSim } from './pvz/engine';
-import { LEVELS, VENOM_FROM, VENOM_COL, PLANTS, unlockedCards, PlantKind } from './pvz/data';
+import { LEVELS, VENOM_FROM, VENOM_COL, PLANTS, unlockedCards, alienCards, PlantKind } from './pvz/data';
 import { drawPvz, cellAt, cardAt, boostAt, sunAt, beanAt, PVZ_W, PVZ_H } from './pvz/draw';
 
 export interface PvzDeps {
@@ -71,7 +71,7 @@ export class PvzPanel {
   private startLevel(i: number): void {
     this.lvlIdx = i;
     // 像 PVZ 一样先进选卡界面：已解锁的卡摆出来，最多挑 10 张（默认带上前 10 张）
-    this.unlockList = unlockedCards(this.d.progress());
+    this.unlockList = LEVELS[i].alien ? alienCards(this.d.progress()) : unlockedCards(this.d.progress());
     this.picked = this.unlockList.slice(0, PICK_MAX);
     this.stage = 'pick';
   }
