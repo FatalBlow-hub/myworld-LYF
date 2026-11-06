@@ -308,6 +308,11 @@ function zBody(c: C, x: number, base: number, z: Zombie): void {
   R(c, x - bw / 2 - 8 * s, base - 8 * s - h + 8, 8 * s, 3.5 * s, skin);
   // 头
   const hy = base - 8 * s - h - 9 * s;
+  if (z.bean) {                                    // 掉豆的最强僵尸：头顶金星标记
+    O(c, x, hy - 6 * s, 5 * s, '#ffd700');
+    c.fillStyle = '#a07000'; c.font = `${7 * s}px sans-serif`; c.textAlign = 'center';
+    c.fillText('豆', x, hy - 3 * s);
+  }
   R(c, x - 6 * s, hy, 12 * s, 9 * s, skin);
   // 眼睛（一大一小更呆）
   R(c, x - 4.5 * s, hy + 2.5 * s, 3 * s, 3 * s, '#fff');

@@ -45,7 +45,10 @@ export function sunAt(sim: PvzSim, mx: number, my: number): SunToken | null {
   return sim.suns.find((s) => Math.hypot(mx - (GX + s.x * CW + CW / 2), my - (GY + s.y * CH + CH / 2)) < 22) ?? null;
 }
 
-export function drawPvz(c: CanvasRenderingContext2D, sim: PvzSim, sel: number, boostSel: number, levelNo: number): void {
+/** 能量豆按钮命中测试（在太阳数右边） */
+export function beanAt(mx: number, my: number): boolean { return mx >= 70 && mx <= 134 && my >= 8 && my <= 36; }
+
+export function drawPvz(c: CanvasRenderingContext2D, sim: PvzSim, sel: number, boostSel: number, levelNo: number, beanMode = false): void {
   // 背景：白天草地
   c.fillStyle = '#2a5424';
   c.fillRect(0, 0, PVZ_W, PVZ_H);
@@ -85,7 +88,14 @@ export function drawPvz(c: CanvasRenderingContext2D, sim: PvzSim, sel: number, b
     c.fillText(String(s.value), x, y + 4);
   }
   // 植物
-  for (const p of sim.plants) drawPlant(c, p, GX + p.col * CW + CW / 2, GY + p.row * CH + CH / 2 + 14);
+  for (const p of sim.plants) {
+    const px = GX + p.col * CW + CW / 2, py = GY + p.row * CH + CH / 2 + 14;
+    drawPlant(c, p, px, py);
+    if ((p.boostT ?? 0) > 0) { // 吃了能量豆：金圈闪闪
+      c.strokeStyle = '#ffd700'; c.lineWidth = 2;
+      c.strokeRect(px - CW / 2 + 2, py - CH / 2 - 12, CW - 4, CH - 2); c.lineWidth = 1;
+    }
+  }
   // 僵尸
   for (const z of sim.zombies) if (!z.dead && z.state !== 'gone') drawZombie(c, z, GX + z.x * CW + CW / 2, GY + z.row * CH + CH - 6);
   // 腐败球
@@ -110,6 +120,12 @@ export function drawPvz(c: CanvasRenderingContext2D, sim: PvzSim, sel: number, b
   c.fillRect(0, 0, PVZ_W, CARD_H);
   c.fillStyle = '#f0d43a'; c.font = 'bold 18px sans-serif'; c.textAlign = 'left';
   c.fillText(`☀️ ${Math.floor(sim.sun)}`, 6, 30);
+  // 能量豆按钮：点一下再点植物放大招
+  c.fillStyle = beanMode ? '#3a8a3a' : '#2a5a8a';
+  c.fillRect(70, 8, 64, 28);
+  c.strokeStyle = '#ffd700'; c.strokeRect(70, 8, 64, 28);
+  c.fillStyle = '#fff'; c.font = '13px sans-serif';
+  c.fillText(`🫛×${sim.beans}`, 78, 27);
   c.fillStyle = '#fff'; c.font = '13px sans-serif';
   c.fillText(`第 ${levelNo} 关 · 第 ${sim.wave}/${sim.level.waves.length} 波`, 6, 44);
   const { x0, step, w } = cardLayout(sim);

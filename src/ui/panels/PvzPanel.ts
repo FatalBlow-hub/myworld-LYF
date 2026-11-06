@@ -5,7 +5,7 @@
 
 import { PvzSim } from './pvz/engine';
 import { LEVELS, VENOM_FROM, VENOM_COL, PLANTS, unlockedCards, PlantKind } from './pvz/data';
-import { drawPvz, cellAt, cardAt, boostAt, sunAt, PVZ_W, PVZ_H } from './pvz/draw';
+import { drawPvz, cellAt, cardAt, boostAt, sunAt, beanAt, PVZ_W, PVZ_H } from './pvz/draw';
 
 export interface PvzDeps {
   /** 已通关的最高关数（存档持久化） */
@@ -30,6 +30,7 @@ export class PvzPanel {
   private stage: Stage = 'levels';
   private sel = -1;          // 卡片栏选中的植物卡
   private boostSel = -1;     // 选中的助力卡
+  private beanMode = false;  // 点了能量豆按钮，下一株点的植物放大招
   private lvlIdx = -1;
   private resultT = 0;
   private picked: PlantKind[] = [];    // 选卡阶段挑好的植物
@@ -123,6 +124,7 @@ export class PvzPanel {
       return;
     }
     const sim = this.sim!;
+    if (beanAt(mx, my)) { this.beanMode = !this.beanMode; this.sel = -1; this.boostSel = -1; this.d.toast(this.beanMode ? '点一株植物放大招' : '取消放大招'); return; }
     const sun = sunAt(sim, mx, my);
     if (sun) { sim.collectSun(sun); return; }
     const bi = boostAt(sim, mx, my);
@@ -130,6 +132,12 @@ export class PvzPanel {
     const ci = cardAt(sim, mx, my);
     if (ci >= 0) { this.sel = this.sel === ci ? -1 : ci; this.boostSel = -1; return; }
     const cell = cellAt(mx, my);
+    if (cell && this.beanMode) {
+      const err = sim.useBean(cell.row, cell.col);
+      if (err) this.d.toast(err);
+      this.beanMode = false;
+      return;
+    }
     if (cell && this.boostSel >= 0) { sim.useCard(this.boostSel); this.boostSel = -1; return; }
     if (cell && this.sel >= 0) {
       const err = sim.plant(sim.cards[this.sel], cell.row, cell.col);
@@ -214,7 +222,7 @@ export class PvzPanel {
       return;
     }
     if (!this.sim) return;
-    drawPvz(c, this.sim, this.sel, this.boostSel, this.lvlIdx + 1);
+    drawPvz(c, this.sim, this.sel, this.boostSel, this.lvlIdx + 1, this.beanMode);
     if (this.stage === 'win' || this.stage === 'lose') {
       c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(0, 0, PVZ_W, PVZ_H);
       c.font = 'bold 34px sans-serif'; c.textAlign = 'center';

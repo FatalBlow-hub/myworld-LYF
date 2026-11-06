@@ -1,7 +1,7 @@
 /** PVZ 助力卡效果 — 从 engine.ts 拆出的卡面逻辑（控制文件行数） */
 import type { PvzSim } from './engine';
 import {
-  ROWS, COLS, PLANTS, CARDS, CardKind, PlantKind,
+  ROWS, COLS, PLANTS, CARDS, CardKind, PlantKind, BEAN_T,
   SUN_RATE_T, ATK_RATE_T, DAYTIME_T, HOURGLASS_DELAY, WIND_PUSH,
 } from './data';
 
@@ -40,4 +40,29 @@ function dropPlant(sim: PvzSim, kind: PlantKind): void {
     const [r, c] = empty.splice(Math.floor(Math.random() * empty.length), 1)[0];
     sim.plants.push({ kind, row: r, col: c, hp: PLANTS[kind].hp, t: 0, chew: 0 });
   }
+}
+
+/** 能量豆点植物放大招；返回错误文案或 null（成功） */
+export function useBeanOn(sim: PvzSim, row: number, col: number): string | null {
+  const p = sim.plantAt(row, col);
+  if (!p) return '这里没有植物';
+  if (sim.beans <= 0) return '没有能量豆';
+  if (p.kind === 'sunbloom') {
+    // 阳光蓓蕾大招：在随机空格复制一个自己（复制出来的照常洒阳光）
+    const empty: [number, number][] = [];
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (!sim.plantAt(r, c)) empty.push([r, c]);
+    if (!empty.length) return '草坪满了，没地方复制';
+    const [r, c] = empty[Math.floor(Math.random() * empty.length)];
+    sim.plants.push({ kind: 'sunbloom', row: r, col: c, hp: PLANTS.sunbloom.hp, t: 0 });
+  } else if (p.kind === 'spike' || p.kind === 'venomspike' || p.kind === 'icespike') {
+    // 地刺大招：把 5×5 范围内的僵尸吸到自己格子上（全到才结束）
+    p.boostT = 30;
+  } else {
+    const d = BEAN_T[p.kind];
+    if (!d) return '这棵植物放不了大招';
+    p.boostT = d.dur;
+  }
+  sim.beans--;
+  sim.pushLog(`${PLANTS[p.kind].cn}吃了能量豆，放大招了！`);
+  return null;
 }

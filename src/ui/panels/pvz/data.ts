@@ -204,3 +204,9 @@ export const SUNEARD_VALUE = 50;   // 光穗草一次产多少
 export const SUNEARD_AURA = 1.25;  // 3×3 内阳光植物产速×1.25（冷却-20%）
 export const VSPIKE_POISON = 3;    // 毒液地刺附毒秒数
 export const ISPIKE_SLOW = 2;      // 冰地刺减速秒数
+// —— 能量豆大招表：dur=持续秒 int=大招攻击/产出间隔；不表里的植物放不了（一次性/防御类都不行）——
+export const BEAN_T: Partial<Record<PlantKind, { dur: number; int: number }>> = {
+  pea: { dur: 9, int: 0.5 }, snow: { dur: 9, int: 0.5 }, venom: { dur: 9, int: 0.5 },
+  catapult: { dur: 9, int: 0.5 }, dandelion: { dur: 9, int: 0.5 }, mosspea: { dur: 5, int: 0.5 },
+  sunbud: { dur: 7.2, int: 0.9 }, sunflower: { dur: 8, int: 1 }, venombud: { dur: 8, int: 1 },
+};
