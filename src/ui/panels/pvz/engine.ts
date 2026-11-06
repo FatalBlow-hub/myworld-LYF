@@ -134,8 +134,10 @@ export class PvzSim {
   private spawnWave(): void {
     const w = this.level.waves[this.wave];
     if (!w) return;
-    // 本波最强僵尸（血量最高的种类）标记掉豆，延迟出场的也算
-    const kinds = [...Object.keys(w) as ZKind[], ...(this.level.delayed ?? []).filter((d) => d.wave === this.wave).map((d) => d.kind)];
+    // 只有第一波的血量最高僵尸标金星掉豆（一局就一颗，打完才有）
+    const kinds = this.wave === 0
+      ? [...Object.keys(w) as ZKind[], ...(this.level.delayed ?? []).filter((d) => d.wave === this.wave).map((d) => d.kind)]
+      : [];
     this.beanKind = kinds.length ? kinds.reduce((a, b) => (ZOMBIES[a].hp >= ZOMBIES[b].hp ? a : b)) : null;
     this.beanGiven = false;
     let i = 0;
