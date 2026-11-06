@@ -82,7 +82,7 @@ export const ZOMBIES: Record<ZKind, ZDef> = {
   red:     { cn: '红眼巨人',   hp: 150, speed: 0.08, eatDps: 999, color: '#c83a3a' },        // 红眼更硬
   diamond: { cn: '蓝钻甲巨人', hp: 266, speed: 0.08, eatDps: 999, color: '#3a6ad8' },        // 小BOSS
   sunzombie: { cn: '阳光僵尸', hp: 10, speed: 0.15, eatDps: 2, color: '#e8e8d8' },           // 16关起混编：打死掉25阳光
-  mech:    { cn: '腐败机甲',   hp: 400, speed: 0, eatDps: 0, color: '#2a1a3a' },             // BOSS：站右侧召唤+喷腐败球
+  mech:    { cn: '腐败机甲',   hp: 1111, speed: 0, eatDps: 0, color: '#2a1a3a' },            // BOSS：站右侧召唤+喷腐败球
 };
 
 // —— 助力卡：每波僵尸刷新前 1 秒随机抽一张，点卡再点草坪格激活，一次性 ——
