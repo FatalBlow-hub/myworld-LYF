@@ -377,7 +377,7 @@ export class PvzSim {
         z.rowT = (z.rowT ?? MECH_ROW_EVERY) - dt;
         if (z.summonT <= 0) {
           z.summonT = MECH_SUMMON_EVERY;
-          const pool: ZKind[] = ['basic', 'cone', 'balloon', 'white'];
+          const pool: ZKind[] = ['basic', 'cone', 'balloon', 'white', 'bucket'];
           const k = pool[Math.floor(Math.random() * pool.length)];
           this.spawnZombie(k);
           this.pushLog(`机甲召唤了${ZOMBIES[k].cn}！`);
