@@ -321,8 +321,11 @@ export class PvzSim {
       z.dead = true; this.kills++;
       // 阳光僵尸：打死直接入账 25 阳光
       if (z.kind === 'sunzombie') { this.sun += SUN_VALUE; this.pushLog('击败阳光僵尸，+25 阳光！'); }
-      // 本波最强僵尸：掉一颗能量豆
-      if (z.bean) { this.beans++; this.pushLog('打败最强僵尸，拿到一颗能量豆！'); }
+      // 本波最强僵尸：掉一颗能量豆（手里最多攒 1 颗，不用就浪费；下局重新算）
+      if (z.bean) {
+        if (this.beans < 1) { this.beans++; this.pushLog('打败最强僵尸，拿到一颗能量豆！'); }
+        else this.pushLog('已经有能量豆了，这颗浪费了！');
+      }
       // 被毒死的僵尸脚下变毒液地块
       if (z.poisonT > 0) this.venomTiles.add(`${z.row},${Math.max(0, Math.min(COLS - 1, Math.floor(z.x)))}`);
     }
