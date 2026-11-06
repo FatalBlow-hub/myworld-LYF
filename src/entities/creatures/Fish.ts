@@ -27,6 +27,13 @@ export const FISH_ITEM: Record<FishKind, number> = {
 const SPAWN_WEIGHTS: [FishKind, number][] = [['clown', 3], ['cod', 3], ['salmon', 3], ['puffer', 1]];
 const TOTAL_WEIGHT = SPAWN_WEIGHTS.reduce((s, [, w]) => s + w, 0);
 
+/** 按中签率随机抽一种鱼：普通三种常见，河豚少见（刷鱼和钓鱼保底共用） */
+export function randomFishKind(): FishKind {
+  let r = Math.random() * TOTAL_WEIGHT;
+  for (const [k, w] of SPAWN_WEIGHTS) { r -= w; if (r <= 0) return k; }
+  return 'clown';
+}
+
 export class Fish {
   readonly kind: FishKind;
   readonly group = new THREE.Group();
@@ -222,11 +229,7 @@ export function spawnFish(
     const y = ground + 0.3 + Math.random() * (SEA_LEVEL - 1 - ground);
     // 落点那格得真的是水（防止算出来在岸上或空气里）
     if (world.getBlock(Math.floor(x), Math.floor(y), Math.floor(z)) !== WATER) continue;
-    // 抽签决定哪种鱼：普通三种常见，河豚少见
-    let r = Math.random() * TOTAL_WEIGHT;
-    let kind: FishKind = 'clown';
-    for (const [k, w] of SPAWN_WEIGHTS) { r -= w; if (r <= 0) { kind = k; break; } }
-    const f = new Fish(kind, x, y, z);
+    const f = new Fish(randomFishKind(), x, y, z);
     scene.add(f.group);
     out.push(f);
   }

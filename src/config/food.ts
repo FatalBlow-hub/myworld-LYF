@@ -104,7 +104,7 @@ export const EAT_HP: Record<number, FoodEffect> = {
 export const FISHING = {
   CAST_MIN: 2,        // 抛竿落点最近几格
   CAST_MAX: 6,        // 抛竿最远几格
-  FISH_NEAR: 4,       // 落点几格内有真鱼才咬钩（没鱼白抛）
+  FISH_NEAR: 4,       // 收杆时：浮标几格内的真鱼算咬钩那只（附近没鱼也给条随机的）
   BITE_MIN: 3,        // 咬钩最少等几秒
   BITE_MAX: 8,        // 咬钩最多等几秒
   FOLLOW_DIST: 3,     // 收杆后鱼算到手：浮标附近几格内的鱼就是咬钩那只

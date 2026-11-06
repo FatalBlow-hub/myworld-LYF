@@ -1,14 +1,15 @@
-/** 钓鱼 — 手持鱼竿按 P 抛竿：浮标飞进有鱼的水面漂着，咬钩时浮标猛地下沉，限时收杆才钓得到
+/** 钓鱼 — 手持鱼竿按 P 抛竿：浮标飞进水面漂着，咬钩时浮标猛地下沉，限时收杆才钓得到
  *
  *  三根竿共用这套流程，只差收杆窗口和耐久（普通 1 秒/20、铸铁 1.5 秒/66、金色 2 秒/99，见 config FISHING）。
- *  只有落点附近真有鱼才咬钩，钓上来的就是咬钩那只（按 FISH_ITEM 换成对应的生鱼）。
+ *  对着水面直接抛，不要求附近有鱼；收杆时附近有真鱼就把那只算作钓到的（按 FISH_ITEM 换成对应的生鱼），
+ *  没有就按刷鱼中签率给一条随机鱼。
  *  挂在 Game 的输入链上（和药水瓶同款 handleInput 模式），持竿时 P 全归钓鱼管。 */
 
 import * as THREE from 'three';
 import { FISHING } from '../../config';
 import { AIR, BLOCKS, FISH_ROD, GOLD_FISH_ROD, IRON_FISH_ROD, WATER } from '../../world/blocks/Block';
 import type { Stack } from '../../world/blocks/Block';
-import { FISH_ITEM, Fish } from '../../entities/creatures/Fish';
+import { FISH_ITEM, Fish, randomFishKind } from '../../entities/creatures/Fish';
 import { Mobs } from '../../entities/mobs/Mobs';
 import { World } from '../../world/World';
 import { PlayerBody } from '../../player/motion/Physics';
@@ -114,13 +115,13 @@ export class Fishing {
     this.reelIn(held, inventory, slot, hud);
   }
 
-  /** 抛竿：沿视线找 2~6 格内的水面，落点附近有真鱼才肯抛 */
+  /** 抛竿：沿视线找 2~6 格内的水面，找到就直接抛（不要求附近有鱼） */
   private cast(
     held: Stack, inventory: Inventory, slot: number, body: PlayerBody, hud: Hud, world: World,
   ): void {
     const target = this.castTarget(body, world);
-    if (!target || !this.fishNear(target.x, target.y, target.z)) {
-      hud.showMessage('附近水里没有鱼，换个别的地方抛');
+    if (!target) {
+      hud.showMessage('面前没有水面，换个有水的地方抛');
       return;
     }
     this.from = { x: body.x, y: body.y + 1.4, z: body.z };
@@ -133,17 +134,13 @@ export class Fishing {
     hud.setProgress(0);
   }
 
-  /** 收杆：窗口内按 P 才算数；钓上来的就是咬钩那只，耐久磨 1 点 */
+  /** 收杆：窗口内按 P 才算数；附近有真鱼就把那只算作钓到的，没有就给条随机鱼；耐久磨 1 点 */
   private reelIn(held: Stack, inventory: Inventory, slot: number, hud: Hud): void {
     const fish = this.fishNear(this.to.x, this.to.y, this.to.z);
-    if (fish) {
-      this.mobs.removeFish(fish);
-      const itemId = FISH_ITEM[fish.kind];
-      inventory.add(itemId, 1);
-      hud.showMessage(`钓到一条${BLOCKS[itemId].cn}！`, 2);
-    } else {
-      this.msg('鱼跑了……');
-    }
+    const itemId = FISH_ITEM[fish ? fish.kind : randomFishKind()];
+    if (fish) this.mobs.removeFish(fish);
+    inventory.add(itemId, 1);
+    hud.showMessage(`钓到一条${BLOCKS[itemId].cn}！`, 2);
     // 耐久：第一次用时按竿种补上满耐久，之后每钓一条磨 1 点，磨完竿断
     if (!inventory.infinite) {
       held.durability = (held.durability ?? FISHING.DURABILITY[this.grade]) - 1;
@@ -172,7 +169,7 @@ export class Fishing {
     return null;
   }
 
-  /** 落点附近的真鱼（咬钩/钓上来都是它） */
+  /** 落点附近的真鱼（收杆时算作咬钩那只；没有也能钓到随机的） */
   private fishNear(x: number, y: number, z: number): Fish | null {
     return this.mobs.fish.find((f) => !f.dead
       && Math.hypot(f.x - x, f.z - z) < FISHING.FISH_NEAR && Math.abs(f.y - y) < 2) ?? null;
