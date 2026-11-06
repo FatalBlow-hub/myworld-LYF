@@ -259,7 +259,7 @@ export class PvzSim {
         const kind = p.kind === 'snow' ? 'ice' : p.kind === 'venom' ? 'venom' : 'pea';
         this.projs.push({ kind, row: p.row, x: p.col + 0.4, vx: 3.5, tx: COLS + 1, dmg: 1 });
       }
-      if (p.kind === 'arrow' && inRow.length && p.t >= this.atkInterval(1.4)) {
+      if (p.kind === 'arrow' && inRow.length && p.t >= (boosted ? beanInt : this.atkInterval(1.4))) {
         p.t = 0;
         this.projs.push({ kind: 'arrow', row: p.row, x: p.col + 0.4, vx: 3.5, tx: COLS + 1, dmg: 1, hits: new Set() });
       }
@@ -284,9 +284,10 @@ export class PvzSim {
           }
         }
       }
-      if (p.kind === 'gloom' && p.t >= this.atkInterval(1)) {
+      if (p.kind === 'gloom' && p.t >= (boosted ? beanInt : this.atkInterval(1))) {
         p.t = 0;
-        for (const z of this.zombies) if (!z.dead && Math.abs(z.row - p.row) <= 1 && Math.abs(z.x - p.col) <= 1.5) this.hurt(z, 1);
+        // 氢能灯毒雾：平时 3×3 每秒 1 血；吃豆后 5×5 每 0.9 秒 1 血
+        for (const z of this.zombies) if (!z.dead && Math.abs(z.row - p.row) <= (boosted ? 2 : 1) && Math.abs(z.x - p.col) <= (boosted ? 2.5 : 1.5)) this.hurt(z, 1);
       }
       if (p.kind === 'spike' || p.kind === 'venomspike' || p.kind === 'icespike') {
         for (const z of this.zombies) {

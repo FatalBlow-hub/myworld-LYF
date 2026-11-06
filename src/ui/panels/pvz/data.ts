@@ -210,4 +210,6 @@ export const BEAN_T: Partial<Record<PlantKind, { dur: number; int: number }>> = 
   catapult: { dur: 9, int: 0.5 }, dandelion: { dur: 9, int: 0.5 }, mosspea: { dur: 5, int: 0.5 },
   sunbud: { dur: 7.2, int: 0.9 }, sunflower: { dur: 8, int: 1 }, venombud: { dur: 8, int: 1 },
   specialpea: { dur: 12, int: 1 / 6 }, // 特种豌豆大招：12 秒每 1/6 秒一颗（保留 50% 特殊弹）
+  arrow: { dur: 9, int: 0.5 },         // 箭羽草大招：9 秒每 0.5 秒一支
+  gloom: { dur: 9, int: 0.9 },         // 氢能灯大招：9 秒 5×5 毒雾每 0.9 秒扣 1 血
 };

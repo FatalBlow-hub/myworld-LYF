@@ -57,6 +57,12 @@ export function useBeanOn(sim: PvzSim, row: number, col: number): string | null 
   } else if (p.kind === 'spike' || p.kind === 'venomspike' || p.kind === 'icespike') {
     // 地刺大招：把 5×5 范围内的僵尸吸到自己格子上（全到才结束）
     p.boostT = 30;
+  } else if (p.kind === 'toxin') {
+    // 毒素菇大招：全屏僵尸中毒 5 秒（植物还在，被吃照常附毒）
+    for (const z of sim.zombies) if (!z.dead && z.state !== 'gone') z.poisonT = Math.max(z.poisonT, 5);
+  } else if (p.kind === 'soulweed') {
+    // 蓝魂草大招：全屏僵尸先冻 1 秒再缓 4 秒
+    for (const z of sim.zombies) if (!z.dead && z.state !== 'gone') { z.freezeT = Math.max(z.freezeT, 1); z.slowT = Math.max(z.slowT, 5); }
   } else {
     const d = BEAN_T[p.kind];
     if (!d) return '这棵植物放不了大招';
