@@ -18,9 +18,9 @@ import {
 } from './data';
 import { applyCard, useBeanOn } from './cards';
 
-export interface Plant { kind: PlantKind; row: number; col: number; hp: number; t: number; armed?: boolean; chew?: number; pumpkin?: number; moss?: number; soul?: number; laddered?: boolean; done?: boolean; drops?: number; boostT?: number }
+export interface Plant { kind: PlantKind; row: number; col: number; hp: number; t: number; blackhole?: number; holeT?: number; pokes?: number; armed?: boolean; chew?: number; pumpkin?: number; moss?: number; soul?: number; laddered?: boolean; done?: boolean; drops?: number; boostT?: number }
 export interface Zombie { kind: ZKind; row: number; x: number; hp: number; slowT: number; poisonT: number; freezeT: number; eatT: number; state: string; charm?: boolean; usedLadder?: boolean; soulSlowT?: number; summonT?: number; ballT?: number; rowT?: number; dead?: boolean; bean?: boolean; pullX?: number; pullRow?: number; dmgAcc?: number; dmgT?: number }
-export interface Proj { kind: 'pea' | 'ice' | 'venom' | 'knife' | 'arrow' | 'bomb' | 'moss' | 'minibomb'; row: number; x: number; vx: number; tx: number; dmg: number; hits?: Set<Zombie> }
+export interface Proj { kind: 'pea' | 'ice' | 'venom' | 'knife' | 'arrow' | 'bomb' | 'moss' | 'minibomb'; row: number; x: number; vx: number; tx: number; dmg: number; hits?: Set<Zombie>; space?: boolean }
 export interface SunToken { x: number; y: number; ty: number; live: number; value: number } // x/y 是格子单位的自由坐标（不一定在格心）
 export interface CorruptBall { row: number; x: number; hp: number }
 
@@ -226,7 +226,7 @@ export class PvzSim {
       // 光穗草光环：3×3 内的向日葵/阳光小花产速×1.25
       const earMul = (p.kind === 'sunflower' || p.kind === 'sunbud')
         && this.plants.some((q) => q.kind === 'sunear' && q !== p && Math.abs(q.row - p.row) <= 1 && Math.abs(q.col - p.col) <= 1) ? SUNEARD_AURA : 1;
-      if (p.kind === 'sunflower' && p.t >= (boosted ? beanInt : SUNFLOWER_EVERY / sunMul / earMul)) { p.t = 0; this.sunNear(p, SUN_VALUE); }
+      if (p.kind === 'sunflower' && p.t >= (boosted ? beanInt : SUNFLOWER_EVERY / sunMul / earMul)) { p.t = 0; this.sunNear(p, SUN_VALUE); if (this.alien && Math.random() < 0.4) this.sunNear(p, SUN_VALUE); }
       if (p.kind === 'sunbud' && p.t >= (boosted ? beanInt : SUNBUD_EVERY / sunMul / earMul)) { p.t = 0; this.sunNear(p, SUNBUD_VALUE); }
       if (p.kind === 'sunear' && p.t >= SUNEARD_EVERY / sunMul) { p.t = 0; this.sunNear(p, SUNEARD_VALUE); }
       if (p.kind === 'venombud' && p.t >= (boosted ? beanInt : VENOMBUD_EVERY / sunMul)) { p.t = 0; this.sunNear(p, SUN_VALUE); }
@@ -248,7 +248,7 @@ export class PvzSim {
         const shots = boosted ? 1 : 3;
         for (let n = 0; n < shots; n++) {
           const kind = roll();
-          this.projs.push({ kind, row: p.row, x: p.col + 0.4 + n * 0.15, vx: 3.5, tx: COLS + 1, dmg: kind === 'minibomb' ? 2 : 1 });
+          this.projs.push({ kind, row: p.row, x: p.col + 0.4 + n * 0.15, vx: 3.5, tx: COLS + 1, dmg: kind === 'minibomb' ? 2 : 1, space: this.alien && kind !== 'pea' });
         }
       }
       if (p.kind === 'copycarrot' && !p.done && p.t >= COPY_DELAY) {
@@ -260,7 +260,9 @@ export class PvzSim {
       if ((p.kind === 'pea' || p.kind === 'snow' || p.kind === 'venom') && inRowGround.length && p.t >= (boosted ? beanInt : this.atkInterval(1.4))) {
         p.t = 0;
         const kind = p.kind === 'snow' ? 'ice' : p.kind === 'venom' ? 'venom' : 'pea';
-        this.projs.push({ kind, row: p.row, x: p.col + 0.4, vx: 3.5, tx: COLS + 1, dmg: 1 });
+        const space = this.alien && p.kind === 'pea';
+        this.projs.push({ kind, row: p.row, x: p.col + 0.4, vx: 3.5, tx: COLS + 1, dmg: 1, space });
+        if (space && Math.random() < 0.4) this.projs.push({ kind: 'pea', row: p.row, x: p.col + 0.55, vx: 3.5, tx: COLS + 1, dmg: 1, space: true }); // 太空豌豆40%双发
       }
       if (p.kind === 'arrow' && inRow.length && p.t >= (boosted ? beanInt : this.atkInterval(1.4))) {
         p.t = 0;
@@ -269,12 +271,12 @@ export class PvzSim {
       if (p.kind === 'catapult' && inRow.length && p.t >= (boosted ? beanInt : this.atkInterval(2.0))) {
         p.t = 0;
         const z = inRow.sort((a, b) => a.x - b.x)[0];
-        this.projs.push({ kind: 'knife', row: p.row, x: p.col, vx: 0, tx: z.x, dmg: 2 }); // 抛物线直达落点，不被坚果挡
+        this.projs.push({ kind: 'knife', row: p.row, x: p.col, vx: 0, tx: z.x, dmg: 2, space: this.alien && Math.random() < 0.25 }); // 抛物线直达落点，不被坚果挡
       }
       if (p.kind === 'dandelion' && inRow.length && p.t >= (boosted ? beanInt : this.atkInterval(3.5))) {
         p.t = 0;
         const z = inRow.sort((a, b) => a.x - b.x)[0];
-        this.projs.push({ kind: 'bomb', row: p.row, x: p.col, vx: 0, tx: z.x, dmg: 2 }); // 蒲公英炸弹：飘到僵尸头顶炸，能打气球
+        this.projs.push({ kind: 'bomb', row: p.row, x: p.col, vx: 0, tx: z.x, dmg: 2, space: this.alien }); // 蒲公英炸弹：飘到僵尸头顶炸，能打气球
       }
       if (p.kind === 'potato') {
         if (!p.armed && p.t >= POTATO_ARM) { p.armed = true; this.pushLog('土豆TNT成型了！'); }
@@ -298,7 +300,7 @@ export class PvzSim {
           if (z.kind === 'bike') { this.hurt(z, 999); p.hp = 0; this.pushLog(`${PLANTS[p.kind].cn}扎爆了车轮！`); } // 自行车免疫毒/减速，只爆胎
           else if (!ZOMBIES[z.kind].flying) {
             this.hurt(z, 2 * dt);
-            if (p.kind === 'venomspike') z.poisonT = Math.max(z.poisonT, VSPIKE_POISON);
+            if (p.kind === 'venomspike' || (this.alien && p.kind === 'spike')) z.poisonT = Math.max(z.poisonT, VSPIKE_POISON);
             if (p.kind === 'icespike') z.slowT = Math.max(z.slowT, ISPIKE_SLOW);
           }
           if (ZOMBIES[z.kind].flying) this.popBalloon(z);
@@ -507,6 +509,7 @@ export class PvzSim {
             this.hurt(hit, pr.dmg);
             if (pr.kind === 'ice') hit.slowT = 4;
             if (pr.kind === 'venom') hit.poisonT = 5;
+            if (pr.space) hit.poisonT = Math.max(hit.poisonT, 3); // 太空子弹附带太空效果
             if (pr.kind === 'moss') hit.poisonT = Math.max(hit.poisonT, MOSSPEA_POISON);
             pr.dmg = -1;
           }

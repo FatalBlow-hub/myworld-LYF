@@ -153,12 +153,12 @@ export const LEVELS: LevelDef[] = [
   { alien: true, unlock: ['sunbud'], waves: [mix({ basic: 2, cone: 1 }), mix({ cone: 2 }), mix({ basic: 2, balloon: 1 })] },        // 28 月光小花（太空气球登场）
   { alien: true, unlock: ['nut'], waves: [mix({ cone: 2 }), mix({ basic: 2, ladder: 1 }), mix({ cone: 2, ladder: 1 })] },           // 29 太空坚果（木梯登场）
   { alien: true, unlock: ['catapult'], waves: [mix({ bucket: 2 }), mix({ bucket: 2, cone: 2 }), mix({ bucket: 3 })] },              // 30 超时空投手（铁桶关，起铺紫色地板）
-  { alien: true, unlock: ['dandelion'], waves: [mix({ bucket: 2, bike: 1 }), mix({ bike: 1, balloon: 2 }), mix({ bike: 2, bucket: 2 })] }, // 31 太空蒲公英（悬浮自行车登场）
+  { alien: true, unlock: ['dandelion'], waves: [mix({ bucket: 2, bike: 1 }), mix({ bike: 1, balloon: 2 }), mix({ bucket: 2, balloon: 2 }), mix({ bike: 2, bucket: 2 })] }, // 31 太空蒲公英（悬浮自行车登场，4波）
   { alien: true, unlock: ['mossbox'], waves: [mix({ cone: 2, digger: 1 }), mix({ digger: 2, bucket: 1 }), mix({ digger: 2, balloon: 2 })] }, // 32 太空方框（矿工登场）
   { alien: true, unlock: ['spike', 'mosspea'], waves: [mix({ bucket: 2, yeti: 1 }), mix({ yeti: 1, balloon: 2 }), mix({ yeti: 2, bucket: 2 })] }, // 33 太空地刺+太空藓（雪傀儡登场）
-  { alien: true, unlock: ['specialpea'], waves: [mix({ cone: 3, white: 1 }), mix({ bucket: 3, white: 1 }), mix({ white: 2, bike: 1 })] }, // 34 超时空特种豌豆（蓝眼巨人登场）
-  { alien: true, unlock: ['soulbox'], waves: [mix({ bucket: 3, red: 1 }), mix({ white: 1, red: 1, balloon: 2 }), mix({ red: 2, white: 1 })] }, // 35 超时空方框（紫眼巨人登场）
-  { alien: true, unlock: ['melon'], waves: [mix({ white: 2, red: 1 }), mix({ bike: 2, white: 2, digger: 1 }), mix({ red: 2, white: 2, balloon: 2 })] }, // 36 太空西瓜（全员硬仗）
+  { alien: true, unlock: ['specialpea'], waves: [mix({ cone: 3, white: 1 }), mix({ bucket: 3, white: 1 }), mix({ bucket: 2, bike: 1, white: 1 }), mix({ white: 2, bike: 1 })] }, // 34 超时空特种豌豆（蓝眼巨人登场，4波）
+  { alien: true, unlock: ['soulbox'], waves: [mix({ bucket: 3, red: 1 }), mix({ white: 1, red: 1, balloon: 2 }), mix({ red: 1, bike: 1, balloon: 2 }), mix({ red: 2, white: 1 })] }, // 35 超时空方框（紫眼巨人登场，4波）
+  { alien: true, unlock: ['melon'], waves: [mix({ white: 2, red: 1 }), mix({ bike: 2, white: 2, digger: 1 }), mix({ red: 2, bucket: 3, bike: 1 }), mix({ red: 2, white: 2, balloon: 2 })] }, // 36 太空西瓜（全员硬仗，4波）
   { alien: true, unlock: [], waves: [], boss: true },                    // 37 外星BOSS 飞碟（无波次只有飞碟）
 ];
 

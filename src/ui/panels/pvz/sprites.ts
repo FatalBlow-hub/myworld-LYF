@@ -3,8 +3,12 @@
  *  坐标口径：植物画在格子中心 (x,y)；僵尸画在格底 (x,base) 头朝左（朝家走）。
  *  每个函数 = 一个角色；共用零件：茎秆/叶/眼睛/四肢。 */
 
-import { PLANTS, ZOMBIES } from './data';
+import { PLANTS, ZOMBIES, ALIEN_P, ALIEN_Z } from './data';
 import { Plant, Zombie } from './engine';
+
+/** 外星来客模式开关（draw.ts 每帧同步 sim.alien） */
+export let ALIEN = false;
+export function setAlien(v: boolean): void { ALIEN = v; }
 
 type C = CanvasRenderingContext2D;
 const R = (c: C, x: number, y: number, w: number, h: number, col: string): void => { c.fillStyle = col; c.fillRect(x, y, w, h); };
@@ -35,6 +39,16 @@ function shooterHead(c: C, x: number, y: number, head: string, tube: string): vo
 function leaf(c: C, x: number, y: number): void { TRI(c, x, y, x + 6, y - 8, x + 8, y, '#4a9a34'); }
 
 export function drawPlant(c: C, p: Plant, x: number, y: number): void {
+  if (ALIEN && ALIEN_P[p.kind]) { // 太空皮：脚下紫色光环
+    c.fillStyle = ALIEN_P[p.kind]!.color;
+    c.globalAlpha = 0.35; c.beginPath(); c.ellipse(x, y + 12, 15, 5, 0, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
+  }
+  if ((p.blackhole ?? 0) > 0) { // 太空西瓜黑洞：黑漩涡
+    c.fillStyle = '#0a0a1a'; c.beginPath(); c.arc(x, y, 14, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#6a5aff'; c.lineWidth = 2;
+    c.beginPath(); c.arc(x, y, 10, 0, Math.PI * 1.4); c.stroke(); c.lineWidth = 1;
+    return;
+  }
   switch (p.kind) {
     case 'sunflower': {
       stem(c, x, y);
@@ -295,7 +309,7 @@ export function drawPlant(c: C, p: Plant, x: number, y: number): void {
 function zBody(c: C, x: number, base: number, z: Zombie): void {
   const big = z.kind === 'white' || z.kind === 'red' || z.kind === 'diamond' || z.kind === 'mech';
   const s = big ? 1.9 : 1;
-  const skin = z.charm ? '#e87ab8' : z.freezeT > 0 ? '#7ab8e8' : ZOMBIES[z.kind].color;
+  const skin = z.charm ? '#e87ab8' : z.freezeT > 0 ? '#7ab8e8' : (ALIEN && ALIEN_Z[z.kind]?.color) || ZOMBIES[z.kind].color;
   const bob = Math.sin(z.x * 6) * 1.5;                // 走路颠簸
   const h = 14 * s, bw = 16 * s;
   // 腿
@@ -371,6 +385,20 @@ function zBody(c: C, x: number, base: number, z: Zombie): void {
 }
 
 export function drawZombie(c: C, z: Zombie, x: number, base: number): void {
+  if (z.kind === 'ufo') {                       // 外星飞碟：3格宽碟身 + 中间顶的屏障舱
+    const w = 3 * 26;
+    O(c, x, base - 44, 14, '#8ab8ff');          // 顶部屏障舱
+    c.fillStyle = '#4a5a8a';
+    c.beginPath(); c.ellipse(x, base - 30, w / 2, 16, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#2a3a6a';
+    c.beginPath(); c.ellipse(x, base - 24, w / 2 + 4, 10, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#ffd700';
+    for (let i = -1; i <= 1; i++) { c.beginPath(); c.arc(x + i * 22, base - 26, 4, 0, Math.PI * 2); c.fill(); }
+    const full = ZOMBIES.ufo.hp;
+    R(c, x - 30, base - 60, 60, 3, '#000');
+    R(c, x - 30, base - 60, 60 * Math.max(0, z.hp / full), 3, '#5ec84a');
+    return;
+  }
   if (z.state === 'dig') {                             // 矿工在地下：只露个安全帽尖
     O(c, x, base - 4, 4, '#8a6a3a');
     R(c, x - 5, base - 6, 10, 3, '#6a4a26');

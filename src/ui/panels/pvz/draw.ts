@@ -2,7 +2,8 @@
 
 import { COLS, ROWS, PLANTS, CARDS } from './data';
 import { PvzSim, SunToken } from './engine';
-import { drawPlant, drawZombie } from './sprites';
+import { drawPlant, drawZombie, setAlien } from './sprites';
+import { ALIEN_P } from './data';
 
 export const PVZ_W = 640, PVZ_H = 400;
 const CARD_H = 46;          // 顶部卡片栏高
@@ -49,12 +50,13 @@ export function sunAt(sim: PvzSim, mx: number, my: number): SunToken | null {
 export function beanAt(mx: number, my: number): boolean { return mx >= 70 && mx <= 134 && my >= 8 && my <= 36; }
 
 export function drawPvz(c: CanvasRenderingContext2D, sim: PvzSim, sel: number, boostSel: number, levelNo: number, beanMode = false): void {
-  // 背景：白天草地
-  c.fillStyle = '#2a5424';
+  setAlien(sim.alien);
+  // 背景：白天草地（外星版：深蓝夜空）
+  c.fillStyle = sim.alien ? '#141c44' : '#2a5424';
   c.fillRect(0, 0, PVZ_W, PVZ_H);
   // 草坪格子
   for (let r = 0; r < ROWS; r++) for (let col = 0; col < COLS; col++) {
-    c.fillStyle = (r + col) % 2 ? '#4a8038' : '#55a044';
+    c.fillStyle = sim.alien ? ((r + col) % 2 ? '#3a5ab8' : '#4a6ad8') : (r + col) % 2 ? '#4a8038' : '#55a044';
     c.fillRect(GX + col * CW, GY + r * CH, CW - 1, CH - 1);
   }
   // 房子线（最左一列内缘）
@@ -135,7 +137,7 @@ export function drawPvz(c: CanvasRenderingContext2D, sim: PvzSim, sel: number, b
     c.fillStyle = sel === i ? '#ffe97a' : afford ? d.color : '#555';
     c.fillRect(x, 4, w, 38);
     c.fillStyle = '#fff'; c.font = `${w < 34 ? 8 : 10}px sans-serif`; c.textAlign = 'center';
-    c.fillText(d.cn.slice(0, w < 34 ? 2 : 4), x + w / 2, 17);
+    c.fillText(((sim.alien && ALIEN_P[k]?.cn) || d.cn).slice(0, w < 34 ? 2 : 4), x + w / 2, 17);
     c.fillText(sim.freeNext ? '0' : `${d.cost}`, x + w / 2, 30);
     if (sim.cardCd[k] > 0) { c.fillStyle = '#8af'; c.fillText(`${Math.ceil(sim.cardCd[k])}s`, x + w / 2, 40); }
   });

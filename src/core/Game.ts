@@ -603,10 +603,10 @@ export class Game {
       onWin: (i, name) => {
         this.saves.pvzLevel = Math.max(this.saves.pvzLevel, i + 1);
         if (PVZ_LEVELS[i]?.boss) {
-          // BOSS 关定稿奖励：55 岛币 + 无尽方块
-          this.addCoins(55);
+          const coins = PVZ_LEVELS[i].alien ? 100 : 55; // 外星BOSS奖励更多
+          this.addCoins(coins);
           this.inventory?.add(ENDLESS_BLOCK, 1);
-          this.hud?.showMessage('通关奖励：55 岛币 + 无尽方块！', 4);
+          this.hud?.showMessage(`通关奖励：${coins} 岛币 + 无尽方块！`, 4);
         } else {
           this.hud?.showMessage(name ? `解锁新植物：${name}！` : '冒险模式全部通关！', 4);
         }
