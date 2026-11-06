@@ -4,7 +4,7 @@
  *  助力卡：每波来前 1 秒抽一张，显示在屏幕底右——点卡再点草坪任意一格激活，一次性。 */
 
 import { PvzSim } from './pvz/engine';
-import { LEVELS, VENOM_FROM, VENOM_COL, PLANTS, unlockedCards, alienCards, PlantKind } from './pvz/data';
+import { LEVELS, VENOM_FROM, VENOM_COL, PLANTS, unlockedCards, alienCards, ALIEN_FROM, PlantKind } from './pvz/data';
 import { drawPvz, cellAt, cardAt, boostAt, sunAt, beanAt, PVZ_W, PVZ_H } from './pvz/draw';
 
 export interface PvzDeps {
@@ -79,7 +79,9 @@ export class PvzPanel {
   private confirmPick(): void {
     if (!this.picked.length) { this.d.toast('至少选 1 张卡'); return; }
     const i = this.lvlIdx;
-    this.sim = new PvzSim(LEVELS[i], this.d.progress(), i >= VENOM_FROM ? VENOM_COL : -1, this.picked); // 19关起第5列是毒液地块
+    // 原版 19 关起第5列毒液地块；外星版第5关（下标30）起第5列紫色太空地板
+    const tileCol = i >= VENOM_FROM && (!LEVELS[i].alien || i >= ALIEN_FROM + 4) ? VENOM_COL : -1;
+    this.sim = new PvzSim(LEVELS[i], this.d.progress(), tileCol, this.picked);
     this.stage = 'play';
     this.sel = -1;
     this.boostSel = -1;
