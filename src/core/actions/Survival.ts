@@ -29,6 +29,8 @@ export interface SurvivalDeps {
   setSpawn: (p: { x: number; y: number; z: number }) => void;
   /** 血空时的重生动作 */
   respawn: () => void;
+  /** 教程埋点：'eat' 真吃到嘴里才发（按了 E 但手里不是吃的不算） */
+  onEvent?: (name: string) => void;
 }
 
 export class Survival {
@@ -90,6 +92,7 @@ export class Survival {
         if (s.count <= 0) inventory.hotbar[this.d.slot()] = null;
       }
       hunger.eat(fx.hunger);
+      this.d.onEvent?.('eat'); // 教程：真吃进去了才算
       if (fx.boostSeconds) {
         applySpeedBoost(body, fx.boostSeconds, fx.boostMult);
       }

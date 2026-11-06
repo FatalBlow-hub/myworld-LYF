@@ -2,11 +2,12 @@
 
 import { GameMode } from '../../player/stats/Health';
 import { Auth, logout, probeAuth } from '../../ui/account/Auth';
+import { pullSettings } from '../../ui/account/Settings';
 import { AccountMenu, Menu } from '../../ui/panels/Menu';
 import { MAX_SLOTS, SaveData, deleteSave, listSaves, restoreBackups, setServerMode, syncServerSave } from '../Save';
 
-/** 菜单选好之后：mode + 存档 + 僵尸开关 + 槽位 + 是否直接去大厅 → 开局 */
-export type BeginGame = (mode: GameMode, save: SaveData | undefined, zombieAttack: boolean, slot: number, toHall?: boolean) => void;
+/** 菜单选好之后：mode + 存档 + 僵尸开关 + 槽位 + 是否直接去大厅 + 是否开新手教程 → 开局 */
+export type BeginGame = (mode: GameMode, save: SaveData | undefined, zombieAttack: boolean, slot: number, toHall?: boolean, tutorial?: boolean) => void;
 
 /** 本地模式：浏览器存档 + 老的 3 槽位菜单（后端没开时的退路）；hallOk=false 时不显示大厅按钮 */
 export async function showLocalMenu(begin: BeginGame, hallOk: boolean): Promise<void> {
@@ -27,6 +28,12 @@ export async function showLocalMenu(begin: BeginGame, hallOk: boolean): Promise<
         begin(s.data.mode, s.data, s.data.zombieAttack ?? true, slot, true);
       },
       onPickMode: (mode, z) => begin(mode, undefined, z, nextSlot!),
+      // 新手教程：有档就读第一个档带着教程玩，没档就开个生存新档
+      onTutorial: () => {
+        const s = saves[0];
+        if (s) begin(s.data.mode, s.data, s.data.zombieAttack ?? true, s.slot, false, true);
+        else if (nextSlot !== null) begin('survival', undefined, true, nextSlot, false, true);
+      },
       onRestore: () => void restoreBackups(true).then(() => location.reload()),
       onDelete: (slot) => {
         deleteSave(slot);
@@ -64,7 +71,8 @@ async function fetchGameConfig(): Promise<GameConfig | null> {
 /** 服务器模式：已登录账号的菜单 — 服务器档先搬到本地 1 号槽再开玩，写档自动传回服务器 */
 export async function showAccountMenu(name: string, begin: BeginGame): Promise<void> {
   setServerMode(true); // 从这开始，写档/删档都会同步到服务器
-  const [save, cfg] = await Promise.all([syncServerSave(name), fetchGameConfig()]);
+  // 偏好设置（自定义按键等）也一起拉：服务器那份盖过本地缓存，菜单键位说明按新键表画
+  const [save, cfg] = await Promise.all([syncServerSave(name), fetchGameConfig(), pullSettings()]);
   // 家长设置优先：禁创造 → 强制生存；强制僵尸 → 覆盖存档里的开关
   const modeOf = (m: GameMode): GameMode => (cfg?.creativeBlocked ? 'survival' : m);
   const zombieOf = (z: boolean): boolean =>
@@ -80,6 +88,11 @@ export async function showAccountMenu(name: string, begin: BeginGame): Promise<v
       onContinue: () => begin(started!.mode, started!, started!.zombieAttack, 1),
       onHall: () => begin(started!.mode, started!, started!.zombieAttack, 1, true),
       onPickMode: (mode, z) => begin(modeOf(mode), undefined, zombieOf(z), 1),
+      // 新手教程：有档就读档带着教程玩，没档就开生存新档（家长禁创造时反正是生存）
+      onTutorial: () => {
+        if (started) begin(started.mode, started, started.zombieAttack, 1, false, true);
+        else begin(modeOf('survival'), undefined, zombieOf(true), 1, false, true);
+      },
       onDelete: () => {
         deleteSave(1);
         location.reload();

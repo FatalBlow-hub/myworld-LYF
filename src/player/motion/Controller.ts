@@ -10,11 +10,7 @@ export class Controller {
   active = false;
 
   constructor() {
-    for (const action of Object.keys(KEYS) as Action[]) {
-      for (const code of KEYS[action]) {
-        this.codeToAction.set(code, action);
-      }
-    }
+    this.rebind(KEYS);
 
     addEventListener('keydown', (e) => {
       // 正在输入框/文本域里打字时不触发游戏快捷键（不然聊天打个 P 就开始挖矿了）
@@ -32,6 +28,18 @@ export class Controller {
     });
     // 切走窗口时松开所有键，不然会"卡键"
     addEventListener('blur', () => this.down.clear());
+  }
+
+  /** 换键表：玩家自定义按键生效时重建反查表（顺手清掉按住状态防卡键） */
+  rebind(map: Record<Action, readonly string[]>): void {
+    this.codeToAction.clear();
+    this.down.clear();
+    this.pressed.clear();
+    for (const action of Object.keys(map) as Action[]) {
+      for (const code of map[action]) {
+        this.codeToAction.set(code, action);
+      }
+    }
   }
 
   /** 触屏按钮按下：等于键盘按下（菜单没开始时按了也不算） */

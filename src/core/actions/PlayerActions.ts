@@ -91,6 +91,8 @@ export interface PlayerActionDeps {
   summonArcher: (bowId: number, x: number, y: number, z: number) => void;
   /** 对着电脑方块按 M：开机进「躲避 TNT」小游戏（x,y,z 是电脑坐标，双人配对用） */
   openComputer: (x: number, y: number, z: number) => void;
+  /** 教程埋点：动作真做成了才发（'dig'挖掉/'place'放出/'door'开关门/'sleep'睡着） */
+  onEvent?: (name: string) => void;
 }
 
 export class PlayerActions {
@@ -233,6 +235,7 @@ export class PlayerActions {
       if (id === LEAVES && !creative && Math.random() < ISLAND.LEAF_STICK_CHANCE) {
         inventory.add(STICK, 1);
       }
+      this.d.onEvent?.('dig'); // 教程：真挖掉了才算
       if (bambooFallen > 0 && !creative) inventory.add(BAMBOO, bambooFallen);
       // 砍树额外掉橡胶：每挖掉一块木头掷一次骰子，中了掉 1~2 个
       if (id === WOOD && !creative && Math.random() < RUBBER_DROP.CHANCE) {
@@ -400,6 +403,7 @@ export class PlayerActions {
       // 挑战房：要 5×5 平地 + 上面 7 层全空 + 场内没活物（盖不起来会提示原因）
       if (this.d.buildChallenge(hit)) spend();
     } else if (place(world, hit, stack.id, body, metaFromYaw(body.yaw))) {
+      this.d.onEvent?.('place'); // 教程：真放进世界才算
       spend();
     } else if (stack.id === BAMBOO) {
       hud.showMessage('竹子要种在泥土或草地上（可以接在别的竹子上往上长）');
@@ -451,6 +455,7 @@ export class PlayerActions {
       this.d.useChallengeDoor(hitX, hitY, hitZ); // 挑战门：交门票/出门/打架不开
     } else if (isDoor(id)) {
       useDoor(world, { x: hitX, y: hitY, z: hitZ, nx: 0, ny: 0, nz: 0 });
+      this.d.onEvent?.('door'); // 教程：开关门
     } else if (isChest(id)) {
       container.openChest(world.chestAt(hitX, hitY, hitZ), id === SOUL_CHEST);
     } else if (isFurnace(id)) {
@@ -498,6 +503,7 @@ export class PlayerActions {
       if (!day.trySleep()) {
         hud.showMessage('天还没黑，睡不着');
       } else {
+        this.d.onEvent?.('sleep'); // 教程：真睡着了才算
         // 睡过这张床 → 它就是重生点（换一张床睡就换成新的）
         this.d.setBedSpawn(hitX, hitY, hitZ);
         hud.showMessage('重生点已设置，晚安');

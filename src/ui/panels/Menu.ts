@@ -5,9 +5,14 @@
 import type { GameMode } from '../../player/stats/Health';
 import { ModeSelect } from './ModeSelect';
 import { isMobile } from '../touch/Platform';
+import { bindingLabel, getKeymap, keyLabel } from '../account/Keymap';
 
-/** 菜单底部的操作说明 — 手机看虚拟按键怎么说，电脑看键盘怎么说 */
+/** 菜单底部的操作说明 — 手机看虚拟按键怎么说，电脑看键盘怎么说；
+ *  电脑版按当前键表生成：玩家在设置里改了键，说明跟着变 */
 function hintHtml(): string {
+  // 主键一个名（WASD 那串要单键拼词）；k() 全键位串（「↑/8」这种别名都列上）
+  const k = (a: keyof ReturnType<typeof getKeymap>): string => bindingLabel(a);
+  const p = (a: keyof ReturnType<typeof getKeymap>): string => keyLabel(getKeymap()[a][0]);
   const lines = isMobile()
     ? [
         '左下摇杆走路（左右推是横移）· 右边空白处拖动转视角 · 右下角 ↺↻ 转身',
@@ -18,16 +23,16 @@ function hintHtml(): string {
         '创造模式会飞：「跳」上升 · 「降」下降',
       ]
     : [
-        'WASD 走路（A/D 是横移）· 点一下画面锁定鼠标转视角 · ESC 解锁',
-        '纯键盘也行：↑↓ 抬头低头 · ←→ 转身（8/2 同效）',
-        '按住 P 挖方块 / 打动物 · L 放方块 · M 开关门',
-        '4/6 选格子 · 9 打开背包（能合成）· E 吃东西 · 空格 跳',
-        '1 存档（也会自动存）· 3 回重生点 · 7 制作方法 · B 设置 · N 切换僵尸生成 · 天黑对着床按 M 睡觉',
-        'T 看大厅留言板 · V 看自己的信箱（都要登录）',
-        '拿着稻粒对水按 L 种水稻，拿着胡萝卜对草地或泥土按 L 种地里 · H 进出大厅',
-        '坦克：L 放地上 · 对着按 M 上车 · 拿炮弹按 L 装弹 · P 开炮 · M 下车',
-        '挑战房：5×5 空地放 · 对门按 M 交 10 生肉打 4 关，中途不许出来',
-        '创造模式会飞：空格 上升 · Shift 下降',
+        `${p('forward')}${p('strafeLeft')}${p('back')}${p('strafeRight')} 走路（${p('strafeLeft')}/${p('strafeRight')} 是横移）· 点一下画面锁定鼠标转视角 · ${k('pause')} 解锁`,
+        `纯键盘也行：${k('lookUp')} 抬头 · ${k('lookDown')} 低头 · ${k('turnLeft')}/${k('turnRight')} 转身`,
+        `按住 ${k('mine')} 挖方块 / 打动物 · ${k('place')} 放方块 · ${k('door')} 开关门`,
+        `${k('prevSlot')}/${k('nextSlot')} 选格子 · ${k('inventory')} 打开背包（能合成）· ${k('eat')} 吃东西 · ${k('jump')} 跳`,
+        `${k('save')} 存档（也会自动存）· ${k('respawn')} 回重生点 · ${k('book')} 制作方法 · ${k('settings')} 设置 · ${k('toggleZombieSpawn')} 切换僵尸生成 · 天黑对着床按 ${p('door')} 睡觉`,
+        `${k('board')} 看大厅留言板 · ${k('mail')} 看自己的信箱（都要登录）`,
+        `拿着稻粒对水按 ${p('place')} 种水稻，拿着胡萝卜对草地或泥土按 ${p('place')} 种地里 · ${k('hall')} 进出大厅`,
+        `坦克：${p('place')} 放地上 · 对着按 ${p('door')} 上车 · 拿炮弹按 ${p('place')} 装弹 · ${p('mine')} 开炮 · ${p('door')} 下车`,
+        `挑战房：5×5 空地放 · 对门按 ${p('door')} 交 10 生肉打 4 关，中途不许出来`,
+        `创造模式会飞：${k('jump')} 上升 · ${k('descend')} 下降`,
       ];
   // 每行独立成块：横屏说明分两栏排，用 <br/> 断行会让某一行被从中间劈到下一栏
   return lines.map((line) => `<div>${line}</div>`).join('');
@@ -42,6 +47,8 @@ export interface MenuActions {
   onHall: (slot: number) => void;
   /** 模式页选好了 → 开新档 */
   onPickMode: (mode: GameMode, zombieAttack: boolean) => void;
+  /** 开新手教程：有档读档、没档开生存新档 */
+  onTutorial: () => void;
   /** 手动从 saves/ 备份找回存档 */
   onRestore: () => void;
   /** 删除某个账号的存档 */
@@ -63,6 +70,7 @@ export class Menu {
       <p>选一个账号开始玩</p>
       ${opts.saves.map((s) => `<div class="saverow" style="display:flex;gap:6px"><button data-slot="${s.slot}" style="flex:1">继续账号${s.slot}（${s.mode === 'survival' ? '生存' : '创造'}）</button>${opts.hall ? `<button data-hall="${s.slot}" style="flex:0 0 auto" title="读档后直接去大厅排队">大厅</button>` : ''}<button data-del="${s.slot}" style="flex:0 0 auto;opacity:.6" title="删掉这个账号的存档">删</button></div>`).join('\n')}
       ${opts.nextSlot !== null ? `<button data-add="1">＋ 添加账号${opts.nextSlot}</button>` : ''}
+      <button data-tutorial>📖 新手教程</button>
       <button data-restore style="opacity:.6;font-size:12px">存档不见了？点我找回</button>
       <div class="hint">${hintHtml()}</div>
     `;
@@ -86,6 +94,10 @@ export class Menu {
       });
     });
     // 添加账号 → 打开模式选择页（生存/创造）
+    this.el.querySelector('button[data-tutorial]')?.addEventListener('click', () => {
+      this.hide();
+      actions.onTutorial();
+    });
     this.el.querySelector('button[data-add]')?.addEventListener('click', () => this.openModeSelect());
     this.el.querySelector('button[data-restore]')?.addEventListener('click', () => actions.onRestore());
     document.body.appendChild(this.el);
@@ -119,6 +131,8 @@ export interface AccountMenuActions {
   onPickMode: (mode: GameMode, zombieAttack: boolean) => void;
   /** 删掉这个账号的存档 */
   onDelete: () => void;
+  /** 开新手教程：有档读档、没档开生存新档 */
+  onTutorial: () => void;
   /** 退出登录 → 回登录界面 */
   onLogout: () => void;
 }
@@ -142,6 +156,7 @@ export class AccountMenu {
         ${opts.save ? `<button data-continue>▶ 继续游戏（${opts.save.mode === 'survival' ? '生存' : '创造'}）</button>` : ''}
         ${opts.save ? `<button data-hall>🏠 去大厅玩</button>` : ''}
         <button data-new>＋ 开始新游戏</button>
+        <button data-tutorial>📖 新手教程</button>
       </div>
       <button data-logout>退出登录</button>
       ${opts.save ? `
@@ -190,6 +205,10 @@ export class AccountMenu {
     });
     // 开始新游戏：直接进模式选择页
     this.el.querySelector('button[data-new]')?.addEventListener('click', () => this.openModeSelect());
+    this.el.querySelector('button[data-tutorial]')?.addEventListener('click', () => {
+      this.hide();
+      this.actions.onTutorial();
+    });
     // 重新开档：先确认（顶档只有一份 backup 后悔药），再进模式选择页
     this.el.querySelector('button[data-restart]')?.addEventListener('click', () => {
       openConfirm('确定要重新开档吗？', '当前存档会被覆盖，服务器只保留最近一份备份。', '确定覆盖', () => this.openModeSelect());

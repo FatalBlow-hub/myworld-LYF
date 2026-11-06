@@ -30,6 +30,7 @@ import { runMigrations } from './migrate.mjs';
 import { attachAddict, syncAdmins } from './addict.mjs';
 import { attachGameState } from './gamestate.mjs';
 import { attachBoard } from './board.mjs';
+import { attachSettings } from './settings.mjs';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..'); // 项目根目录
 const DIST = join(ROOT, 'dist');          // vite 打包出来的静态文件
@@ -357,6 +358,8 @@ const server = createServer(async (req, res) => {
     if (url.startsWith('/api/playtime')) return await addict.handlePlaytime(req, res, ip);
     // 大厅留言板 + 信箱（登录才能看/发）
     if (url.startsWith('/api/board') || url.startsWith('/api/mail')) return await board.handle(req, res);
+    // 玩家偏好设置（自定义按键等，登录才有）
+    if (url.startsWith('/api/settings')) return await userSettings.handle(req, res);
     if (url.startsWith('/api/admin')) return await addict.handleAdmin(req, res, ip);
     if (url.startsWith('/api/')) return sendErr(res, 404, 'unknown api');
     serveStatic(req, res);
@@ -383,6 +386,9 @@ const gs = attachGameState({ db, currentUser, send, sendErr, readBody, limited, 
 
 // 挂上大厅留言板 + 信箱（独立模块 server/board.mjs）
 const board = attachBoard({ db, currentUser, send, sendErr, readBody });
+
+// 挂上玩家偏好设置（独立模块 server/settings.mjs）
+const userSettings = attachSettings({ db, currentUser, send, sendErr, readBody });
 
 // 挂上 WebSocket 长连接服务（复用同一端口，处理 /ws 的 upgrade）；传入防沉迷（到点踢人 + ping 计时）与游客开关（默认拒连未登录）
 attachWs(server, currentUser, readSaveByUserName, userExistsByName, addict, GUEST_PLAY);

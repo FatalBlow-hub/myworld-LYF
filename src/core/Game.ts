@@ -40,6 +40,9 @@ import { TouchControls } from '../ui/touch/TouchControls';
 import { isMobile } from '../ui/touch/Platform';
 import { Hud } from '../ui/hud/Hud';
 import { logout } from '../ui/account/Auth';
+import { getSettings, onSettingsChange } from '../ui/account/Settings';
+import { getKeymap, keyLabel } from '../ui/account/Keymap';
+import { Tutorial, TutorialStep } from '../ui/panels/Tutorial';
 import { Panel } from '../ui/panels/Panel';
 import { Mobs } from '../entities/mobs/Mobs';
 import { ItemDrop } from '../entities/objects/ItemDrop';
@@ -156,6 +159,8 @@ export class Game {
   /** 大厅留言板 / 信箱（B / V 打开，登录后才有内容） */
   private boardPanel: BoardPanel | null = null;
   private settingsPanel: SettingsPanel | null = null;
+  /** 新手教程任务清单（新档自动弹/菜单可重看，跟动作无关的走/看由它自己每帧检测） */
+  private tutorial = new Tutorial();
   /** 商店经济系统（岛币/售卖机/收购箱/限量与黑市记账） */
   /** 岛币增减的转发：调用点众多，保留 Game 上的同名方法 */
   private addCoins(n: number): void { this.economy.addCoins(n); }
@@ -267,6 +272,19 @@ export class Game {
   };
 
   constructor(container: HTMLElement) {
+    // 自定义按键：先用本地缓存的键表建反查（服务器那份在登录流程拉到后再盖过来），
+    // 设置一变就重建；暂停菜单的「按 X 回主菜单」跟着当前键表走
+    const applyKeys = (): void => {
+      const map = getKeymap();
+      this.controller.rebind(map);
+      // 暂停菜单里两个按钮的键位提示跟着当前键表走
+      const quit = document.querySelector('#quitbtn .kbd-only');
+      if (quit) quit.textContent = ` · 按 ${keyLabel(map.quit[0])}`;
+      const settings = document.querySelector('#settingsbtn .kbd-only');
+      if (settings) settings.textContent = ` · 按 ${keyLabel(map.settings[0])}`;
+    };
+    applyKeys();
+    onSettingsChange(applyKeys);
     this.renderer = new Renderer(container);
     this.chunkMeshes = new ChunkMeshCache(this.renderer.scene, this.atlas, this.renderer.clock);
     this.weather = new SeasonWeatherSystem(this.renderer.scene, {
@@ -393,7 +411,7 @@ export class Game {
   }
 
   async start(): Promise<void> {
-    await runMenuFlow((mode, save, zombieAttack, slot, toHall) => this.begin(mode, save, zombieAttack, slot, toHall));
+    await runMenuFlow((mode, save, zombieAttack, slot, toHall, tutorial) => this.begin(mode, save, zombieAttack, slot, toHall, tutorial));
     const who = await probeAuth();
     this.playerName = (who !== 'off' && who.name) ? who.name : '';
     // 老档没记过形象就按账号名固定挑一个（同一个名字每次进来都是同一个样子），随即写进档
@@ -466,7 +484,7 @@ export class Game {
     requestAnimationFrame(loop);
   }
 
-  private begin(mode: GameMode, save: SaveData | undefined, zombieAttack: boolean, slot: number, toHall = false): void {
+  private begin(mode: GameMode, save: SaveData | undefined, zombieAttack: boolean, slot: number, toHall = false, tutorial = false): void {
     this.fires.clear(); this.saveSlot = slot;
     this.everCreative = Boolean(mode === 'creative' || save?.everCreative || save?.mode === 'creative');
     this.appearance.load(save);
@@ -621,6 +639,7 @@ export class Game {
     this.survival = new Survival({
       controller: this.controller, inventory: this.inventory, health: this.health, hunger: this.hunger, hud: this.hud,
       world: this.world, slot: () => this.slot, setSpawn: (p) => { this.spawn = p; }, respawn: () => this.respawn(),
+      onEvent: (n) => this.tutorial.mark(n as TutorialStep),
     });
     this.pickup = new Pickup({ world: this.world, scene: this.renderer.scene, inventory: this.inventory, hud: this.hud, book: this.book, drops: () => this.drops });
     this.playerActions = new PlayerActions({
@@ -645,6 +664,7 @@ export class Game {
       summonArcher: (bowId, x, y, z) => this.summons.summonArcher(bowId, x, y, z),
       openComputer: (x, y, z) => this.tntGame?.open(x, y, z),
       body: () => this.body!,
+      onEvent: (n) => this.tutorial.mark(n as TutorialStep),
     });
     this.combat = new MobCombat(this.controller, this.inventory, () => this.slot, this.hud, this.mobs,
       // 丰收拼盘的 10 秒攻击 ×1.25；戴着狼之利爪（2026-11-01 设定）常驻再翻倍
@@ -673,6 +693,7 @@ export class Game {
     this.hud.showIslandGreeting(this.islandType);
     document.getElementById('quitbtn')!.onclick = () => this.quitToMenu();
     document.getElementById('logoutbtn')!.onclick = () => this.logoutToLogin();
+    document.getElementById('settingsbtn')!.onclick = () => this.settingsPanel?.open();
     this.body = createBody(this.spawn.x, this.spawn.y, this.spawn.z);
     if (save) this.saves.restoreBodyFromSave(save);
     this.body.flying = this.inventory.infinite;
@@ -697,6 +718,8 @@ export class Game {
     this.started = true;
     this.saveNow();
     if (toHall) this.router.enterHallWhenReady();
+    // 新手教程：菜单点「教程」强制开；或者没看过教程的新档自动弹（老档/看过的号不打扰）
+    if (tutorial || (!save && !getSettings().tutorialDone)) this.tutorial.start(this.body!);
   }
 
   /** 翻到新的一天：刷新 HUD 日期；黑色售卖机换货（昨天的清空）；周一没卖的白萝卜全烂；召唤物刷新替换；季节变了才换叶；入冬把地图上的蘑菇全清掉（设定：冬季蘑菇全部消失） */
@@ -843,18 +866,18 @@ export class Game {
     if (!this.started) { this.renderer.render(); return; }
     this.saves.autosave(dt);
     this.router.tickPendingHall(dt);
-    if (this.controller.take('save')) { this.saveNow(); this.hud!.showMessage('进度已保存 ✓', 1); }
+    if (this.controller.take('save')) { this.saveNow(); this.hud!.showMessage('进度已保存 ✓', 1); this.tutorial.mark('save'); }
     const body = this.body!, health = this.health!, hud = this.hud!, panel = this.panel!;
     // 面板/暂停时必须解锁鼠标，不然指针被锁着，界面上的按钮根本点不到
     if (this.panels.busy || this.paused) { this.mouseLook?.exit(); this.touch?.cancelLook(); }
     if (this.panels.handleFrame(dt, this.controller)) { this.renderFrame(body); return; }
     if (this.controller.take('pause')) { this.paused = !this.paused; hud.setPaused(this.paused); }
     if (this.paused && this.controller.take('quit')) this.quitToMenu();
-    if (!this.paused && this.controller.take('inventory')) panel.open();
-    if (!this.paused && this.controller.take('book')) this.book.open();
+    if (!this.paused && this.controller.take('inventory')) { panel.open(); this.tutorial.mark('inventory'); }
+    if (!this.paused && this.controller.take('book')) { this.book.open(); this.tutorial.mark('book'); }
     if (!this.paused && this.controller.take('board')) this.boardPanel?.toggle('board'); // T 大厅留言板
     if (!this.paused && this.controller.take('mail')) this.boardPanel?.toggle('mail');   // V 我的信箱
-    if (!this.paused && this.controller.take('settings')) this.settingsPanel?.toggle();  // B 设置
+    if (this.controller.take('settings')) this.settingsPanel?.toggle();  // B 设置（暂停时也能开）
     if (!this.paused) {
       if (this.controller.take('hall')) {
         if (this.scene === 'hall') this.router.leaveHall();
@@ -961,6 +984,7 @@ export class Game {
         hud.showMessage('打到对方啦！', 0.8);
       }
       this.survival!.eatKey(body); this.slot = this.survival!.hotbarKeys(this.slot);
+      this.tutorial.frame(body); // 教程：走没走够、转没转够每帧查（其余步骤靠事件打钩）
       // 灵魂传送门穿越 + 虚空幽灵鬼补货（含传送冷却），都在路由的 voidTick 里
       this.router.voidTick(dt, body);
       if (this.scene === 'island' || this.scene === 'void' || this.scene === 'arena') {
