@@ -4,7 +4,7 @@
  *  助力卡：每波来前 1 秒抽一张，显示在屏幕底右——点卡再点草坪任意一格激活，一次性。 */
 
 import { PvzSim } from './pvz/engine';
-import { LEVELS, VENOM_FROM, VENOM_COL, PLANTS, unlockedCards, alienCards, wildCards, ALIEN_FROM, WILD_ORANGE_FROM, PlantKind } from './pvz/data';
+import { LEVELS, VENOM_FROM, VENOM_COL, PLANTS, unlockedCards, alienCards, wildCards, ALIEN_FROM, WILD_FROM, WILD_ORANGE_FROM, PlantKind } from './pvz/data';
 import { drawPvz, cellAt, cardAt, boostAt, sunAt, beanAt, PVZ_W, PVZ_H } from './pvz/draw';
 
 export interface PvzDeps {
@@ -79,8 +79,8 @@ export class PvzPanel {
   /** 这关可玩吗：主线按主线进度；外星/狂野要先打穿主线BOSS再各自爬 */
   private playable(i: number): boolean {
     const lv = LEVELS[i];
-    if (lv.alien) return this.d.bossDone() && i - 26 <= this.d.alienProgress();
-    if (lv.wild) return this.d.bossDone() && i - 38 <= this.d.wildProgress();
+    if (lv.alien) return this.d.bossDone() && i - ALIEN_FROM <= this.d.alienProgress();
+    if (lv.wild) return this.d.bossDone() && i - WILD_FROM <= this.d.wildProgress();
     return i <= this.d.progress();
   }
 
@@ -88,8 +88,8 @@ export class PvzPanel {
     this.lvlIdx = i;
     // 像 PVZ 一样先进选卡界面：已解锁的卡摆出来，最多挑 10 张（默认带上前 10 张）
     const lv = LEVELS[i];
-    this.unlockList = lv.alien ? alienCards(25 + this.d.alienProgress())
-      : lv.wild ? wildCards(37 + this.d.wildProgress())
+    this.unlockList = lv.alien ? alienCards(ALIEN_FROM - 1 + this.d.alienProgress())
+      : lv.wild ? wildCards(WILD_FROM - 1 + this.d.wildProgress())
       : unlockedCards(this.d.progress());
     this.picked = this.unlockList.slice(0, PICK_MAX);
     this.stage = 'pick';
@@ -99,7 +99,9 @@ export class PvzPanel {
     if (!this.picked.length) { this.d.toast('至少选 1 张卡'); return; }
     const i = this.lvlIdx;
     // 原版 19 关起第5列毒液地块；外星版第5关（下标30）起第5列紫色太空地板
-    const tileCol = i >= VENOM_FROM && (!LEVELS[i].alien || i >= ALIEN_FROM + 4) ? VENOM_COL : -1;
+    // 毒液/紫色地板列：原版19关起、外星第5关（下标35）起；狂野没有毒液列（它用橙色列）
+    const lv2 = LEVELS[i];
+    const tileCol = !lv2.wild && i >= VENOM_FROM && (!lv2.alien || i >= ALIEN_FROM + 4) ? VENOM_COL : -1;
     this.sim = new PvzSim(LEVELS[i], this.d.progress(), tileCol, this.picked);
     this.sim.wildOrange = i >= WILD_ORANGE_FROM; // 狂野菇解锁关起第5列橙色
     this.stage = 'play';
@@ -222,7 +224,7 @@ export class PvzPanel {
         c.fillStyle = ok ? (lv.boss ? '#8a2a2a' : lv.special ? '#8a6a2a' : '#2a6a9a') : '#333';
         c.fillRect(x, y, 52, 42);
         c.fillStyle = ok ? '#fff' : '#777'; c.font = 'bold 14px sans-serif';
-        const no = this.gameTab === 'main' ? i + 1 : this.gameTab === 'alien' ? i - 25 : i - 37;
+        const no = this.gameTab === 'main' ? i + 1 : this.gameTab === 'alien' ? i - ALIEN_FROM + 1 : i - WILD_FROM + 1;
         c.fillText(lv.boss ? 'BOSS' : lv.special ? '★' : `${no}`, x + 26, y + 24);
         if (lv.unlock[0]) { c.font = '9px sans-serif'; c.fillText('🎁', x + 26, y + 37); }
       }
