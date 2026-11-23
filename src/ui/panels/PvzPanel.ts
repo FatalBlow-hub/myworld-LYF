@@ -79,8 +79,8 @@ export class PvzPanel {
   /** 这关可玩吗：主线按主线进度；外星/狂野要先打穿主线BOSS再各自爬 */
   private playable(i: number): boolean {
     const lv = LEVELS[i];
-    if (lv.alien) return this.d.bossDone() && i - ALIEN_FROM <= this.d.alienProgress();
-    if (lv.wild) return this.d.bossDone() && i - WILD_FROM <= this.d.wildProgress();
+    if (lv.alien) return i - ALIEN_FROM <= this.d.alienProgress();
+    if (lv.wild) return i - WILD_FROM <= this.d.wildProgress();
     return i <= this.d.progress();
   }
 
@@ -122,7 +122,6 @@ export class PvzPanel {
       for (let g = 0; g < GAME_TABS.length; g++) { // 点栏目切换游戏
         const bx = 18 + g * 124;
         if (mx >= bx && mx <= bx + 116 && my >= 58 && my <= 84) {
-          if (g > 0 && !this.d.bossDone()) { this.d.toast('先打穿原版BOSS再来！'); return; }
           this.gameTab = GAME_TABS[g].key; this.draw(); return;
         }
       }
@@ -208,12 +207,12 @@ export class PvzPanel {
       c.fillStyle = '#ffe97a'; c.font = 'bold 24px sans-serif'; c.textAlign = 'center';
       c.fillText('植物大战僵尸 · 选关', PVZ_W / 2, 40);
       for (let g = 0; g < GAME_TABS.length; g++) { // 三个游戏分栏
-        const bx = 18 + g * 124, on = this.gameTab === GAME_TABS[g].key, locked = g > 0 && !this.d.bossDone();
-        c.fillStyle = on ? '#2a6a9a' : locked ? '#222' : '#1a3a4a';
+        const bx = 18 + g * 124, on = this.gameTab === GAME_TABS[g].key;
+        c.fillStyle = on ? '#2a6a9a' : '#1a3a4a';
         c.fillRect(bx, 58, 116, 26);
         c.strokeStyle = on ? '#ffd700' : '#345'; c.strokeRect(bx, 58, 116, 26);
-        c.fillStyle = locked ? '#555' : '#ffe97a'; c.font = '13px sans-serif';
-        c.fillText(GAME_TABS[g].cn + (locked ? '🔒' : ''), bx + 58, 76);
+        c.fillStyle = '#ffe97a'; c.font = '13px sans-serif';
+        c.fillText(GAME_TABS[g].cn, bx + 58, 76);
       }
       const list = LEVELS.map((lv, i) => i).filter((i) => GAME_TABS.find((t) => t.key === this.gameTab)!.match(LEVELS[i]));
       for (let j = 0; j < list.length; j++) {

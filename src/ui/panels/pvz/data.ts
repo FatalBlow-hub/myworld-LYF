@@ -164,7 +164,6 @@ export const LEVELS: LevelDef[] = [
   // —— 三期难关（金色特殊关之后、BOSS 之前）——
   { unlock: ['sunear'], waves: [mix({ basic: 3, cone: 2 }), mix({ bucket: 2, basic: 4 }), mix({ cone: 3, bucket: 2, white: 2 }), mix({ bucket: 3, cone: 4, white: 2, red: 1 })] }, // 29
   { unlock: ['venomspike'], waves: [mix({ basic: 4, cone: 2 }), mix({ cone: 3, bucket: 2, balloon: 2 }), mix({ bucket: 3, balloon: 2, white: 2 }), mix({ bucket: 4, balloon: 3, white: 3, red: 1 })] }, // 30
-  { unlock: ['icespike'], waves: [mix({ cone: 3, bucket: 2 }), mix({ bucket: 3, bike: 1 }), mix({ bucket: 3, bike: 2, white: 2 }), mix({ bucket: 4, bike: 2, white: 3, red: 2 }), mix({ bucket: 5, bike: 3, white: 3, red: 5 })], gaps: { 4: 17 } }, // 31 第4波后17秒出第5波
   { unlock: [], waves: [mix({ basic: 1, sunzombie: 1, cone: 1 }), mix({ bucket: 1 }), mix({ balloon: 2 })], boss: true }, // 最终BOSS 腐败机甲
   // —— 外星来客（26 起）：从易到难爬坡，新僵尸一个个登场 ——
   { alien: true, unlock: [], waves: [mix({ basic: 1 }), mix({ basic: 2 })] },                                                     // 26 外星1：热身
@@ -262,7 +261,7 @@ export const BEAN_T: Partial<Record<PlantKind, { dur: number; int: number }>> = 
 };
 
 // ══════════ 外星来客（打穿 BOSS 后解锁的新游戏）══════════
-export const ALIEN_FROM = 31;         // LEVELS 里从下标 31 起是外星关卡（原版 0-30 共 31 关）
+export const ALIEN_FROM = 30;         // LEVELS 里从下标 30 起是外星关卡（原版 0-29 共 30 关）
 export const ALIEN_HP_BONUS = 5;      // 外星僵尸每只多 5 血
 export const ALIEN_SPEED_MUL = 1.25;  // 紫眼巨人/悬浮自行车速度 ×5/4
 export const UFO_SUMMON = 2.5;        // 飞碟每 2.5 秒召唤一只
@@ -304,8 +303,8 @@ export function alienCards(doneLevels: number): PlantKind[] {
 }
 
 // ══════════ 狂野世界 ══════════
-export const WILD_FROM = 43;        // LEVELS 下标 43 起是狂野关卡（外星 31-42 共 12 关）
-export const WILD_ORANGE_FROM = 52; // 解锁狂野菇那关（下标52，含）起第5列橙色
+export const WILD_FROM = 42;        // LEVELS 下标 42 起是狂野关卡（外星 30-41 共 12 关）
+export const WILD_ORANGE_FROM = 51; // 解锁狂野菇那关（下标51，含）起第5列橙色
 export const WILD_TILE_PLANTS: PlantKind[] = ['wshroom', 'wspike', 'wevo']; // 只能种在橙色地板上
 export const WSUN_INT = 22, WSUN_MIN = 10;   // 向野葵：22秒起步每次-1秒，最低10秒
 export const WPEA_RATE = 0.02;               // 扬刀豌豆每发+2%攻速

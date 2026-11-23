@@ -602,11 +602,11 @@ export class Game {
       progress: () => this.saves.pvzLevel,
       alienProgress: () => this.saves.pvzAlien,
       wildProgress: () => this.saves.pvzWild,
-      bossDone: () => this.saves.pvzLevel >= 31, // 原版BOSS在下标30，打完进度=31
+      bossDone: () => this.saves.pvzLevel >= 30, // 原版BOSS在下标29，打完进度=30
       onWin: (i, name) => {
         const lv = PVZ_LEVELS[i];
-        if (lv.alien) this.saves.pvzAlien = Math.max(this.saves.pvzAlien, i - 30);       // 31→1 外星1关
-        else if (lv.wild) this.saves.pvzWild = Math.max(this.saves.pvzWild, i - 42);   // 43→1 狂野1关
+        if (lv.alien) this.saves.pvzAlien = Math.max(this.saves.pvzAlien, i - 29);       // 30→1 外星1关
+        else if (lv.wild) this.saves.pvzWild = Math.max(this.saves.pvzWild, i - 41);   // 42→1 狂野1关
         else this.saves.pvzLevel = Math.max(this.saves.pvzLevel, i + 1);
         if (PVZ_LEVELS[i]?.boss) {
           const coins = PVZ_LEVELS[i].alien ? 100 : PVZ_LEVELS[i].wild ? 30 : 55; // 外星100/狂野30/原版55
