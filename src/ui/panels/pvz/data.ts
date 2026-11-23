@@ -40,7 +40,7 @@ export const PLANTS: Record<PlantKind, PlantDef> = {
   spike:     { cn: '柳条刺刺',   cost: 100, hp: 999, cd: 5, color: '#7a5a3a' }, // 地刺不被啃（巨人/冰车会砸/碾）
   chomper:   { cn: '柳条大嘴花', cost: 150, hp: 6, cd: 8, color: '#8a3a8a' },
   hypno:     { cn: '粉伞伞',     cost: 125, hp: 6, cd: 8, color: '#e87ab8' },
-  melon:     { cn: '变身西瓜',   cost: 175, hp: 6, cd: 8, color: '#3aa84a' },
+  melon:     { cn: '变身西瓜',   cost: 95, hp: 6, cd: 8, color: '#3aa84a' },
   pumpkin:   { cn: '南瓜方框',   cost: 125, hp: 60, cd: 8, color: '#e88a2a' },
   gloom:     { cn: '氢能灯',     cost: 150, hp: 6, cd: 8, color: '#4a4ac8' },
   bamboo:    { cn: '竹子坚盾',   cost: 100, hp: 160, cd: 12, color: '#c8b04a' },
