@@ -4,7 +4,7 @@
  *  助力卡：每波来前 1 秒抽一张，显示在屏幕底右——点卡再点草坪任意一格激活，一次性。 */
 
 import { PvzSim } from './pvz/engine';
-import { LEVELS, VENOM_FROM, VENOM_COL, PLANTS, unlockedCards, alienCards, wildCards, ALIEN_FROM, WILD_FROM, WILD_ORANGE_FROM, PlantKind } from './pvz/data';
+import { LEVELS, VENOM_FROM, VENOM_COL, PLANTS, ALIEN_P, unlockedCards, alienCards, wildCards, ALIEN_FROM, WILD_FROM, WILD_ORANGE_FROM, PlantKind } from './pvz/data';
 import { drawPvz, cellAt, cardAt, boostAt, sunAt, beanAt, PVZ_W, PVZ_H } from './pvz/draw';
 
 export interface PvzDeps {
@@ -248,9 +248,10 @@ export class PvzPanel {
         c.fillRect(x, y, 91, 46);
         c.strokeStyle = on ? '#ffd700' : '#345';
         c.lineWidth = on ? 3 : 1; c.strokeRect(x, y, 91, 46); c.lineWidth = 1;
-        c.fillStyle = PLANTS[k].color; c.fillRect(x + 4, y + 4, 13, 13);
+        const isAlien = !!LEVELS[this.lvlIdx]?.alien; // 外星版选卡显示太空名/太空色
+        c.fillStyle = (isAlien && ALIEN_P[k]?.color) || PLANTS[k].color; c.fillRect(x + 4, y + 4, 13, 13);
         c.fillStyle = '#fff'; c.font = 'bold 10px sans-serif'; c.textAlign = 'left';
-        c.fillText(PLANTS[k].cn, x + 20, y + 14);
+        c.fillText((isAlien && ALIEN_P[k]?.cn) || PLANTS[k].cn, x + 20, y + 14);
         c.fillStyle = '#ffd76a'; c.font = '9px sans-serif';
         c.fillText(`${PLANTS[k].cost} 阳光`, x + 5, y + 38);
         if (on) { c.fillStyle = '#ffd700'; c.font = 'bold 12px sans-serif'; c.textAlign = 'right'; c.fillText(`${at + 1}`, x + 87, y + 14); }
