@@ -121,20 +121,20 @@ export class PvzPanel {
         const bx = 18 + g * 124;
         if (mx >= bx && mx <= bx + 116 && my >= 58 && my <= 84) {
           if (g > 0 && !this.d.bossDone()) { this.d.toast('先打穿原版BOSS再来！'); return; }
-          this.gameTab = GAME_TABS[g].key; return;
+          this.gameTab = GAME_TABS[g].key; this.draw(); return;
         }
       }
       const list = LEVELS.map((lv, i) => i).filter((i) => GAME_TABS.find((t) => t.key === this.gameTab)!.match(LEVELS[i]));
       for (let j = 0; j < list.length; j++) {
         const i = list[j];
         const x = 35 + (j % PER_ROW) * 66, y = 104 + Math.floor(j / PER_ROW) * 56;
-        if (mx >= x && mx <= x + 52 && my >= y && my <= y + 42 && this.playable(i)) { this.startLevel(i); return; }
+        if (mx >= x && mx <= x + 52 && my >= y && my <= y + 42 && this.playable(i)) { this.startLevel(i); this.draw(); return; }
       }
       return;
     }
     if (this.stage === 'pick') {
       // 返回按钮
-      if (mx >= 30 && mx <= 100 && my >= 20 && my <= 50) { this.stage = 'levels'; return; }
+      if (mx >= 30 && mx <= 100 && my >= 20 && my <= 50) { this.stage = 'levels'; this.draw(); return; }
       // 开战按钮
       if (mx >= PVZ_W / 2 - 80 && mx <= PVZ_W / 2 + 80 && my >= 560 && my <= 598) { this.confirmPick(); return; }
       for (let i = 0; i < this.unlockList.length; i++) {
