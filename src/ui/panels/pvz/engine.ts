@@ -381,7 +381,7 @@ export class PvzSim {
       }
       if (z.state === 'gone') { z.dead = true; continue; }
       // 地刺大招：进了 5×5 范围的僵尸被吸向地刺格子（吸的时候不能走不能吃）
-      const pullSpike = this.plants.find((q) => (q.boostT ?? 0) > 0 && (q.kind === 'spike' || q.kind === 'venomspike' || q.kind === 'icespike')
+      const pullSpike = this.plants.find((q) => (q.boostT ?? 0) > 0 && (q.kind === 'spike' || q.kind === 'venomspike' || q.kind === 'icespike' || q.kind === 'wspike')
         && Math.abs(z.row - q.row) <= 2 && Math.abs(z.x - q.col) <= 2.2 && Math.abs(z.x - q.col) > 0.3);
       if (z.pullX == null && pullSpike && !ZOMBIES[z.kind].flying) { z.pullX = pullSpike.col; z.pullRow = pullSpike.row; }
       if (z.pullX != null && !ZOMBIES[z.kind].flying) {

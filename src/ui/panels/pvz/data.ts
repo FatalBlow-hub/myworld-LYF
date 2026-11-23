@@ -258,6 +258,10 @@ export const BEAN_T: Partial<Record<PlantKind, { dur: number; int: number }>> = 
   specialpea: { dur: 12, int: 1 / 6 }, // 特种豌豆大招：12 秒每 1/6 秒一颗（保留 50% 特殊弹）
   arrow: { dur: 9, int: 0.5 },         // 箭羽草大招：9 秒每 0.5 秒一支
   gloom: { dur: 9, int: 0.9 },         // 氢能灯大招：9 秒 5×5 毒雾每 0.9 秒扣 1 血
+  // —— 狂野世界能开大的：射手/产阳光类套原版加速模板 ——
+  wsun: { dur: 8, int: 1 }, wpea: { dur: 9, int: 0.5 }, wdbl: { dur: 9, int: 0.5 },
+  wthrow: { dur: 9, int: 0.5 }, wshroom: { dur: 9, int: 0.5 }, wevo: { dur: 9, int: 0.5 },
+  wapple: { dur: 9, int: 0.5 }, // 苹果守卫近战变 0.5 秒一刀
 };
 
 // ══════════ 外星来客（打穿 BOSS 后解锁的新游戏）══════════

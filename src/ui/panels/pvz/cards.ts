@@ -54,7 +54,7 @@ export function useBeanOn(sim: PvzSim, row: number, col: number): string | null 
     if (!empty.length) return '草坪满了，没地方复制';
     const [r, c] = empty[Math.floor(Math.random() * empty.length)];
     sim.plants.push({ kind: 'sunbloom', row: r, col: c, hp: PLANTS.sunbloom.hp, t: 0 });
-  } else if (p.kind === 'spike' || p.kind === 'venomspike' || p.kind === 'icespike') {
+  } else if (p.kind === 'spike' || p.kind === 'venomspike' || p.kind === 'icespike' || p.kind === 'wspike') { // 猛猖地刺也吸怪
     // 地刺大招：把 5×5 范围内的僵尸吸到自己格子上（全到才结束）
     p.boostT = 30;
   } else if (p.kind === 'toxin') {

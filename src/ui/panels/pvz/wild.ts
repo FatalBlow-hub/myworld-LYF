@@ -3,7 +3,7 @@ import { PvzSim, Plant, Zombie } from './engine';
 import {
   COLS, PLANTS, ZOMBIES, PlantKind, POTATO_DMG,
   WSUN_INT, WSUN_MIN, WPEA_RATE, WSHROOM_RATE, WSPIKE_RATE,
-  WJUICE_SPRAY, WJUICE_CD, WJUICE_DELAY, WEVO_T, WEVO_AGE,
+  WJUICE_SPRAY, WJUICE_CD, WJUICE_DELAY, WEVO_T, WEVO_AGE, BEAN_T,
 } from './data';
 
 const WILD_KINDS: PlantKind[] = ['wsun','wpea','wnut','wdbl','wboom','wheal','wapple','wjuice','wthrow','wtorch','wpear','wshroom','wspike','wevo'];
@@ -11,14 +11,16 @@ export const isWild = (k: PlantKind): boolean => WILD_KINDS.includes(k);
 
 /** 狂野植物每帧逻辑；返回 true = 已处理这株（引擎不用再走通用逻辑） */
 export function tickWild(sim: PvzSim, p: Plant, dt: number, inRow: Zombie[]): boolean {
+  const boosted = (p.boostT ?? 0) > 0;                  // 能量豆大招：用 BEAN_T 里的攻击间隔
+  const beanInt = boosted ? (BEAN_T[p.kind]?.int ?? 0.5) : 0;
   switch (p.kind) {
-    case 'wsun': { // 向野葵：22秒起步，每产一次-1秒，最低10秒
+    case 'wsun': { // 向野葵：22秒起步，每产一次-1秒，最低10秒；大招8秒每秒产25
       p.prod = p.prod ?? WSUN_INT;
-      if (p.t >= p.prod) { p.t = 0; sim.sunNear(p, 25); p.prod = Math.max(WSUN_MIN, p.prod - 1); }
+      if (p.t >= (boosted ? beanInt : p.prod)) { p.t = 0; sim.sunNear(p, 25); p.prod = Math.max(WSUN_MIN, p.prod - 1); }
       return true;
     }
     case 'wpea': { // 扬刀豌豆：每发+2%攻速
-      if (inRow.length && p.t >= 1.4 / (1 + WPEA_RATE * (p.turbo ?? 0))) {
+      if (inRow.length && p.t >= (boosted ? beanInt : 1.4 / (1 + WPEA_RATE * (p.turbo ?? 0)))) {
         p.t = 0; p.turbo = (p.turbo ?? 0) + 1;
         sim.projs.push({ kind: 'pea', row: p.row, x: p.col + 0.4, vx: 3.5, tx: COLS + 1, dmg: 1 });
       }
@@ -28,7 +30,7 @@ export function tickWild(sim: PvzSim, p: Plant, dt: number, inRow: Zombie[]): bo
       if (p.t >= 5) { p.t = 0; p.hp = Math.min(PLANTS.wnut.hp, p.hp + 1); }
       return true;
     case 'wdbl': // 多发豌豆：一次两颗
-      if (inRow.length && p.t >= sim.atkInterval(1.4)) {
+      if (inRow.length && p.t >= (boosted ? beanInt : sim.atkInterval(1.4))) {
         p.t = 0;
         for (let n = 0; n < 2; n++) sim.projs.push({ kind: 'pea', row: p.row, x: p.col + 0.4 + n * 0.15, vx: 3.5, tx: COLS + 1, dmg: 1 });
       }
@@ -41,7 +43,7 @@ export function tickWild(sim: PvzSim, p: Plant, dt: number, inRow: Zombie[]): bo
       return true;
     }
     case 'wapple': { // 苹果守卫：近战打前1~2格，每秒1次2伤害
-      if (p.t >= 1) {
+      if (p.t >= (boosted ? beanInt : 1)) {
         p.t = 0;
         const t = sim.zombies.find((z) => !z.dead && z.row === p.row && z.x > p.col && z.x - p.col <= 2.5 && z.x < COLS);
         if (t) sim.hurt(t, 2);
@@ -62,7 +64,7 @@ export function tickWild(sim: PvzSim, p: Plant, dt: number, inRow: Zombie[]): bo
       return true;
     }
     case 'wthrow': { // 柿子投手：1.5秒一发抛物线1.25伤
-      if (inRow.length && p.t >= sim.atkInterval(1.5)) {
+      if (inRow.length && p.t >= (boosted ? beanInt : sim.atkInterval(1.5))) {
         p.t = 0;
         const z = inRow.sort((a, b) => a.x - b.x)[0];
         sim.projs.push({ kind: 'knife', row: p.row, x: p.col, vx: 0, tx: z.x, dmg: 1.25 });
@@ -70,7 +72,7 @@ export function tickWild(sim: PvzSim, p: Plant, dt: number, inRow: Zombie[]): bo
       return true;
     }
     case 'wshroom': { // 狂野菇：0.75伤，每发+5%攻速
-      if (inRow.length && p.t >= 1.4 / (1 + WSHROOM_RATE * (p.turbo ?? 0))) {
+      if (inRow.length && p.t >= (boosted ? beanInt : 1.4 / (1 + WSHROOM_RATE * (p.turbo ?? 0)))) {
         p.t = 0; p.turbo = (p.turbo ?? 0) + 1;
         sim.projs.push({ kind: 'pea', row: p.row, x: p.col + 0.4, vx: 3.5, tx: COLS + 1, dmg: 0.75 });
       }
@@ -89,7 +91,7 @@ export function tickWild(sim: PvzSim, p: Plant, dt: number, inRow: Zombie[]): bo
       p.age = (p.age ?? 0) + dt;
       const stage = p.age >= WEVO_AGE[0] + WEVO_AGE[1] ? 2 : p.age >= WEVO_AGE[0] ? 1 : 0;
       p.stage = stage;
-      if (inRow.length && p.t >= WEVO_T[stage]) {
+      if (inRow.length && p.t >= (boosted ? beanInt : WEVO_T[stage])) {
         p.t = 0;
         sim.projs.push({ kind: 'fire', row: p.row, x: p.col + 0.4, vx: 3.5, tx: COLS + 1, dmg: 2 });
       }
