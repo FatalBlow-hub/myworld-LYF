@@ -110,6 +110,12 @@ export class PvzPanel {
   }
 
   /** 选卡界面的格子位置 */
+  /** 游戏内第几关（1 起）：原版 i+1，外星/狂野从各自第 1 关数 */
+  private levelNo(i: number): number {
+    const lv = LEVELS[i];
+    return lv.alien ? i - ALIEN_FROM + 1 : lv.wild ? i - WILD_FROM + 1 : i + 1;
+  }
+
   private pickCell(i: number): { x: number; y: number } {
     return { x: 8 + (i % PICK_COLS) * 97, y: 100 + Math.floor(i / PICK_COLS) * 52 };
   }
@@ -236,7 +242,7 @@ export class PvzPanel {
     if (this.stage === 'pick') {
       c.fillStyle = '#101c2a'; c.fillRect(0, 0, PVZ_W, PVZ_H);
       c.fillStyle = '#ffe97a'; c.font = 'bold 24px sans-serif'; c.textAlign = 'center';
-      c.fillText(`第 ${this.lvlIdx + 1} 关 · 选植物`, PVZ_W / 2, 50);
+      c.fillText(`第 ${this.levelNo(this.lvlIdx)} 关 · 选植物`, PVZ_W / 2, 50);
       c.font = '13px sans-serif'; c.fillStyle = '#cfeaff';
       c.fillText(`点亮卡片 = 带上场，最多 ${PICK_MAX} 张（已选 ${this.picked.length}/${PICK_MAX}）`, PVZ_W / 2, 76);
       c.fillStyle = '#2a6a9a'; c.fillRect(30, 20, 70, 30);
@@ -264,16 +270,17 @@ export class PvzPanel {
       return;
     }
     if (!this.sim) return;
-    drawPvz(c, this.sim, this.sel, this.boostSel, this.lvlIdx + 1, this.beanMode);
+    drawPvz(c, this.sim, this.sel, this.boostSel, this.levelNo(this.lvlIdx), this.beanMode);
     if (this.stage === 'win' || this.stage === 'lose') {
       c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(0, 0, PVZ_W, PVZ_H);
       c.font = 'bold 34px sans-serif'; c.textAlign = 'center';
       if (this.stage === 'win') {
         c.fillStyle = '#ffe97a';
-        c.fillText(`第 ${this.lvlIdx + 1} 关通过！`, PVZ_W / 2, 180);
+        c.fillText(`第 ${this.levelNo(this.lvlIdx)} 关通过！`, PVZ_W / 2, 180);
         c.font = '18px sans-serif';
         const name = unlockName(this.lvlIdx);
-        c.fillText(name ? `解锁新植物：${name}` : LEVELS[this.lvlIdx].boss ? '获得 55 岛币 + 无尽方块！' : '冒险模式全部通关！', PVZ_W / 2, 220);
+        const reward = LEVELS[this.lvlIdx].alien ? '获得 100 岛币 + 无尽方块！' : LEVELS[this.lvlIdx].wild ? '获得 30 岛币 + 无尽方块！' : '获得 55 岛币 + 无尽方块！';
+        c.fillText(name ? `解锁新植物：${name}` : LEVELS[this.lvlIdx].boss ? reward : '冒险模式全部通关！', PVZ_W / 2, 220);
       } else {
         c.fillStyle = '#e85a4a';
         c.fillText('僵尸进屋了！', PVZ_W / 2, 180);
