@@ -19,14 +19,14 @@ export interface PvzDeps {
 }
 
 type Stage = 'levels' | 'pick' | 'play' | 'win' | 'lose';
-const PER_ROW = 7;      // 选关每行按钮数（19 关排 3 行）
+const PER_ROW = 5;      // 选关每行按钮数（竖屏 400 宽放 5 个）
 /** 三个游戏的关卡下标段 + 栏目标签 */
 const GAME_TABS: { key: 'main' | 'alien' | 'wild'; cn: string; match: (lv: (typeof LEVELS)[0]) => boolean }[] = [
   { key: 'main', cn: '原版冒险', match: (lv) => !lv.alien && !lv.wild },
   { key: 'alien', cn: '外星来客', match: (lv) => !!lv.alien },
   { key: 'wild', cn: '狂野世界', match: (lv) => !!lv.wild },
 ];
-const PICK_COLS = 8;    // 选卡每行卡片数（29 张排 4 行内）
+const PICK_COLS = 4;    // 竖屏选卡每行卡片数（400 宽放 4 张）
 const PICK_MAX = 10;    // 最多带 10 张卡上场
 
 export class PvzPanel {
@@ -109,7 +109,7 @@ export class PvzPanel {
 
   /** 选卡界面的格子位置 */
   private pickCell(i: number): { x: number; y: number } {
-    return { x: 28 + (i % PICK_COLS) * 94, y: 96 + Math.floor(i / PICK_COLS) * 56 };
+    return { x: 8 + (i % PICK_COLS) * 97, y: 100 + Math.floor(i / PICK_COLS) * 52 };
   }
 
   private onClick(e: MouseEvent): void {
@@ -118,7 +118,7 @@ export class PvzPanel {
     const my = (e.clientY - r.top) * (PVZ_H / r.height);
     if (this.stage === 'levels') {
       for (let g = 0; g < GAME_TABS.length; g++) { // 点栏目切换游戏
-        const bx = PVZ_W / 2 - 186 + g * 124;
+        const bx = 18 + g * 124;
         if (mx >= bx && mx <= bx + 116 && my >= 58 && my <= 84) {
           if (g > 0 && !this.d.bossDone()) { this.d.toast('先打穿原版BOSS再来！'); return; }
           this.gameTab = GAME_TABS[g].key; return;
@@ -127,7 +127,7 @@ export class PvzPanel {
       const list = LEVELS.map((lv, i) => i).filter((i) => GAME_TABS.find((t) => t.key === this.gameTab)!.match(LEVELS[i]));
       for (let j = 0; j < list.length; j++) {
         const i = list[j];
-        const x = 80 + (j % PER_ROW) * 66, y = 104 + Math.floor(j / PER_ROW) * 56;
+        const x = 35 + (j % PER_ROW) * 66, y = 104 + Math.floor(j / PER_ROW) * 56;
         if (mx >= x && mx <= x + 52 && my >= y && my <= y + 42 && this.playable(i)) { this.startLevel(i); return; }
       }
       return;
@@ -136,10 +136,10 @@ export class PvzPanel {
       // 返回按钮
       if (mx >= 30 && mx <= 100 && my >= 20 && my <= 50) { this.stage = 'levels'; return; }
       // 开战按钮
-      if (mx >= PVZ_W / 2 - 80 && mx <= PVZ_W / 2 + 80 && my >= 352 && my <= 390) { this.confirmPick(); return; }
+      if (mx >= PVZ_W / 2 - 80 && mx <= PVZ_W / 2 + 80 && my >= 560 && my <= 598) { this.confirmPick(); return; }
       for (let i = 0; i < this.unlockList.length; i++) {
         const { x, y } = this.pickCell(i);
-        if (mx >= x && mx <= x + 88 && my >= y && my <= y + 52) {
+        if (mx >= x && mx <= x + 91 && my >= y && my <= y + 46) {
           const k = this.unlockList[i], at = this.picked.indexOf(k);
           if (at >= 0) this.picked.splice(at, 1);
           else if (this.picked.length < PICK_MAX) this.picked.push(k);
@@ -206,7 +206,7 @@ export class PvzPanel {
       c.fillStyle = '#ffe97a'; c.font = 'bold 24px sans-serif'; c.textAlign = 'center';
       c.fillText('植物大战僵尸 · 选关', PVZ_W / 2, 40);
       for (let g = 0; g < GAME_TABS.length; g++) { // 三个游戏分栏
-        const bx = PVZ_W / 2 - 186 + g * 124, on = this.gameTab === GAME_TABS[g].key, locked = g > 0 && !this.d.bossDone();
+        const bx = 18 + g * 124, on = this.gameTab === GAME_TABS[g].key, locked = g > 0 && !this.d.bossDone();
         c.fillStyle = on ? '#2a6a9a' : locked ? '#222' : '#1a3a4a';
         c.fillRect(bx, 58, 116, 26);
         c.strokeStyle = on ? '#ffd700' : '#345'; c.strokeRect(bx, 58, 116, 26);
@@ -216,7 +216,7 @@ export class PvzPanel {
       const list = LEVELS.map((lv, i) => i).filter((i) => GAME_TABS.find((t) => t.key === this.gameTab)!.match(LEVELS[i]));
       for (let j = 0; j < list.length; j++) {
         const i = list[j];
-        const x = 80 + (j % PER_ROW) * 66, y = 104 + Math.floor(j / PER_ROW) * 56;
+        const x = 35 + (j % PER_ROW) * 66, y = 104 + Math.floor(j / PER_ROW) * 56;
         const ok = this.playable(i);
         const lv = LEVELS[i];
         c.fillStyle = ok ? (lv.boss ? '#8a2a2a' : lv.special ? '#8a6a2a' : '#2a6a9a') : '#333';
@@ -227,9 +227,9 @@ export class PvzPanel {
         if (lv.unlock[0]) { c.font = '9px sans-serif'; c.fillText('🎁', x + 26, y + 37); }
       }
       c.font = '12px sans-serif'; c.fillStyle = '#8ab';
-      c.fillText('灰色是还没解锁的关 · ★是特殊关 · 点按钮开打 · ESC/再按 M 退出', PVZ_W / 2, 290);
-      c.fillText('点天上掉下来的阳光收钱，点卡片再点格子种植物', PVZ_W / 2, 312);
-      c.fillText('每波僵尸来前会抽到助力卡：点卡再点草坪任意一格使用', PVZ_W / 2, 334);
+      c.fillText('灰色是还没解锁的关 · ★是特殊关 · 点按钮开打 · ESC/再按 M 退出', PVZ_W / 2, 540);
+      c.fillText('点天上掉下来的阳光收钱，点卡片再点格子种植物', PVZ_W / 2, 566);
+      c.fillText('每波僵尸来前会抽到助力卡：点卡再点草坪任意一格使用', PVZ_W / 2, 592);
       return;
     }
     if (this.stage === 'pick') {
@@ -244,21 +244,21 @@ export class PvzPanel {
         const { x, y } = this.pickCell(i);
         const at = this.picked.indexOf(k), on = at >= 0;
         c.fillStyle = on ? '#3a7a3a' : '#1a2a3a';
-        c.fillRect(x, y, 88, 52);
+        c.fillRect(x, y, 91, 46);
         c.strokeStyle = on ? '#ffd700' : '#345';
-        c.lineWidth = on ? 3 : 1; c.strokeRect(x, y, 88, 52); c.lineWidth = 1;
-        c.fillStyle = PLANTS[k].color; c.fillRect(x + 5, y + 5, 15, 15);
-        c.fillStyle = '#fff'; c.font = 'bold 11px sans-serif'; c.textAlign = 'left';
-        c.fillText(PLANTS[k].cn, x + 24, y + 17);
-        c.fillStyle = '#ffd76a'; c.font = '10px sans-serif';
-        c.fillText(`${PLANTS[k].cost} 阳光`, x + 6, y + 42);
-        if (on) { c.fillStyle = '#ffd700'; c.font = 'bold 13px sans-serif'; c.textAlign = 'right'; c.fillText(`${at + 1}`, x + 84, y + 16); }
+        c.lineWidth = on ? 3 : 1; c.strokeRect(x, y, 91, 46); c.lineWidth = 1;
+        c.fillStyle = PLANTS[k].color; c.fillRect(x + 4, y + 4, 13, 13);
+        c.fillStyle = '#fff'; c.font = 'bold 10px sans-serif'; c.textAlign = 'left';
+        c.fillText(PLANTS[k].cn, x + 20, y + 14);
+        c.fillStyle = '#ffd76a'; c.font = '9px sans-serif';
+        c.fillText(`${PLANTS[k].cost} 阳光`, x + 5, y + 38);
+        if (on) { c.fillStyle = '#ffd700'; c.font = 'bold 12px sans-serif'; c.textAlign = 'right'; c.fillText(`${at + 1}`, x + 87, y + 14); }
       });
       const canGo = this.picked.length > 0;
       c.fillStyle = canGo ? '#4a9a3a' : '#444';
-      c.fillRect(PVZ_W / 2 - 80, 352, 160, 38);
+      c.fillRect(PVZ_W / 2 - 80, 560, 160, 38);
       c.fillStyle = '#fff'; c.font = 'bold 17px sans-serif'; c.textAlign = 'center';
-      c.fillText('开始战斗', PVZ_W / 2, 376);
+      c.fillText('开始战斗', PVZ_W / 2, 584);
       return;
     }
     if (!this.sim) return;

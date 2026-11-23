@@ -609,7 +609,7 @@ export class Game {
         else if (lv.wild) this.saves.pvzWild = Math.max(this.saves.pvzWild, i - 37);   // 38→1 狂野1关
         else this.saves.pvzLevel = Math.max(this.saves.pvzLevel, i + 1);
         if (PVZ_LEVELS[i]?.boss) {
-          const coins = PVZ_LEVELS[i].alien ? 100 : PVZ_LEVELS[i].wild ? 75 : 55; // 外星100/狂野75/原版55
+          const coins = PVZ_LEVELS[i].alien ? 100 : PVZ_LEVELS[i].wild ? 30 : 55; // 外星100/狂野30/原版55
           this.addCoins(coins);
           this.inventory?.add(ENDLESS_BLOCK, 1);
           this.hud?.showMessage(`通关奖励：${coins} 岛币 + 无尽方块！`, 4);

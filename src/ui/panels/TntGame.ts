@@ -108,8 +108,8 @@ export class TntGame {
     this.el = document.createElement('div');
     this.el.className = 'tnt-overlay';
     this.canvas = document.createElement('canvas');
-    this.canvas.width = 640;
-    this.canvas.height = 400;
+    this.canvas.width = 400;
+    this.canvas.height = 640;
     this.el.appendChild(this.canvas);
     this.ctx = this.canvas.getContext('2d')!;
     // 手机左右键：按住就走，没有跳
@@ -128,12 +128,12 @@ export class TntGame {
       b.addEventListener('mouseup', off);
       this.el.appendChild(b);
     }
-    // 菜单选游戏：左半屏 = 躲避 TNT，右半屏 = 植物大战僵尸
+    // 菜单选游戏（竖屏）：上半屏 = 躲避 TNT，下半屏 = 植物大战僵尸
     this.el.addEventListener('click', (e) => {
       if (this.screen !== 'menu') return;
       const r = this.canvas.getBoundingClientRect();
-      const mx = (e.clientX - r.left) * (this.canvas.width / r.width);
-      if (mx < this.canvas.width / 2) this.pickTnt();
+      const my = (e.clientY - r.top) * (this.canvas.height / r.height);
+      if (my < this.canvas.height / 2) this.pickTnt();
       else { this.close(); this.d.onPickPvz(); }
     });
     document.body.appendChild(this.el);
