@@ -143,6 +143,8 @@ export interface SaveData {
   blackMarket?: BlackMarketState;
   /** 电脑小游戏「植物大战僵尸」已通关的最高关数（0=没打过；可选字段老档天然没有） */
   pvz?: number;
+  pvzAlien?: number;
+  pvzWild?: number;
 }
 
 /** 列出所有存在的账号存档（顺手把旧版单存档搬成 1 号账号） */
@@ -298,6 +300,8 @@ export function buildSave(g: {
   zombieSpawn: boolean;
   /** 植物大战僵尸已通关数；不传就当 0 */
   pvzLevel?: number;
+  pvzAlien?: number;
+  pvzWild?: number;
 }): SaveData {
   return {
     v: SAVE_VERSION,
@@ -347,7 +351,7 @@ export function buildSave(g: {
     blackMarket: g.blackMarket,
     zombieAttack: g.zombieAttack,
     zombieSpawn: g.zombieSpawn,
-    pvz: g.pvzLevel ?? 0,
+    pvz: g.pvzLevel ?? 0, pvzAlien: g.pvzAlien ?? 0, pvzWild: g.pvzWild ?? 0,
   };
 }
 
@@ -365,7 +369,7 @@ function pendingWarriorSpot(world: World, spawn: { x: number; y: number; z: numb
 export function applySave(
   d: SaveData,
   into: { inv: Inventory; health: Health; hunger: Hunger; world: World; scene: THREE.Scene; animals: Animal[]; zombies: Zombie[]; drops: ItemDrop[]; tanks: Tank[]; challenge: Challenge; warriors: Warrior[]; archers: Archer[] },
-): { spawn: { x: number; y: number; z: number }; slot: number; learned: number[]; golden?: SaveData['golden']; paused: boolean; dayTime: number; date: GameDate; shopQuota: ShopQuota | undefined; blackMarket: BlackMarketState | undefined; zombieAttack: boolean; zombieSpawn: boolean; islandType: IslandType; everCreative: boolean; coins: number; pvz: number | undefined } {
+): { spawn: { x: number; y: number; z: number }; slot: number; learned: number[]; golden?: SaveData['golden']; paused: boolean; dayTime: number; date: GameDate; shopQuota: ShopQuota | undefined; blackMarket: BlackMarketState | undefined; zombieAttack: boolean; zombieSpawn: boolean; islandType: IslandType; everCreative: boolean; coins: number; pvz: number | undefined; pvzAlien?: number; pvzWild?: number } {
   const { inv, health, hunger, world, scene, animals, zombies, drops, tanks, challenge, warriors, archers } = into;
   const copy = (dst: Slots, src: Slots) => src.forEach((s, i) => { dst[i] = s; });
   copy(inv.hotbar, d.inv.hotbar);
@@ -464,6 +468,8 @@ export function applySave(
     shopQuota: d.shopQuota,
     blackMarket: d.blackMarket,
     pvz: d.pvz,
+    pvzAlien: d.pvzAlien,
+    pvzWild: d.pvzWild,
     islandType: normalizeIslandType(d.islandType) ?? randomIslandType(),
     everCreative: Boolean(d.everCreative || d.mode === 'creative'),
     coins: d.coins ?? 0,

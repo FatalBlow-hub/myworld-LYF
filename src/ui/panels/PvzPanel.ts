@@ -10,6 +10,9 @@ import { drawPvz, cellAt, cardAt, boostAt, sunAt, beanAt, PVZ_W, PVZ_H } from '.
 export interface PvzDeps {
   /** 已通关的最高关数（存档持久化） */
   progress: () => number;
+  alienProgress: () => number;
+  wildProgress: () => number;
+  bossDone: () => boolean;
   /** 过了一关：回写进度（Game 里 saveNow + 提示解锁；boss 关 Game 另发通关奖励） */
   onWin: (levelIdx: number, unlockName: string | null) => void;
   toast: (text: string) => void;
@@ -17,6 +20,12 @@ export interface PvzDeps {
 
 type Stage = 'levels' | 'pick' | 'play' | 'win' | 'lose';
 const PER_ROW = 7;      // 选关每行按钮数（19 关排 3 行）
+/** 三个游戏的关卡下标段 + 栏目标签 */
+const GAME_TABS: { key: 'main' | 'alien' | 'wild'; cn: string; match: (lv: (typeof LEVELS)[0]) => boolean }[] = [
+  { key: 'main', cn: '原版冒险', match: (lv) => !lv.alien && !lv.wild },
+  { key: 'alien', cn: '外星来客', match: (lv) => !!lv.alien },
+  { key: 'wild', cn: '狂野世界', match: (lv) => !!lv.wild },
+];
 const PICK_COLS = 8;    // 选卡每行卡片数（29 张排 4 行内）
 const PICK_MAX = 10;    // 最多带 10 张卡上场
 
@@ -66,13 +75,22 @@ export class PvzPanel {
   }
 
   /** 可玩的关卡：已通关数+1 关（没通关只能打第 1 关） */
-  private playable(i: number): boolean { return i <= this.d.progress(); }
+  private gameTab: 'main' | 'alien' | 'wild' = 'main'; // 选关分栏：原版/外星来客/狂野世界
+  /** 这关可玩吗：主线按主线进度；外星/狂野要先打穿主线BOSS再各自爬 */
+  private playable(i: number): boolean {
+    const lv = LEVELS[i];
+    if (lv.alien) return this.d.bossDone() && i - 26 <= this.d.alienProgress();
+    if (lv.wild) return this.d.bossDone() && i - 38 <= this.d.wildProgress();
+    return i <= this.d.progress();
+  }
 
   private startLevel(i: number): void {
     this.lvlIdx = i;
     // 像 PVZ 一样先进选卡界面：已解锁的卡摆出来，最多挑 10 张（默认带上前 10 张）
     const lv = LEVELS[i];
-    this.unlockList = lv.alien ? alienCards(this.d.progress()) : lv.wild ? wildCards(this.d.progress()) : unlockedCards(this.d.progress());
+    this.unlockList = lv.alien ? alienCards(25 + this.d.alienProgress())
+      : lv.wild ? wildCards(37 + this.d.wildProgress())
+      : unlockedCards(this.d.progress());
     this.picked = this.unlockList.slice(0, PICK_MAX);
     this.stage = 'pick';
   }
@@ -99,8 +117,17 @@ export class PvzPanel {
     const mx = (e.clientX - r.left) * (PVZ_W / r.width);
     const my = (e.clientY - r.top) * (PVZ_H / r.height);
     if (this.stage === 'levels') {
-      for (let i = 0; i < LEVELS.length; i++) {
-        const x = 80 + (i % PER_ROW) * 66, y = 104 + Math.floor(i / PER_ROW) * 56;
+      for (let g = 0; g < GAME_TABS.length; g++) { // 点栏目切换游戏
+        const bx = PVZ_W / 2 - 186 + g * 124;
+        if (mx >= bx && mx <= bx + 116 && my >= 58 && my <= 84) {
+          if (g > 0 && !this.d.bossDone()) { this.d.toast('先打穿原版BOSS再来！'); return; }
+          this.gameTab = GAME_TABS[g].key; return;
+        }
+      }
+      const list = LEVELS.map((lv, i) => i).filter((i) => GAME_TABS.find((t) => t.key === this.gameTab)!.match(LEVELS[i]));
+      for (let j = 0; j < list.length; j++) {
+        const i = list[j];
+        const x = 80 + (j % PER_ROW) * 66, y = 104 + Math.floor(j / PER_ROW) * 56;
         if (mx >= x && mx <= x + 52 && my >= y && my <= y + 42 && this.playable(i)) { this.startLevel(i); return; }
       }
       return;
@@ -176,18 +203,27 @@ export class PvzPanel {
     const c = this.ctx;
     if (this.stage === 'levels') {
       c.fillStyle = '#101c2a'; c.fillRect(0, 0, PVZ_W, PVZ_H);
-      c.fillStyle = '#ffe97a'; c.font = 'bold 26px sans-serif'; c.textAlign = 'center';
-      c.fillText('植物大战僵尸 · 选关', PVZ_W / 2, 56);
-      c.font = '14px sans-serif'; c.fillStyle = '#cfeaff';
-      c.fillText(`已通关 ${Math.min(this.d.progress(), LEVELS.length)} / ${LEVELS.length} 关`, PVZ_W / 2, 82);
-      for (let i = 0; i < LEVELS.length; i++) {
-        const x = 80 + (i % PER_ROW) * 66, y = 104 + Math.floor(i / PER_ROW) * 56;
+      c.fillStyle = '#ffe97a'; c.font = 'bold 24px sans-serif'; c.textAlign = 'center';
+      c.fillText('植物大战僵尸 · 选关', PVZ_W / 2, 40);
+      for (let g = 0; g < GAME_TABS.length; g++) { // 三个游戏分栏
+        const bx = PVZ_W / 2 - 186 + g * 124, on = this.gameTab === GAME_TABS[g].key, locked = g > 0 && !this.d.bossDone();
+        c.fillStyle = on ? '#2a6a9a' : locked ? '#222' : '#1a3a4a';
+        c.fillRect(bx, 58, 116, 26);
+        c.strokeStyle = on ? '#ffd700' : '#345'; c.strokeRect(bx, 58, 116, 26);
+        c.fillStyle = locked ? '#555' : '#ffe97a'; c.font = '13px sans-serif';
+        c.fillText(GAME_TABS[g].cn + (locked ? '🔒' : ''), bx + 58, 76);
+      }
+      const list = LEVELS.map((lv, i) => i).filter((i) => GAME_TABS.find((t) => t.key === this.gameTab)!.match(LEVELS[i]));
+      for (let j = 0; j < list.length; j++) {
+        const i = list[j];
+        const x = 80 + (j % PER_ROW) * 66, y = 104 + Math.floor(j / PER_ROW) * 56;
         const ok = this.playable(i);
         const lv = LEVELS[i];
         c.fillStyle = ok ? (lv.boss ? '#8a2a2a' : lv.special ? '#8a6a2a' : '#2a6a9a') : '#333';
         c.fillRect(x, y, 52, 42);
         c.fillStyle = ok ? '#fff' : '#777'; c.font = 'bold 14px sans-serif';
-        c.fillText(lv.boss ? 'BOSS' : lv.special ? '★' : `${i + 1}`, x + 26, y + 24);
+        const no = this.gameTab === 'main' ? i + 1 : this.gameTab === 'alien' ? i - 25 : i - 37;
+        c.fillText(lv.boss ? 'BOSS' : lv.special ? '★' : `${no}`, x + 26, y + 24);
         if (lv.unlock[0]) { c.font = '9px sans-serif'; c.fillText('🎁', x + 26, y + 37); }
       }
       c.font = '12px sans-serif'; c.fillStyle = '#8ab';

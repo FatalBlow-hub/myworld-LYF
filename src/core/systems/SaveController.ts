@@ -59,7 +59,9 @@ export class SaveController {
   private islandSaveValue: SaveData | null = null;
   private saveTimer = SAVE.EVERY;
   private everCreativeValue = false;
-  private pvzLevelValue = 0; // 植物大战僵尸通关进度（跟着存档走）
+  private pvzLevelValue = 0; // 植物大战僵尸主线通关进度（跟着存档走）
+  private pvzAlienValue = 0; // 外星来客通关数
+  private pvzWildValue = 0;  // 狂野世界通关数
 
   constructor(private ctx: SaveCtx) {}
 
@@ -72,6 +74,10 @@ export class SaveController {
   set everCreative(v: boolean) { this.everCreativeValue = v; }
   get pvzLevel(): number { return this.pvzLevelValue; }
   set pvzLevel(v: number) { this.pvzLevelValue = v; }
+  get pvzAlien(): number { return this.pvzAlienValue; }
+  set pvzAlien(v: number) { this.pvzAlienValue = v; }
+  get pvzWild(): number { return this.pvzWildValue; }
+  set pvzWild(v: number) { this.pvzWildValue = v; }
 
   /** 每帧自动存档计时（SAVE.EVERY 秒一次；1 键手动存走 Game.saveNow 同一条路） */
   autosave(dt: number): void {
@@ -101,7 +107,7 @@ export class SaveController {
       shopQuota: this.ctx.quota(),
       blackMarket: this.ctx.market(),
       zombieAttack: this.ctx.mobs().zombieAttack, zombieSpawn: this.ctx.mobs().zombieSpawn,
-      pvzLevel: this.pvzLevelValue,
+      pvzLevel: this.pvzLevelValue, pvzAlien: this.pvzAlienValue, pvzWild: this.pvzWildValue,
     });
     this.islandSaveValue = JSON.parse(JSON.stringify(data)) as SaveData;
     writeSave(this.slotValue, data);
@@ -145,6 +151,8 @@ export class SaveController {
     this.ctx.setMarket(r.blackMarket);
     this.everCreativeValue = this.everCreativeValue || r.everCreative || this.ctx.inventory()!.mode === 'creative';
     this.pvzLevelValue = r.pvz ?? 0;
+    this.pvzAlienValue = r.pvzAlien ?? 0;
+    this.pvzWildValue = r.pvzWild ?? 0;
     this.ctx.mobs().zombieSpawn = r.zombieSpawn && this.ctx.mobs().zombieAttack; // 攻击关着的存档不许带着僵尸生成回来
     this.ctx.book().importLearned(r.learned);
     this.ctx.book().importGoldenState(r.golden?.learned, r.golden?.tasks, r.golden?.waterUses);

@@ -600,8 +600,14 @@ export class Game {
     // 植物大战僵尸：通关进度进存档（SaveController 台账），解锁靠关卡奖励表
     this.pvz = new PvzPanel({
       progress: () => this.saves.pvzLevel,
+      alienProgress: () => this.saves.pvzAlien,
+      wildProgress: () => this.saves.pvzWild,
+      bossDone: () => this.saves.pvzLevel >= 26,
       onWin: (i, name) => {
-        this.saves.pvzLevel = Math.max(this.saves.pvzLevel, i + 1);
+        const lv = PVZ_LEVELS[i];
+        if (lv.alien) this.saves.pvzAlien = Math.max(this.saves.pvzAlien, i - 25);       // 26→1 外星1关
+        else if (lv.wild) this.saves.pvzWild = Math.max(this.saves.pvzWild, i - 37);   // 38→1 狂野1关
+        else this.saves.pvzLevel = Math.max(this.saves.pvzLevel, i + 1);
         if (PVZ_LEVELS[i]?.boss) {
           const coins = PVZ_LEVELS[i].alien ? 100 : PVZ_LEVELS[i].wild ? 75 : 55; // 外星100/狂野75/原版55
           this.addCoins(coins);
