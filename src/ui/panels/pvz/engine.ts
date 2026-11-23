@@ -61,7 +61,7 @@ export class PvzSim {
     this.cards = picked ?? (level.alien ? alienCards(doneLevels) : level.wild ? wildCards(doneLevels) : unlockedCards(doneLevels));
     for (const k of this.cards) this.cardCd[k] = 0;
     if (venomCol >= 0) for (let r = 0; r < ROWS; r++) this.venomTiles.add(`${r},${venomCol}`);
-    if (level.boss) this.waveWait = FIRST_WAVE + MECH_ARRIVE; // 机甲 15 秒登场，登场后再等 60 秒
+    if (level.boss) this.waveWait = FIRST_WAVE + MECH_ARRIVE; // 机甲 60 秒登场，登场后再等 60 秒
   }
 
   plantAt(row: number, col: number): Plant | undefined {
