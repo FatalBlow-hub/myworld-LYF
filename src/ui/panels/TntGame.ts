@@ -457,23 +457,22 @@ export class TntGame {
       return;
     }
     if (this.screen === 'menu') {
-      // 游戏菜单：左半屏选 TNT，右半屏选植物大战僵尸（点了对应半边就行）
+      // 游戏菜单（竖屏）：上半屏选 TNT，下半屏选植物大战僵尸
       c.fillStyle = '#0e1a2a';
       c.fillRect(0, 0, width, height);
       c.fillStyle = '#ffffff';
       c.font = 'bold 26px sans-serif';
       c.textAlign = 'center';
       c.fillText('电 脑 主 界 面', width / 2, 60);
-      const half = width / 2;
-      c.fillStyle = '#1a4fbd'; c.fillRect(40, 100, half - 60, 200);
-      c.fillStyle = '#1a6a3a'; c.fillRect(half + 20, 100, half - 60, 200);
+      c.fillStyle = '#1a4fbd'; c.fillRect(30, 100, width - 60, 190);
+      c.fillStyle = '#1a6a3a'; c.fillRect(30, 340, width - 60, 190);
       c.font = 'bold 22px sans-serif'; c.fillStyle = '#fff';
-      c.fillText('躲 避 T N T', half / 2 + 10, 190);
-      c.fillText('植物大战僵尸', half + half / 2 - 10, 190);
+      c.fillText('躲 避 T N T', width / 2, 190);
+      c.fillText('植物大战僵尸', width / 2, 430);
       c.font = '14px sans-serif'; c.fillStyle = '#bcd';
-      c.fillText(this.d.visitActive() ? '有客人在：能双人同屏！' : '单人模式', half / 2 + 10, 224);
-      c.fillText('单机 · 14 关冒险', half + half / 2 - 10, 224);
-      c.fillText('点左半边 / 点右半边', width / 2, 340);
+      c.fillText(this.d.visitActive() ? '有客人在：能双人同屏！' : '单人模式', width / 2, 224);
+      c.fillText('三个游戏 · 50 关冒险', width / 2, 464);
+      c.fillText('点上半边 / 点下半边', width / 2, 590);
       return;
     }
     // —— 游戏画面：天 + 场地 + 掉落物 + 小人 + HUD ——
