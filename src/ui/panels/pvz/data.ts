@@ -306,6 +306,7 @@ export function alienCards(doneLevels: number): PlantKind[] {
 // ══════════ 狂野世界 ══════════
 export const WILD_FROM = 38;        // LEVELS 下标 38 起是狂野关卡
 export const WILD_ORANGE_FROM = 46; // 解锁狂野菇那关（含）起第5列橙色
+export const WILD_TILE_PLANTS: PlantKind[] = ['wshroom', 'wspike', 'wevo']; // 只能种在橙色地板上
 export const WSUN_INT = 22, WSUN_MIN = 10;   // 向野葵：22秒起步每次-1秒，最低10秒
 export const WPEA_RATE = 0.02;               // 扬刀豌豆每发+2%攻速
 export const WSHROOM_RATE = 0.05;            // 狂野菇每发+5%

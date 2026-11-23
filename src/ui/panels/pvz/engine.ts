@@ -14,7 +14,7 @@ import {
   VENOM_PLANTS, MOSSPEA_INT, MOSSPEA_DMG, MOSSPEA_POISON, TOXIN_POISON, VENOMBUD_EVERY,
   SOUL_FREEZE, SOUL_SLOW, SOUL_DMG, SOUL_SLOW_RATE, COPY_DELAY,
   SUNEARD_EVERY, SUNEARD_VALUE, SUNEARD_AURA, VSPIKE_POISON, ISPIKE_SLOW, BEAN_T, unlockedCards,
-  ALIEN_HP_BONUS, ALIEN_SPEED_MUL, UFO_SUMMON, UFO_DMG_CAP, UFO_BIKE_EVERY, alienCards, wildCards,
+  ALIEN_HP_BONUS, ALIEN_SPEED_MUL, UFO_SUMMON, UFO_DMG_CAP, UFO_BIKE_EVERY, alienCards, wildCards, WILD_TILE_PLANTS,
 } from './data';
 import { applyCard, useBeanOn } from './cards';
 import { tickWild, wildDeath, wildTorchPass } from './wild';
@@ -75,7 +75,10 @@ export class PvzSim {
     if (this.cardCd[kind] > 0) return '还在冷却';
     const cur = this.plantAt(row, col);
     const isShell = kind === 'pumpkin' || kind === 'mossbox' || kind === 'soulbox';
-    if ((this.alien ? kind === 'mosspea' : VENOM_PLANTS.includes(kind)) && !this.venomTiles.has(`${row},${col}`)) return this.alien ? '要种在紫色太空地板上' : '要种在毒液地块上';
+    // 特种地板限制：外星=太空藓要紫地板；狂野=菇/地刺/进化菇要橙地板（第5列）；原版=毒系要毒液地块
+    const needTile = this.alien ? kind === 'mosspea' : this.wild ? WILD_TILE_PLANTS.includes(kind) : VENOM_PLANTS.includes(kind);
+    const onTile = this.wild ? this.wildOrange && col === 4 : this.venomTiles.has(`${row},${col}`);
+    if (needTile && !onTile) return this.alien ? '要种在紫色太空地板上' : this.wild ? '要种在橙色地板上' : '要种在毒液地块上';
     if (isShell) {
       if (!cur || isShell && cur.kind === kind || cur.pumpkin != null || cur.moss != null || cur.soul != null) return '要套在别的植物上';
     } else if (cur) return '这格有植物了';
