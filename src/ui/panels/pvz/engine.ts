@@ -14,13 +14,14 @@ import {
   VENOM_PLANTS, MOSSPEA_INT, MOSSPEA_DMG, MOSSPEA_POISON, TOXIN_POISON, VENOMBUD_EVERY,
   SOUL_FREEZE, SOUL_SLOW, SOUL_DMG, SOUL_SLOW_RATE, COPY_DELAY,
   SUNEARD_EVERY, SUNEARD_VALUE, SUNEARD_AURA, VSPIKE_POISON, ISPIKE_SLOW, BEAN_T, unlockedCards,
-  ALIEN_HP_BONUS, ALIEN_SPEED_MUL, UFO_SUMMON, UFO_DMG_CAP, UFO_BIKE_EVERY, alienCards,
+  ALIEN_HP_BONUS, ALIEN_SPEED_MUL, UFO_SUMMON, UFO_DMG_CAP, UFO_BIKE_EVERY, alienCards, wildCards,
 } from './data';
 import { applyCard, useBeanOn } from './cards';
+import { tickWild, wildDeath, wildTorchPass } from './wild';
 
-export interface Plant { kind: PlantKind; row: number; col: number; hp: number; t: number; blackhole?: number; holeT?: number; pokes?: number; armed?: boolean; chew?: number; pumpkin?: number; moss?: number; soul?: number; laddered?: boolean; done?: boolean; drops?: number; boostT?: number }
+export interface Plant { kind: PlantKind; row: number; col: number; hp: number; t: number; blackhole?: number; holeT?: number; pokes?: number; armed?: boolean; chew?: number; pumpkin?: number; moss?: number; soul?: number; laddered?: boolean; done?: boolean; drops?: number; boostT?: number; turbo?: number; prod?: number; spray?: number; age?: number; stage?: number }
 export interface Zombie { kind: ZKind; row: number; x: number; hp: number; slowT: number; poisonT: number; freezeT: number; eatT: number; state: string; charm?: boolean; usedLadder?: boolean; soulSlowT?: number; summonT?: number; ballT?: number; rowT?: number; dead?: boolean; bean?: boolean; pullX?: number; pullRow?: number; dmgAcc?: number; dmgT?: number }
-export interface Proj { kind: 'pea' | 'ice' | 'venom' | 'knife' | 'arrow' | 'bomb' | 'moss' | 'minibomb'; row: number; x: number; vx: number; tx: number; dmg: number; hits?: Set<Zombie>; space?: boolean }
+export interface Proj { kind: 'pea' | 'ice' | 'venom' | 'knife' | 'arrow' | 'bomb' | 'moss' | 'minibomb' | 'fire' | 'pear'; row: number; x: number; vx: number; tx: number; dmg: number; hits?: Set<Zombie>; space?: boolean }
 export interface SunToken { x: number; y: number; ty: number; live: number; value: number } // x/y 是格子单位的自由坐标（不一定在格心）
 export interface CorruptBall { row: number; x: number; hp: number }
 
@@ -41,6 +42,8 @@ export class PvzSim {
   venomTiles = new Set<string>(); // 毒液地块 "r,c"：毒死的僵尸留下 / 19关起第5列自带
   beans = 0;                     // 能量豆数量：每波最强僵尸掉一颗
   get alien(): boolean { return !!this.level.alien; } // 外星来客模式：换皮+改机制
+  get wild(): boolean { return !!this.level.wild; }   // 狂野世界模式
+  wildOrange = false; // 狂野菇解锁关起：第5列橙色地板
   private delayed: { kind: ZKind; t: number }[] = []; // 波次里的迟到僵尸（如红眼巨人晚10秒）
   private beanKind: ZKind | null = null; // 本波掉豆的"最强僵尸"种类
   private beanGiven = false;             // 本波标记掉豆的僵尸生成了没
@@ -55,7 +58,7 @@ export class PvzSim {
   log: string[] = [];          // 最近的战斗播报（面板上方滚动条）
 
   constructor(public level: LevelDef, doneLevels: number, venomCol = -1, picked?: PlantKind[]) {
-    this.cards = picked ?? (level.alien ? alienCards(doneLevels) : unlockedCards(doneLevels));
+    this.cards = picked ?? (level.alien ? alienCards(doneLevels) : level.wild ? wildCards(doneLevels) : unlockedCards(doneLevels));
     for (const k of this.cards) this.cardCd[k] = 0;
     if (venomCol >= 0) for (let r = 0; r < ROWS; r++) this.venomTiles.add(`${r},${venomCol}`);
     if (level.boss) this.waveWait = FIRST_WAVE + MECH_ARRIVE; // 机甲 15 秒登场，登场后再等 60 秒
@@ -159,7 +162,7 @@ export class PvzSim {
   }
 
   /** 产阳光植物把阳光蹦在自己旁边（自由落点，不吸格心） */
-  private sunNear(p: Plant, value: number): void {
+  sunNear(p: Plant, value: number): void {
     const x = Math.max(0.4, Math.min(COLS - 0.4, p.col + (Math.random() - 0.5) * 1.6));
     const y = Math.max(0.4, Math.min(ROWS - 0.4, p.row + 0.5 + (Math.random() - 0.5) * 0.9));
     this.suns.push({ x, y, ty: y, live: SKY_SUN_LIVE, value });
@@ -195,7 +198,7 @@ export class PvzSim {
     // BOSS 机甲 1 秒登场
     if (this.level.boss && this.elapsed >= (this.level.alien ? 3 : MECH_ARRIVE) && !this.zombies.some((z) => z.kind === 'mech' || z.kind === 'ufo')) {
       if (this.level.alien) { const u = this.spawnZombie('ufo', ROWS - 2); u.x = COLS - 0.6; this.pushLog('外星飞碟降临了！'); return; }
-      const m = this.spawnZombie('mech', 2);
+      const m = this.spawnZombie(this.level.wild ? 'wmech' : 'mech', 2);
       m.x = COLS - 0.4; m.summonT = MECH_SUMMON_EVERY; m.ballT = MECH_BALL_EVERY; m.rowT = MECH_ROW_EVERY;
       this.pushLog('腐败机甲登场了！');
     }
@@ -206,13 +209,13 @@ export class PvzSim {
     // 输赢判定
     if (this.zombies.some((z) => !z.dead && z.x < 0.1 && z.state !== 'gone' && !z.charm)) this.result = 'lose';
     if (this.level.boss) {
-      if (this.zombies.some((z) => (z.kind === 'mech' || z.kind === 'ufo') && z.dead)) this.result = 'win'; // BOSS爆了直接通关
+      if (this.zombies.some((z) => (z.kind === 'mech' || z.kind === 'ufo' || z.kind === 'wmech') && z.dead)) this.result = 'win'; // BOSS爆了直接通关
     } else if (this.wave >= this.level.waves.length && !this.delayed.length && this.zombies.every((z) => z.dead)) {
       this.result = 'win';
     }
   }
 
-  private atkInterval(base: number): number { return this.atkRateT > 0 ? base / 2 : base; }
+  atkInterval(base: number): number { return this.atkRateT > 0 ? base / 2 : base; }
 
   private tickPlants(dt: number): void {
     for (const p of this.plants) {
@@ -222,6 +225,7 @@ export class PvzSim {
       const beanInt = boosted ? (BEAN_T[p.kind]?.int ?? 0.5) : 0;
       const inRow = this.zombies.filter((z) => !z.dead && z.row === p.row && z.x > p.col && z.state !== 'gone' && !z.charm);
       const inRowGround = inRow.filter((z) => !ZOMBIES[z.kind].flying); // 地面射手不会对气球开火
+      if (this.wild && tickWild(this, p, dt, inRowGround)) continue;
       const sunMul = this.sunRateT > 0 ? 2 : 1;
       // 光穗草光环：3×3 内的向日葵/阳光小花产速×1.25
       const earMul = (p.kind === 'sunflower' || p.kind === 'sunbud')
@@ -321,11 +325,19 @@ export class PvzSim {
         }
       }
     }
-    // 被啃完/炸完的植物清理
+    // 被啃完/炸完的植物清理（死前触发爆炸类效果）
+    for (const p of this.plants) {
+      if (p.hp > 0) continue;
+      if (this.alien && p.kind === 'nut') { // 太空坚果：爆了（土豆雷范围伤害）
+        for (const z of this.zombies) if (!z.dead && z.row === p.row && Math.abs(z.x - p.col) < 0.45 && !ZOMBIES[z.kind].flying) this.hurt(z, POTATO_DMG);
+        this.pushLog('太空坚果爆了！');
+      }
+      if (this.wild) wildDeath(this, p); // 爆炸坚果：3×3 炸
+    }
     this.plants = this.plants.filter((p) => p.hp > 0);
   }
 
-  private hurt(z: Zombie, dmg: number): void {
+  hurt(z: Zombie, dmg: number): void {
     if (z.dead) return;
     if (z.kind === 'ufo') { // 限伤：每秒最多 12.5
       z.dmgT = (z.dmgT ?? 1) - 0.016; if (z.dmgT <= 0) { z.dmgT = 1; z.dmgAcc = 0; }
@@ -381,7 +393,7 @@ export class PvzSim {
         continue;
       }
       // BOSS 机甲：站定不换行地召唤+喷球+定时换行
-      if (z.kind === 'ufo' || z.kind === 'mech') {
+      if (z.kind === 'ufo' || z.kind === 'mech' || z.kind === 'wmech') {
         if (z.kind === 'ufo') {
           z.summonT = (z.summonT ?? UFO_SUMMON) - dt;
           z.ballT = (z.ballT ?? UFO_BIKE_EVERY) - dt;
@@ -475,7 +487,9 @@ export class PvzSim {
       // 抛物线弹（飞刀/蒲公英炸弹）：缓动飞向落点，落地瞬间才算命中（能越过坚果砸到后面的怪/气球）
       const landing = pr.kind === 'knife' || pr.kind === 'bomb';
       if (landing) pr.x += (pr.tx - pr.x) * Math.min(1, dt * 4);
-      else pr.x += pr.vx * dt;
+      else { const prevX = pr.x; pr.x += pr.vx * dt;
+        if (this.wild) { const c = wildTorchPass(this, pr.kind, pr.row, prevX, pr.x, pr.dmg); if (c.kind !== pr.kind) { pr.kind = c.kind as Proj['kind']; pr.dmg = c.dmg; } }
+      }
       const landed = !landing || Math.abs(pr.tx - pr.x) < 0.15;
       // 寒冰弹先拦腐败球（3发打掉一个球）
       if (pr.kind === 'ice') {

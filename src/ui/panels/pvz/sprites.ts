@@ -3,12 +3,18 @@
  *  坐标口径：植物画在格子中心 (x,y)；僵尸画在格底 (x,base) 头朝左（朝家走）。
  *  每个函数 = 一个角色；共用零件：茎秆/叶/眼睛/四肢。 */
 
-import { PLANTS, ZOMBIES, ALIEN_P, ALIEN_Z } from './data';
+import { PLANTS, ZOMBIES, ALIEN_P, ALIEN_Z, WILD_Z, PlantKind } from './data';
 import { Plant, Zombie } from './engine';
 
 /** 外星来客模式开关（draw.ts 每帧同步 sim.alien） */
-export let ALIEN = false;
+export let ALIEN = false, WILD = false;
 export function setAlien(v: boolean): void { ALIEN = v; }
+export function setWild(v: boolean): void { WILD = v; }
+/** 狂野植物借用原版立绘 + 橙色光环 */
+const WILD_DRAW: Partial<Record<PlantKind, PlantKind>> = {
+  wsun: 'sunflower', wpea: 'pea', wnut: 'nut', wdbl: 'pea', wboom: 'nut', wheal: 'sunflower',
+  wapple: 'chomper', wjuice: 'venom', wthrow: 'catapult', wtorch: 'nut', wpear: 'nut', wshroom: 'mosspea', wspike: 'spike', wevo: 'mosspea',
+};
 
 type C = CanvasRenderingContext2D;
 const R = (c: C, x: number, y: number, w: number, h: number, col: string): void => { c.fillStyle = col; c.fillRect(x, y, w, h); };
@@ -39,6 +45,12 @@ function shooterHead(c: C, x: number, y: number, head: string, tube: string): vo
 function leaf(c: C, x: number, y: number): void { TRI(c, x, y, x + 6, y - 8, x + 8, y, '#4a9a34'); }
 
 export function drawPlant(c: C, p: Plant, x: number, y: number): void {
+  if (WILD && p.kind.startsWith('w')) { // 狂野皮：橙色光环 + 借用原版立绘
+    c.fillStyle = '#f8882a';
+    c.globalAlpha = 0.35; c.beginPath(); c.ellipse(x, y + 12, 15, 5, 0, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
+    const dk = WILD_DRAW[p.kind];
+    if (dk && dk !== p.kind) { drawPlant(c, { ...p, kind: dk }, x, y); return; }
+  }
   if (ALIEN && ALIEN_P[p.kind]) { // 太空皮：脚下紫色光环
     c.fillStyle = ALIEN_P[p.kind]!.color;
     c.globalAlpha = 0.35; c.beginPath(); c.ellipse(x, y + 12, 15, 5, 0, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
@@ -303,13 +315,17 @@ export function drawPlant(c: C, p: Plant, x: number, y: number): void {
     R(c, lx - 8, y - 40, 20, 3, '#8a6428');
   }
   if ((p.chew ?? 0) > 0) { c.fillStyle = '#fff'; c.font = '9px sans-serif'; c.textAlign = 'center'; c.fillText('嚼…', x, y - 36); }
+  if (p.kind === 'wevo') { // 进化菇阶段点：白→黄→橙
+    const cols = ['#f8f8f8', '#f8d83a', '#f8882a'];
+    O(c, x + 10, y - 18, 4, cols[p.stage ?? 0] ?? '#f8f8f8');
+  }
 }
 
 /** 僵尸小人：方块头+身子+前伸双臂+两条腿；big=巨人大一号 */
 function zBody(c: C, x: number, base: number, z: Zombie): void {
-  const big = z.kind === 'white' || z.kind === 'red' || z.kind === 'diamond' || z.kind === 'mech';
+  const big = z.kind === 'white' || z.kind === 'red' || z.kind === 'diamond' || z.kind === 'mech' || z.kind === 'wmech';
   const s = big ? 1.9 : 1;
-  const skin = z.charm ? '#e87ab8' : z.freezeT > 0 ? '#7ab8e8' : (ALIEN && ALIEN_Z[z.kind]?.color) || ZOMBIES[z.kind].color;
+  const skin = z.charm ? '#e87ab8' : z.freezeT > 0 ? '#7ab8e8' : (WILD && WILD_Z[z.kind]?.color) || (ALIEN && ALIEN_Z[z.kind]?.color) || ZOMBIES[z.kind].color;
   const bob = Math.sin(z.x * 6) * 1.5;                // 走路颠簸
   const h = 14 * s, bw = 16 * s;
   // 腿

@@ -2,7 +2,7 @@
 
 import { COLS, ROWS, PLANTS, CARDS } from './data';
 import { PvzSim, SunToken } from './engine';
-import { drawPlant, drawZombie, setAlien } from './sprites';
+import { drawPlant, drawZombie, setAlien, setWild } from './sprites';
 import { ALIEN_P } from './data';
 
 export const PVZ_W = 640, PVZ_H = 400;
@@ -50,13 +50,13 @@ export function sunAt(sim: PvzSim, mx: number, my: number): SunToken | null {
 export function beanAt(mx: number, my: number): boolean { return mx >= 70 && mx <= 134 && my >= 8 && my <= 36; }
 
 export function drawPvz(c: CanvasRenderingContext2D, sim: PvzSim, sel: number, boostSel: number, levelNo: number, beanMode = false): void {
-  setAlien(sim.alien);
-  // 背景：白天草地（外星版：深蓝夜空）
-  c.fillStyle = sim.alien ? '#141c44' : '#2a5424';
+  setAlien(sim.alien); setWild(sim.wild);
+  // 背景：白天草地（外星深蓝夜空 / 狂野黄昏）
+  c.fillStyle = sim.alien ? '#141c44' : sim.wild ? '#5a3a1a' : '#2a5424';
   c.fillRect(0, 0, PVZ_W, PVZ_H);
   // 草坪格子
   for (let r = 0; r < ROWS; r++) for (let col = 0; col < COLS; col++) {
-    c.fillStyle = sim.alien ? ((r + col) % 2 ? '#3a5ab8' : '#4a6ad8') : (r + col) % 2 ? '#4a8038' : '#55a044';
+    c.fillStyle = sim.wild && col === 4 && sim.wildOrange ? '#e86a1a' : sim.wild ? ((r + col) % 2 ? '#e8c84a' : '#f8e08a') : sim.alien ? ((r + col) % 2 ? '#3a5ab8' : '#4a6ad8') : (r + col) % 2 ? '#4a8038' : '#55a044';
     c.fillRect(GX + col * CW, GY + r * CH, CW - 1, CH - 1);
   }
   // 房子线（最左一列内缘）

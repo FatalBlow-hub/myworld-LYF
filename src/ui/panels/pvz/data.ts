@@ -11,7 +11,10 @@ export type PlantKind =
   | 'arrow' | 'iceshroom' | 'dandelion'
   | 'mosspea' | 'mossbox' | 'venombud' | 'toxin' | 'specialpea' | 'soulweed' | 'soulbox' | 'copycarrot'
   | 'sunbloom'
-  | 'sunear' | 'venomspike' | 'icespike';
+  | 'sunear' | 'venomspike' | 'icespike'
+  // 狂野世界
+  | 'wsun' | 'wpea' | 'wnut' | 'wdbl' | 'wboom' | 'wheal' | 'wapple' | 'wjuice' | 'wthrow'
+  | 'wtorch' | 'wpear' | 'wshroom' | 'wspike' | 'wevo';
 
 /** 只能种在毒液地块上的植物 */
 export const VENOM_PLANTS: PlantKind[] = ['mosspea', 'mossbox', 'venombud', 'toxin'];
@@ -57,12 +60,27 @@ export const PLANTS: Record<PlantKind, PlantDef> = {
   sunear:     { cn: '光穗草',     cost: 75, hp: 6, cd: 8, color: '#e8c85a' },
   venomspike: { cn: '毒液地刺',   cost: 125, hp: 999, cd: 5, color: '#6a3a8a' },
   icespike:   { cn: '冰地刺',     cost: 125, hp: 999, cd: 5, color: '#6aa8d8' },
+  // —— 狂野世界 ——
+  wsun:     { cn: '向野葵',     cost: 45,  hp: 6, cd: 5,  color: '#e8a03a' },
+  wpea:     { cn: '扬刀豌豆',   cost: 100, hp: 6, cd: 5,  color: '#3a982a' },
+  wnut:     { cn: '青龙坚果',   cost: 50,  hp: 80, cd: 12, color: '#4a9a5a' },
+  wdbl:     { cn: '多发豌豆',   cost: 125, hp: 6, cd: 5,  color: '#5ab83a' },
+  wboom:    { cn: '爆炸坚果',   cost: 150, hp: 80, cd: 12, color: '#b83a2a' },
+  wheal:    { cn: '治疗桃子',   cost: 150, hp: 6, cd: 8,  color: '#f8a8b8' },
+  wapple:   { cn: '苹果守卫',   cost: 115, hp: 8, cd: 8,  color: '#d83a2a' },
+  wjuice:   { cn: '橙子汁喷手', cost: 125, hp: 6, cd: 8,  color: '#f8882a' },
+  wthrow:   { cn: '柿子投手',   cost: 150, hp: 6, cd: 5,  color: '#e8682a' },
+  wtorch:   { cn: '火炬树桩',   cost: 100, hp: 8, cd: 8,  color: '#8a4a1a' },
+  wpear:    { cn: '梨子树桩',   cost: 100, hp: 8, cd: 8,  color: '#a8c84a' },
+  wshroom:  { cn: '狂野菇',     cost: 150, hp: 6, cd: 5,  color: '#c85a8a' },
+  wspike:   { cn: '猛猖地刺',   cost: 100, hp: 999, cd: 5, color: '#8a6a2a' },
+  wevo:     { cn: '进化菇',     cost: 75,  hp: 6, cd: 8,  color: '#f8f8f8' },
 };
 
 // —— 僵尸 ——
 export type ZKind =
   | 'basic' | 'cone' | 'bucket' | 'yeti' | 'ladder' | 'digger' | 'bike'
-  | 'balloon' | 'white' | 'red' | 'diamond' | 'mech' | 'sunzombie' | 'ufo';
+  | 'balloon' | 'white' | 'red' | 'diamond' | 'mech' | 'sunzombie' | 'ufo' | 'wmech';
 
 export interface ZDef {
   cn: string; hp: number; speed: number; eatDps: number;
@@ -83,6 +101,7 @@ export const ZOMBIES: Record<ZKind, ZDef> = {
   diamond: { cn: '蓝钻甲巨人', hp: 266, speed: 0.08, eatDps: 999, color: '#3a6ad8' },        // 小BOSS
   sunzombie: { cn: '阳光僵尸', hp: 10, speed: 0.15, eatDps: 2, color: '#e8e8d8' },           // 16关起混编：打死掉25阳光
   ufo:     { cn: '外星飞碟',   hp: 1666, speed: 0.15, eatDps: 0, color: '#4a5a8a' },         // 外星BOSS：召唤+限伤+百车向前
+  wmech:   { cn: '狂野僵王',   hp: 1225, speed: 0, eatDps: 0, color: '#e8e8e8' },            // 狂野BOSS：白橙红黑
   mech:    { cn: '腐败机甲',   hp: 1111, speed: 0, eatDps: 0, color: '#2a1a3a' },            // BOSS：站右侧召唤+喷腐败球
 };
 
@@ -109,7 +128,7 @@ export const CARDS: Record<CardKind, CardDef> = {
 export const CARD_KINDS = Object.keys(CARDS) as CardKind[];
 
 // —— 关卡：unlock=通关奖励（新植物）；waves=每波刷的怪 ——
-export interface LevelDef { unlock: PlantKind[]; waves: Partial<Record<ZKind, number>>[]; boss?: boolean; special?: boolean; alien?: boolean; delayed?: { wave: number; kind: ZKind; t: number }[]; gaps?: Record<number, number> }
+export interface LevelDef { unlock: PlantKind[]; waves: Partial<Record<ZKind, number>>[]; boss?: boolean; special?: boolean; alien?: boolean; wild?: boolean; delayed?: { wave: number; kind: ZKind; t: number }[]; gaps?: Record<number, number> }
 
 const mix = (z: Partial<Record<ZKind, number>>) => z;
 
@@ -160,6 +179,19 @@ export const LEVELS: LevelDef[] = [
   { alien: true, unlock: ['soulbox'], waves: [mix({ bucket: 3, red: 1 }), mix({ white: 1, red: 1, balloon: 2 }), mix({ red: 1, bike: 1, balloon: 2 }), mix({ red: 2, white: 1 })] }, // 35 超时空方框（紫眼巨人登场，4波）
   { alien: true, unlock: ['melon'], waves: [mix({ white: 2, red: 1 }), mix({ bike: 2, white: 2, digger: 1 }), mix({ red: 2, bucket: 3, bike: 1 }), mix({ red: 2, white: 2, balloon: 2 })] }, // 36 太空西瓜（全员硬仗，4波）
   { alien: true, unlock: [], waves: [], boss: true },                    // 37 外星BOSS 飞碟（无波次只有飞碟）
+  // —— 狂野世界（38 起）：牛仔主题，易到难 ——
+  { wild: true, unlock: [], waves: [mix({ basic: 1 }), mix({ basic: 2 })] },                                              // 38 狂野1
+  { wild: true, unlock: ['wnut'], waves: [mix({ basic: 2 }), mix({ basic: 2, cone: 1 })] },                               // 39 青龙坚果
+  { wild: true, unlock: ['wdbl'], waves: [mix({ basic: 2, cone: 1 }), mix({ cone: 2 }), mix({ basic: 2, bucket: 1 })] },    // 40 多发豌豆
+  { wild: true, unlock: ['wboom'], waves: [mix({ cone: 2 }), mix({ basic: 2, ladder: 1 }), mix({ cone: 2, bucket: 1 })] },  // 41 爆炸坚果
+  { wild: true, unlock: ['wheal'], waves: [mix({ bucket: 2 }), mix({ bucket: 2, cone: 2 }), mix({ bucket: 3, balloon: 1 })] }, // 42 治疗桃子
+  { wild: true, unlock: ['wapple'], waves: [mix({ bucket: 2, bike: 1 }), mix({ bike: 1, balloon: 2 }), mix({ bike: 2, bucket: 2 })] }, // 43 苹果守卫
+  { wild: true, unlock: ['wjuice'], waves: [mix({ cone: 2, digger: 1 }), mix({ digger: 2, bucket: 1 }), mix({ digger: 2, bike: 1 })] }, // 44 橙子汁喷手
+  { wild: true, unlock: ['wthrow'], waves: [mix({ bucket: 2, yeti: 1 }), mix({ yeti: 1, balloon: 2 }), mix({ yeti: 2, bucket: 2 })] }, // 45 柿子投手
+  { wild: true, unlock: ['wtorch', 'wpear'], waves: [mix({ cone: 3, white: 1 }), mix({ bucket: 3, white: 1 }), mix({ white: 2, bike: 1 })] }, // 46 火炬+梨炬（橙列从这关起）
+  { wild: true, unlock: ['wshroom'], waves: [mix({ bucket: 3, red: 1 }), mix({ white: 1, red: 1, balloon: 2 }), mix({ red: 2, white: 1 })] }, // 47 狂野菇
+  { wild: true, unlock: ['wspike', 'wevo'], waves: [mix({ white: 2, red: 1 }), mix({ bike: 2, white: 2, digger: 1 }), mix({ red: 2, white: 2, balloon: 2 })] }, // 48 猛猖地刺+进化菇
+  { wild: true, unlock: [], waves: [], boss: true },                     // 49 狂野僵王（无波次）
 ];
 
 /** 初始就解锁的卡（第 1 关的奖励就是它俩，等于开局自带） */
@@ -247,6 +279,12 @@ export const ALIEN_Z: Partial<Record<ZKind, { cn: string; color: string }>> = {
   ufo: { cn: '外星飞碟', color: '#4a5a8a' },
 };
 
+/** 狂野版僵尸皮肤：牛仔帽/木桶/骑牛（属性不变） */
+export const WILD_Z: Partial<Record<ZKind, { cn: string; color: string }>> = {
+  cone: { cn: '牛仔帽僵尸', color: '#c8842a' }, bucket: { cn: '木桶僵尸', color: '#8a5a2a' },
+  bike: { cn: '骑牛僵尸', color: '#b87a4a' }, wmech: { cn: '狂野僵王', color: '#e8e8e8' },
+};
+
 /** 外星版植物名/颜色（同名植物换皮） */
 export const ALIEN_P: Partial<Record<PlantKind, { cn: string; color: string }>> = {
   pea: { cn: '太空豌豆', color: '#4aa8e8' }, sunflower: { cn: '太空向月葵', color: '#8ab8ff' },
@@ -262,5 +300,21 @@ export const ALIEN_P: Partial<Record<PlantKind, { cn: string; color: string }>> 
 export function alienCards(doneLevels: number): PlantKind[] {
   const out: PlantKind[] = ['pea', 'sunflower']; // 第一关开场自带太空豌豆+太空向月葵
   for (let i = ALIEN_FROM; i <= doneLevels && i < LEVELS.length; i++) out.push(...LEVELS[i].unlock);
+  return out;
+}
+
+// ══════════ 狂野世界 ══════════
+export const WILD_FROM = 38;        // LEVELS 下标 38 起是狂野关卡
+export const WILD_ORANGE_FROM = 46; // 解锁狂野菇那关（含）起第5列橙色
+export const WSUN_INT = 22, WSUN_MIN = 10;   // 向野葵：22秒起步每次-1秒，最低10秒
+export const WPEA_RATE = 0.02;               // 扬刀豌豆每发+2%攻速
+export const WSHROOM_RATE = 0.05;            // 狂野菇每发+5%
+export const WSPIKE_RATE = 0.03;             // 猛猖地刺每打一下+3%
+export const WJUICE_SPRAY = 3, WJUICE_CD = 15, WJUICE_DELAY = 0.5; // 橙汁：等0.5秒喷3秒冷却15秒
+export const WEVO_T = [3, 2, 1.5], WEVO_AGE = [18, 16]; // 进化菇阶段攻速+升阶秒数
+/** 狂野版已解锁植物 */
+export function wildCards(doneLevels: number): PlantKind[] {
+  const out: PlantKind[] = ['wsun', 'wpea']; // 狂野第1关开场自带
+  for (let i = WILD_FROM; i <= doneLevels && i < LEVELS.length; i++) out.push(...LEVELS[i].unlock);
   return out;
 }
